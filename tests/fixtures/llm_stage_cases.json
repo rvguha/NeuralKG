@@ -1,0 +1,171 @@
+{
+  "entity-selection": [
+    {
+      "id": "apple-company",
+      "mention": "Apple",
+      "type": "company",
+      "question": "What was Apple's total revenue?",
+      "candidates": [
+        {"id": "Q312", "label": "Apple Inc.", "description": "American technology company"},
+        {"id": "Q89", "label": "apple", "description": "fruit of the apple tree"},
+        {"id": "Q20056642", "label": "Apple", "description": "2015 album"}
+      ],
+      "expected_indices": [0]
+    },
+    {
+      "id": "stanford-not-department",
+      "mention": "Stanford University",
+      "type": "university",
+      "question": "How much NIH funding does Stanford University receive?",
+      "candidates": [
+        {"id": "Q41506", "label": "Stanford University", "description": "private university in California"},
+        {"id": "Q7492708", "label": "Stanford University School of Medicine", "description": "medical school of Stanford University"},
+        {"id": "Q7594215", "label": "Stanford", "description": "village in England"}
+      ],
+      "expected_indices": [0]
+    },
+    {
+      "id": "qualified-springfield",
+      "mention": "Springfield, Illinois",
+      "type": "city",
+      "question": "What is the population of Springfield, Illinois?",
+      "candidates": [
+        {"id": "Q28515", "label": "Springfield", "description": "capital city of Illinois"},
+        {"id": "Q49158", "label": "Springfield", "description": "city in Massachusetts"},
+        {"id": "Q28527", "label": "Springfield", "description": "city in Missouri"}
+      ],
+      "expected_indices": [0]
+    },
+    {
+      "id": "red-cross-us-branch",
+      "mention": "American Red Cross",
+      "type": "nonprofit",
+      "question": "What is the American Red Cross's revenue?",
+      "candidates": [
+        {"id": "Q470110", "label": "American Red Cross", "description": "United States humanitarian nonprofit"},
+        {"id": "Q7178", "label": "International Committee of the Red Cross", "description": "humanitarian organization based in Geneva"}
+      ],
+      "expected_indices": [0]
+    },
+    {
+      "id": "no-matching-entity",
+      "mention": "Acme Community Fund",
+      "type": "nonprofit",
+      "question": "What is Acme Community Fund's revenue?",
+      "candidates": [
+        {"id": "Q1", "label": "Acme Corporation", "description": "fictional manufacturing company"},
+        {"id": "Q2", "label": "Community", "description": "American television series"}
+      ],
+      "expected_indices": []
+    }
+  ],
+  "concept-resolution": [
+    {
+      "id": "diluted-eps",
+      "measure": "diluted earnings per share",
+      "candidates": [
+        {"concept": "EarningsPerShareBasic", "period": "FY2024", "period_end": "2024-12-31", "value": 6.1, "unit": "USD/share"},
+        {"concept": "EarningsPerShareDiluted", "period": "FY2024", "period_end": "2024-12-31", "value": 6.08, "unit": "USD/share"},
+        {"concept": "NetIncomeLoss", "period": "FY2024", "period_end": "2024-12-31", "value": 90000000, "unit": "USD"}
+      ],
+      "expected_concept": "EarningsPerShareDiluted"
+    },
+    {
+      "id": "operating-income",
+      "measure": "operating income",
+      "candidates": [
+        {"concept": "OperatingIncomeLoss", "period": "FY2024", "period_end": "2024-12-31", "value": 120000000, "unit": "USD"},
+        {"concept": "NetIncomeLoss", "period": "FY2024", "period_end": "2024-12-31", "value": 90000000, "unit": "USD"},
+        {"concept": "GrossProfit", "period": "FY2024", "period_end": "2024-12-31", "value": 300000000, "unit": "USD"}
+      ],
+      "expected_concept": "OperatingIncomeLoss"
+    },
+    {
+      "id": "gross-profit",
+      "measure": "gross profit",
+      "candidates": [
+        {"concept": "GrossProfit", "period": "FY2024", "period_end": "2024-12-31", "value": 300000000, "unit": "USD"},
+        {"concept": "OperatingIncomeLoss", "period": "FY2024", "period_end": "2024-12-31", "value": 120000000, "unit": "USD"},
+        {"concept": "NetIncomeLoss", "period": "FY2024", "period_end": "2024-12-31", "value": 90000000, "unit": "USD"}
+      ],
+      "expected_concept": "GrossProfit"
+    }
+  ],
+  "adjudication": [
+    {
+      "id": "matching-measure",
+      "question": "What was Apple's total revenue in 2023?",
+      "data": {"metric": "total revenue", "value": 383285000000, "unit": "USD", "period": "FY2023", "entity": "Apple Inc."},
+      "expected_ok": true
+    },
+    {
+      "id": "wrong-measure",
+      "question": "What was Apple's total revenue in 2023?",
+      "data": {"metric": "program service revenue", "value": 100, "unit": "USD", "period": "FY2023", "entity": "Apple Inc."},
+      "expected_ok": false
+    },
+    {
+      "id": "negative-status-is-answer",
+      "question": "Is Example Foundation a 501(c)(3)?",
+      "data": {"metric": "is_501c3", "value": false, "entity": "Example Foundation"},
+      "expected_ok": true
+    },
+    {
+      "id": "wrong-currency",
+      "question": "What is the euro to US dollar exchange rate?",
+      "data": {"metric": "exchange rate", "currency": "China-Renminbi", "value": 7.1},
+      "expected_ok": false
+    },
+    {
+      "id": "wrong-place",
+      "question": "What is the population of Portland, Oregon?",
+      "data": {"metric": "population", "entity": "Portland, Maine", "value": 68424},
+      "expected_ok": false
+    },
+    {
+      "id": "old-date-still-about-right-measure",
+      "question": "What is the latest population of Detroit?",
+      "data": {"metric": "population", "entity": "Detroit, Michigan", "period": "2020", "value": 639111},
+      "expected_ok": true
+    }
+  ],
+  "synthesis": [
+    {
+      "id": "point-cites-source",
+      "question": "What was Apple's total revenue in 2023?",
+      "data": {"value_display": "$383.285 billion", "value": 383285000000, "period": "FY2023", "measure": "total revenue", "entity": "Apple Inc.", "source": "SEC EDGAR"},
+      "expected_contains": ["$383.285 billion", "SEC EDGAR"],
+      "expected_absent": []
+    },
+    {
+      "id": "record-list-uses-provided-total",
+      "question": "How much federal funding has Example Org received?",
+      "data": {"results": [{"amount": 1}, {"amount": 2}], "record_count": 2, "total_usd_display": "$9,999", "coverage": "first page only", "source": "USAspending"},
+      "expected_contains": ["2", "$9,999", "first page"],
+      "expected_absent": ["$3"]
+    },
+    {
+      "id": "threshold-does-not-sum",
+      "question": "Which companies have revenue over $1 billion?",
+      "data": {"matches": 8, "threshold_display": "8 companies with revenue over $1 billion", "ranking": [{"label": "A", "value": 2000000000}], "source": "SEC EDGAR"},
+      "expected_contains": ["8 companies with revenue over $1 billion"],
+      "expected_absent": ["total", "combined"]
+    },
+    {
+      "id": "ranking-quotes-leader",
+      "question": "Which company has the highest revenue?",
+      "data": {"ranking": [{"label": "Acme", "value_display": "$12.34 billion"}], "top": {"label": "Acme", "value_display": "$12.34 billion"}, "source": "SEC EDGAR"},
+      "expected_contains": ["Acme", "$12.34 billion"],
+      "expected_absent": ["sum", "combined total"]
+    }
+  ],
+  "planning": [
+    {
+      "id": "federal-share-orientation",
+      "question": "What share of Acme's revenue came from federal funding?",
+      "expected_compute": "share",
+      "expected_value": 25.0,
+      "expected_unit": "percent"
+    }
+  ]
+}

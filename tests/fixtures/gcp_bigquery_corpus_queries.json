@@ -1,0 +1,90 @@
+[
+  {
+    "query": "Which Google BigQuery public dataset contains Stack Overflow questions and answers?",
+    "expected": "urn:air:cloud.google.com:okf:gcp-bigquery-public.stackoverflow"
+  },
+  {
+    "query": "Find the Google public BigQuery dataset for Chicago taxi trips since 2013",
+    "expected": "urn:air:cloud.google.com:okf:gcp-bigquery-public.chicago-taxi-trips"
+  },
+  {
+    "query": "Which directly queryable public dataset has activity from millions of GitHub repositories?",
+    "expected": "urn:air:cloud.google.com:okf:gcp-bigquery-public.github-repos"
+  },
+  {
+    "query": "Find the BigQuery public dataset of US baby names",
+    "expected": "urn:air:cloud.google.com:okf:gcp-bigquery-public.usa-names"
+  },
+  {
+    "query": "Which Google public dataset contains World Bank global population data?",
+    "expected": "urn:air:cloud.google.com:okf:gcp-bigquery-public.world-bank-global-population"
+  },
+  {
+    "query": "Find the public BigQuery Global Historical Climatology Network daily weather dataset",
+    "expected": "urn:air:cloud.google.com:okf:gcp-bigquery-public.ghcn-d"
+  },
+  {
+    "query": "Which Google-hosted public dataset contains Google Patents research data?",
+    "expected": "urn:air:cloud.google.com:okf:gcp-bigquery-public.google-patents-research"
+  },
+  {
+    "query": "Find the public BigQuery dataset containing San Francisco street trees",
+    "expected": "urn:air:cloud.google.com:okf:gcp-bigquery-public.san-francisco-trees"
+  },
+  {
+    "query": "Which directly queryable Google public dataset has Bitcoin blockchain transactions?",
+    "expected": "urn:air:cloud.google.com:okf:gcp-bigquery-public.crypto-bitcoin"
+  },
+  {
+    "query": "Find the Google BigQuery public dataset for New York taxi trips",
+    "expected": "urn:air:cloud.google.com:okf:gcp-bigquery-public.new-york-taxi-trips"
+  },
+  {
+    "query": "Which public BigQuery dataset contains Metropolitan Museum of Art collection data?",
+    "expected": "urn:air:cloud.google.com:okf:gcp-bigquery-public.the-met"
+  },
+  {
+    "query": "Find the public BigQuery dataset for USPTO patent litigation docket reports",
+    "expected": "urn:air:cloud.google.com:okf:gcp-bigquery-public.uspto-oce-litigation"
+  },
+  {
+    "query": "Find the free Google Cloud Marketplace data product for cloud-to-ground lightning strikes from 1987 to 2018",
+    "expected": "urn:air:cloud.google.com:okf:gcp-marketplace-free.noaa-public-lightning"
+  },
+  {
+    "query": "Which free Marketplace data product has 214 million AlphaFold protein structure predictions?",
+    "expected": "urn:air:cloud.google.com:okf:gcp-marketplace-free.bigquery-public-data-deepmind-alphafold"
+  },
+  {
+    "query": "Find the free BigQuery Marketplace Quarterly Census of Employment and Wages product",
+    "expected": "urn:air:cloud.google.com:okf:gcp-marketplace-free.bls-public-data-qcew"
+  },
+  {
+    "query": "Which free Google Cloud Marketplace product provides real-time and historical global aircraft auction data?",
+    "expected": "urn:air:cloud.google.com:okf:gcp-marketplace-free.altfinancedata-cloud-marketplace-cd6ad8b2-a3e8-4eac-9f08-84c42790726b-cloudpartnerservices-goog"
+  },
+  {
+    "query": "Find the free Marketplace product with US building permits, contractors, and property owner data",
+    "expected": "urn:air:cloud.google.com:okf:gcp-marketplace-free.shovels-b7048-cloud-marketplace-a90e0dec-0ac2-4be6-bc13-15b7c2080b51-cloudpartnerservices-goog"
+  },
+  {
+    "query": "Which free Google Marketplace dataset provides long-term weather averages and climatology patterns by location?",
+    "expected": "urn:air:cloud.google.com:okf:gcp-marketplace-free.weathersource-com-cloud-marketplace-23692bcd-345c-4ada-b985-1c93da4e3d19-cloudpartnerservices-goog"
+  },
+  {
+    "query": "Find the free Marketplace COVID-19 genome sequence product from the National Library of Medicine",
+    "expected": "urn:air:cloud.google.com:okf:gcp-marketplace-free.national-library-of-medicine-ncbi-covid-data"
+  },
+  {
+    "query": "Which free Google Cloud Marketplace product published by GitHub covers activity from over 3 million repositories?",
+    "expected": "urn:air:cloud.google.com:okf:gcp-marketplace-free.github-github-repos"
+  },
+  {
+    "query": "Find the free Marketplace World Development Indicators data product",
+    "expected": "urn:air:cloud.google.com:okf:gcp-marketplace-free.the-world-bank-wdi"
+  },
+  {
+    "query": "Which free NOAA Marketplace data product has detailed severe storm events from 1950 onward?",
+    "expected": "urn:air:cloud.google.com:okf:gcp-marketplace-free.noaa-public-severe-storm-events"
+  }
+]

@@ -1,0 +1,624 @@
+{
+  "kind": "homepage",
+  "url": "http://127.0.0.1:8099/ask",
+  "query_count": 66,
+  "run": {
+    "workers": 1,
+    "wall_ms": 623142,
+    "thread_counts": {
+      "harness": {
+        "pid": 25754,
+        "before": 1,
+        "peak": 9,
+        "after": 2
+      },
+      "finder": {
+        "pid": 25753,
+        "before": 1,
+        "peak": 7,
+        "after": 3
+      }
+    },
+    "results": [
+      {
+        "question": "What was the American Red Cross total revenue?",
+        "status": "answered",
+        "source_identifier": "sources/nonprofit-990/totrevenue.md",
+        "answer_value": 3217077611,
+        "latency_ms": 8865,
+        "llm_calls": 6,
+        "error": null
+      },
+      {
+        "question": "Is the Sierra Club a 501(c)(3)?",
+        "status": "needs_clarification",
+        "source_identifier": null,
+        "answer_value": null,
+        "latency_ms": 5829,
+        "llm_calls": 4,
+        "error": null
+      },
+      {
+        "question": "Where is the Nature Conservancy headquartered?",
+        "status": "needs_clarification",
+        "source_identifier": null,
+        "answer_value": null,
+        "latency_ms": 4648,
+        "llm_calls": 4,
+        "error": null
+      },
+      {
+        "question": "Are donations to the ACLU Foundation tax-deductible?",
+        "status": "answered",
+        "source_identifier": "sources/nonprofit-bmf/deductibility.md",
+        "answer_value": "Contributions are tax-deductible",
+        "latency_ms": 7458,
+        "llm_calls": 6,
+        "error": null
+      },
+      {
+        "question": "When was the Sierra Club founded?",
+        "status": "answered",
+        "source_identifier": "sources/nonprofit-profile/inception.md",
+        "answer_value": "1892",
+        "latency_ms": 8643,
+        "llm_calls": 5,
+        "error": null
+      },
+      {
+        "question": "Who is the CEO of the Wikimedia Foundation?",
+        "status": "answered",
+        "source_identifier": "sources/nonprofit-profile/ceo.md",
+        "answer_value": "Bernadette Meehan",
+        "latency_ms": 6912,
+        "llm_calls": 6,
+        "error": null
+      },
+      {
+        "question": "What does Feeding America do?",
+        "status": "answered",
+        "source_identifier": "sources/nonprofit-profile/overview.md",
+        "answer_value": "Feeding America is a United States\u2013based non-profit organization that is a nationwide network of more than 200 food banks that feed more than 46 million people through food pantries, soup kitchens, shelters, and other community-based agencies. Forbes ranks it as the largest U.S. charity by revenue. Feeding America was known as America's Second Harvest until August 31, 2008.",
+        "latency_ms": 7341,
+        "llm_calls": 6,
+        "error": null
+      },
+      {
+        "question": "How much federal funding has the American Red Cross received?",
+        "status": "answered",
+        "source_identifier": "sources/usaspending/federal-awards-received.md",
+        "answer_value": 8404737.0,
+        "latency_ms": 7421,
+        "llm_calls": 6,
+        "error": null
+      },
+      {
+        "question": "How much NIH research funding does St. Jude receive?",
+        "status": "answered",
+        "source_identifier": "sources/nih-reporter/research-grants.md",
+        "answer_value": 115963125.0,
+        "latency_ms": 8408,
+        "llm_calls": 6,
+        "error": null
+      },
+      {
+        "question": "What grants can a nonprofit apply for in education?",
+        "status": "answered",
+        "source_identifier": "sources/grants-gov/funding-opportunities.md",
+        "answer_value": null,
+        "latency_ms": 5456,
+        "llm_calls": 5,
+        "error": null
+      },
+      {
+        "question": "How much does the ACLU pay its officers?",
+        "status": "answered",
+        "source_identifier": "sources/nonprofit-990/compnsatncurrofcr.md",
+        "answer_value": 1714737,
+        "latency_ms": 12056,
+        "llm_calls": 6,
+        "error": null
+      },
+      {
+        "question": "Is the American Red Cross in good standing with the IRS?",
+        "status": "answered",
+        "source_identifier": "sources/nonprofit-bmf/eligibility.md",
+        "answer_value": true,
+        "latency_ms": 6447,
+        "llm_calls": 5,
+        "error": null
+      },
+      {
+        "question": "Compare the total revenue of the American Red Cross and Feeding America",
+        "status": "answered",
+        "source_identifier": "sources/nonprofit-990/totrevenue.md",
+        "answer_value": null,
+        "latency_ms": 9849,
+        "llm_calls": 14,
+        "error": null
+      },
+      {
+        "question": "What share of the American Red Cross revenue comes from federal funding?",
+        "status": "answered",
+        "source_identifier": "sources/nonprofit-990/gftgrntsrcvd170.md",
+        "answer_value": null,
+        "latency_ms": 21223,
+        "llm_calls": 17,
+        "error": null
+      },
+      {
+        "question": "What is the largest nonprofit in the US?",
+        "status": "answered",
+        "source_identifier": "sources/irs-990-bq/totrevenue.md",
+        "answer_value": null,
+        "latency_ms": 8038,
+        "llm_calls": 4,
+        "error": null
+      },
+      {
+        "question": "What is the out-of-state tuition at Stanford?",
+        "status": "answered",
+        "source_identifier": "sources/college-scorecard/latest-cost-tuition-out-of-state.md",
+        "answer_value": 65910,
+        "latency_ms": 6837,
+        "llm_calls": 5,
+        "error": null
+      },
+      {
+        "question": "How much NIH research funding does Stanford get?",
+        "status": "answered",
+        "source_identifier": "sources/nih-reporter/research-grants.md",
+        "answer_value": 686107112.0,
+        "latency_ms": 8878,
+        "llm_calls": 6,
+        "error": null
+      },
+      {
+        "question": "NSF research awards for MIT",
+        "status": "answered",
+        "source_identifier": "sources/nsf-awards/research-grants.md",
+        "answer_value": 33954369.0,
+        "latency_ms": 8460,
+        "llm_calls": 6,
+        "error": null
+      },
+      {
+        "question": "How much NIH funding does Johns Hopkins receive?",
+        "status": "answered",
+        "source_identifier": "sources/nih-reporter/research-grants.md",
+        "answer_value": 969335575.0,
+        "latency_ms": 12222,
+        "llm_calls": 6,
+        "error": null
+      },
+      {
+        "question": "Harvard University total revenue",
+        "status": "answered",
+        "source_identifier": "sources/nonprofit-990/totrevenue.md",
+        "answer_value": 65362351,
+        "latency_ms": 6793,
+        "llm_calls": 6,
+        "error": null
+      },
+      {
+        "question": "NSF research awards for Caltech",
+        "status": "answered",
+        "source_identifier": "sources/nsf-awards/research-grants.md",
+        "answer_value": 16298527.0,
+        "latency_ms": 8407,
+        "llm_calls": 6,
+        "error": null
+      },
+      {
+        "question": "Give me some universities that get more than a billion dollars from NIH",
+        "status": "error",
+        "source_identifier": null,
+        "answer_value": null,
+        "latency_ms": 104597,
+        "llm_calls": 0,
+        "error": "Rejected: All universities listed do not meet the threshold of receiving more than a billion dollars from NIH."
+      },
+      {
+        "question": "Which university gets the most NIH funding?",
+        "status": "error",
+        "source_identifier": null,
+        "answer_value": null,
+        "latency_ms": 2640,
+        "llm_calls": 0,
+        "error": "this is a 'ranking' question, which needs a source that can see a whole population; nih-reporter no operation exposes an entity-grain population scan (offers filter, key, order, paginate)."
+      },
+      {
+        "question": "What was Apple's total revenue?",
+        "status": "answered",
+        "source_identifier": "sources/sec-edgar/revenue-from-contract-with-customer-excluding-assessed-tax.md",
+        "answer_value": 416161000000,
+        "latency_ms": 9828,
+        "llm_calls": 6,
+        "error": null
+      },
+      {
+        "question": "Microsoft net income in 2023",
+        "status": "answered",
+        "source_identifier": "sources/sec-edgar/net-income-loss.md",
+        "answer_value": 72361000000,
+        "latency_ms": 9723,
+        "llm_calls": 6,
+        "error": null
+      },
+      {
+        "question": "Apple's diluted earnings per share",
+        "status": "error",
+        "source_identifier": null,
+        "answer_value": null,
+        "latency_ms": 8660,
+        "llm_calls": 0,
+        "error": "no source could answer: no viable hit (answer rejected: asked for percent, got per-share)"
+      },
+      {
+        "question": "Tesla's research and development expense",
+        "status": "answered",
+        "source_identifier": "sources/sec-edgar/research-and-development-expense.md",
+        "answer_value": 6411000000,
+        "latency_ms": 7674,
+        "llm_calls": 6,
+        "error": null
+      },
+      {
+        "question": "NVIDIA total revenue",
+        "status": "answered",
+        "source_identifier": "sources/sec-edgar/revenue-from-contract-with-customer-excluding-assessed-tax.md",
+        "answer_value": 26914000000,
+        "latency_ms": 11855,
+        "llm_calls": 5,
+        "error": null
+      },
+      {
+        "question": "What were Apple's earnings?",
+        "status": "error",
+        "source_identifier": null,
+        "answer_value": null,
+        "latency_ms": 3238,
+        "llm_calls": 0,
+        "error": "no indexed table cleared the LLM relevance threshold (no valid score was returned; threshold 50); nothing was fetched"
+      },
+      {
+        "question": "How big is Microsoft?",
+        "status": "answered",
+        "source_identifier": "sources/sec-edgar/multiemployer-plan-number-of-employees-covered.md",
+        "answer_value": 331839000000,
+        "latency_ms": 12829,
+        "llm_calls": 29,
+        "error": null
+      },
+      {
+        "question": "What percentage of households have broadband internet in Detroit?",
+        "status": "answered",
+        "source_identifier": "sources/census/dp02-0154pe.md",
+        "answer_value": 79.4,
+        "latency_ms": 9216,
+        "llm_calls": 5,
+        "error": null
+      },
+      {
+        "question": "What disasters have been declared in California?",
+        "status": "answered",
+        "source_identifier": "sources/fema/declarations.md",
+        "answer_value": null,
+        "latency_ms": 8828,
+        "llm_calls": 6,
+        "error": null
+      },
+      {
+        "question": "What percentage of households receive SNAP in Detroit?",
+        "status": "answered",
+        "source_identifier": "sources/census/dp03-0074pe.md",
+        "answer_value": 37.8,
+        "latency_ms": 11141,
+        "llm_calls": 5,
+        "error": null
+      },
+      {
+        "question": "What is the median rent in Miami?",
+        "status": "answered",
+        "source_identifier": "sources/census/dp04-0134e.md",
+        "answer_value": 1494,
+        "latency_ms": 5829,
+        "llm_calls": 4,
+        "error": null
+      },
+      {
+        "question": "What is the homeownership rate in Houston?",
+        "status": "answered",
+        "source_identifier": "sources/census/dp04-0046pe.md",
+        "answer_value": 42,
+        "latency_ms": 6950,
+        "llm_calls": 5,
+        "error": null
+      },
+      {
+        "question": "Median household income in California",
+        "status": "answered",
+        "source_identifier": "sources/census/dp03-0062e.md",
+        "answer_value": 91905,
+        "latency_ms": 6462,
+        "llm_calls": 4,
+        "error": null
+      },
+      {
+        "question": "Poverty rate in Chicago",
+        "status": "answered",
+        "source_identifier": "sources/census/dp03-0128e.md",
+        "answer_value": 16.9,
+        "latency_ms": 8247,
+        "llm_calls": 5,
+        "error": null
+      },
+      {
+        "question": "Diabetes prevalence in Chicago",
+        "status": "answered",
+        "source_identifier": "sources/cdc-places/diabetes.md",
+        "answer_value": "16.5",
+        "latency_ms": 7717,
+        "llm_calls": 5,
+        "error": null
+      },
+      {
+        "question": "Obesity rate in Miami",
+        "status": "answered",
+        "source_identifier": "sources/cdc-places/obesity.md",
+        "answer_value": "33.6",
+        "latency_ms": 6246,
+        "llm_calls": 5,
+        "error": null
+      },
+      {
+        "question": "Unemployment rate in Detroit",
+        "status": "answered",
+        "source_identifier": "sources/census/dp03-0009e.md",
+        "answer_value": 14.7,
+        "latency_ms": 6132,
+        "llm_calls": 4,
+        "error": null
+      },
+      {
+        "question": "Which city has the highest diabetes rate?",
+        "status": "answered",
+        "source_identifier": "sources/cdc-places/diabetes.md",
+        "answer_value": null,
+        "latency_ms": 5115,
+        "llm_calls": 4,
+        "error": null
+      },
+      {
+        "question": "Which cities have a diabetes rate above 20%?",
+        "status": "answered",
+        "source_identifier": "sources/cdc-places/diabetes.md",
+        "answer_value": 14,
+        "latency_ms": 4780,
+        "llm_calls": 4,
+        "error": null
+      },
+      {
+        "question": "Across California counties, is median household income correlated with diabetes rates?",
+        "status": "error",
+        "source_identifier": null,
+        "answer_value": null,
+        "latency_ms": 6166,
+        "llm_calls": 0,
+        "error": "accessor error: Traceback (most recent call last):\n  File \"/Users/guha/code/resource-raiser/accessor/okf_fetch.py\", line 131, in <module>\n    main(sys.argv[1:])\n    ~~~~^^^^^^^^^^^^^^\n  File \"/Users/guha/code/resource-raiser/accessor/okf_fetch.py\", line 106, in main\n    req = urllib.request.Request(url, data=data, headers=headers, method=method)\n  File \"/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py\", line 292, in __init__\n    self.full_url = url\n    ^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py\", line 318, in full_url\n    self._parse()\n    ~~~~~~~~~~~^^\n  File \"/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py\", line 347, in _parse\n    raise ValueError(\"unknown url type: %r\" % self.full_url)\nValueError: unknown url type: ''\n"
+      },
+      {
+        "question": "What is the US national debt?",
+        "status": "answered",
+        "source_identifier": "sources/treasury/debt-to-penny-tot-pub-debt-out-amt.md",
+        "answer_value": 40032876505819.31,
+        "latency_ms": 6176,
+        "llm_calls": 4,
+        "error": null
+      },
+      {
+        "question": "Euro to dollar exchange rate",
+        "status": "answered",
+        "source_identifier": "sources/treasury/rates-of-exchange-euro-zone-euro.md",
+        "answer_value": 0.877,
+        "latency_ms": 5015,
+        "llm_calls": 4,
+        "error": null
+      },
+      {
+        "question": "Japanese yen to dollar exchange rate",
+        "status": "answered",
+        "source_identifier": "sources/treasury/rates-of-exchange-japan-yen.md",
+        "answer_value": 162.38,
+        "latency_ms": 4217,
+        "llm_calls": 4,
+        "error": null
+      },
+      {
+        "question": "What grants can a nonprofit apply for in education?",
+        "status": "answered",
+        "source_identifier": "sources/grants-gov/funding-opportunities.md",
+        "answer_value": null,
+        "latency_ms": 6559,
+        "llm_calls": 5,
+        "error": null
+      },
+      {
+        "question": "How much federal funding has Feeding America received?",
+        "status": "answered",
+        "source_identifier": "sources/usaspending/federal-awards-received.md",
+        "answer_value": 554575.0,
+        "latency_ms": 7148,
+        "llm_calls": 6,
+        "error": null
+      },
+      {
+        "question": "How much federal funding has Habitat for Humanity received?",
+        "status": "needs_clarification",
+        "source_identifier": null,
+        "answer_value": null,
+        "latency_ms": 6157,
+        "llm_calls": 4,
+        "error": null
+      },
+      {
+        "question": "What grants are available for medical research?",
+        "status": "answered",
+        "source_identifier": "sources/grants-gov/funding-opportunities.md",
+        "answer_value": null,
+        "latency_ms": 6720,
+        "llm_calls": 5,
+        "error": null
+      },
+      {
+        "question": "Which organization receives the most federal funding?",
+        "status": "answered",
+        "source_identifier": "sources/usaspending/federal-awards-received.md",
+        "answer_value": null,
+        "latency_ms": 3598,
+        "llm_calls": 4,
+        "error": null
+      },
+      {
+        "question": "How much NIH research funding does Johns Hopkins receive?",
+        "status": "answered",
+        "source_identifier": "sources/nih-reporter/research-grants.md",
+        "answer_value": 969335575.0,
+        "latency_ms": 10941,
+        "llm_calls": 6,
+        "error": null
+      },
+      {
+        "question": "What was the American Red Cross total revenue?",
+        "status": "answered",
+        "source_identifier": "sources/nonprofit-990/totrevenue.md",
+        "answer_value": 3217077611,
+        "latency_ms": 6688,
+        "llm_calls": 5,
+        "error": null
+      },
+      {
+        "question": "Is the Sierra Club a 501(c)(3)?",
+        "status": "needs_clarification",
+        "source_identifier": null,
+        "answer_value": null,
+        "latency_ms": 11011,
+        "llm_calls": 3,
+        "error": null
+      },
+      {
+        "question": "NSF research awards for Caltech",
+        "status": "answered",
+        "source_identifier": "sources/nsf-awards/research-grants.md",
+        "answer_value": 16298527.0,
+        "latency_ms": 7509,
+        "llm_calls": 5,
+        "error": null
+      },
+      {
+        "question": "Compare the total revenue of the American Red Cross and Feeding America",
+        "status": "answered",
+        "source_identifier": "sources/nonprofit-990/totrevenue.md",
+        "answer_value": null,
+        "latency_ms": 10966,
+        "llm_calls": 12,
+        "error": null
+      },
+      {
+        "question": "Which city has the highest diabetes rate?",
+        "status": "answered",
+        "source_identifier": "sources/cdc-places/diabetes.md",
+        "answer_value": null,
+        "latency_ms": 8269,
+        "llm_calls": 4,
+        "error": null
+      },
+      {
+        "question": "Which organization receives the most federal funding?",
+        "status": "answered",
+        "source_identifier": "sources/usaspending/federal-awards-received.md",
+        "answer_value": null,
+        "latency_ms": 4273,
+        "llm_calls": 4,
+        "error": null
+      },
+      {
+        "question": "Which cities have a diabetes rate above 20%?",
+        "status": "answered",
+        "source_identifier": "sources/cdc-places/diabetes.md",
+        "answer_value": 14,
+        "latency_ms": 5405,
+        "llm_calls": 4,
+        "error": null
+      },
+      {
+        "question": "Give me some universities that get more than a billion dollars from NIH",
+        "status": "error",
+        "source_identifier": null,
+        "answer_value": null,
+        "latency_ms": 13389,
+        "llm_calls": 0,
+        "error": "this is a 'filtered-subset' question, which needs a source that can see a whole population; nih-reporter no operation exposes an entity-grain population scan (offers filter, key, order, paginate)."
+      },
+      {
+        "question": "What share of the American Red Cross revenue comes from federal funding?",
+        "status": "answered",
+        "source_identifier": "sources/nonprofit-990/gftgrntsrcvd170.md",
+        "answer_value": null,
+        "latency_ms": 20710,
+        "llm_calls": 14,
+        "error": null
+      },
+      {
+        "question": "Across California counties, is median household income correlated with diabetes rates?",
+        "status": "error",
+        "source_identifier": null,
+        "answer_value": null,
+        "latency_ms": 6497,
+        "llm_calls": 0,
+        "error": "accessor error: Traceback (most recent call last):\n  File \"/Users/guha/code/resource-raiser/accessor/okf_fetch.py\", line 131, in <module>\n    main(sys.argv[1:])\n    ~~~~^^^^^^^^^^^^^^\n  File \"/Users/guha/code/resource-raiser/accessor/okf_fetch.py\", line 106, in main\n    req = urllib.request.Request(url, data=data, headers=headers, method=method)\n  File \"/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py\", line 292, in __init__\n    self.full_url = url\n    ^^^^^^^^^^^^^\n  File \"/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py\", line 318, in full_url\n    self._parse()\n    ~~~~~~~~~~~^^\n  File \"/opt/homebrew/Cellar/python@3.13/3.13.3_1/Frameworks/Python.framework/Versions/3.13/lib/python3.13/urllib/request.py\", line 347, in _parse\n    raise ValueError(\"unknown url type: %r\" % self.full_url)\nValueError: unknown url type: ''\n"
+      },
+      {
+        "question": "Which university gets the most NIH funding?",
+        "status": "error",
+        "source_identifier": null,
+        "answer_value": null,
+        "latency_ms": 2171,
+        "llm_calls": 0,
+        "error": "this is a 'ranking' question, which needs a source that can see a whole population; nih-reporter no operation exposes an entity-grain population scan (offers filter, key, order, paginate)."
+      },
+      {
+        "question": "Which nonprofit has the highest revenue?",
+        "status": "answered",
+        "source_identifier": "sources/irs-990-bq/totrevenue.md",
+        "answer_value": null,
+        "latency_ms": 8094,
+        "llm_calls": 4,
+        "error": null
+      },
+      {
+        "question": "Which nonprofits have revenue over 10 billion dollars?",
+        "status": "answered",
+        "source_identifier": "sources/irs-990-bq/totrevenue.md",
+        "answer_value": 5,
+        "latency_ms": 7598,
+        "llm_calls": 4,
+        "error": null
+      },
+      {
+        "question": "What were Apple's earnings?",
+        "status": "answered",
+        "source_identifier": "sources/sec-edgar/nonpatronage-source-earnings.md",
+        "answer_value": 112010000000,
+        "latency_ms": 9959,
+        "llm_calls": 23,
+        "error": null
+      }
+    ]
+  },
+  "schema_version": 1,
+  "generated_at": "2026-08-25T16:41:25Z",
+  "commit": "06cd66b886ef1752484e0cffa7e84be60c7f3c5d",
+  "dirty": false,
+  "command": "/Users/guha/code/resource-raiser/.venv/bin/python tools/async_rewrite_baseline.py homepage --url http://127.0.0.1:8099/ask --harness-pid 25754 --finder-pid 25753 --workers 1 --output tests/baselines/homepage-06cd66b.json"
+}
