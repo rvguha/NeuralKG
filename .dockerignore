@@ -1,0 +1,16 @@
+# Build context hygiene. Without this the context is ~600MB (.venv alone is 194MB) and every
+# build re-uploads it to the daemon.
+.venv/
+.git/
+__pycache__/
+**/__pycache__/
+*.pyc
+cache/
+data/
+registry/builds/
+registry/current
+tests/
+docs/
+*.log
+set_keys.sh
+.env
