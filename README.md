@@ -34,10 +34,16 @@ in the query path names a source, and a test asserts it —
 `tests/test_query_understanding_isolation.py` fails if a source directory name or the local
 catalog ever appears in a query-understanding prompt.
 
+The other half of that separation is [`instance.yaml`](#instance-configuration): the small set
+of facts that genuinely are per-deployment — which ARD to ask, what kinds of thing live in it,
+what to call the site, and which questions to offer as examples. Point that file at a different
+ARD and the same code answers over a different world.
+
 The practical consequence is that a fresh clone will not answer questions until an ARD is
 supplied: `run.sh` will start, the index will build empty, and discovery will find nothing.
-Point `AGENT_FINDER_URL` at a running ARD Agent Finder, or add `sources/<name>/_access.md`
-documents of your own — the format is described under [Adding a source](#adding-a-source).
+Point `ard.finder_url` (or `AGENT_FINDER_URL`) at a running ARD Agent Finder, or add
+`sources/<name>/_access.md` documents of your own — the format is described under
+[Adding a source](#adding-a-source).
 
 ---
 
@@ -51,6 +57,7 @@ documents of your own — the format is described under [Adding a source](#addin
 - [Data sources](#data-sources)
 - [Using it](#using-it)
 - [Adding a source](#adding-a-source)
+- [Instance configuration](#instance-configuration)
 - [Configuration reference](#configuration-reference)
 - [Repository layout](#repository-layout)
 - [Troubleshooting](#troubleshooting)
@@ -298,6 +305,75 @@ how the whole engine works, and `DESIGN-query-shapes.md` for how capabilities ma
 
 ---
 
+## Instance configuration
+
+Everything that varies between deployments lives in `instance.yaml` at the repository root.
+Nothing in it is required: each key falls back to what the engine used before the file existed,
+so an instance that only wants a different ARD writes three lines and inherits the rest.
+
+```yaml
+ard:
+  finder_url: http://127.0.0.1:8088    # AGENT_FINDER_URL overrides this
+
+identity:
+  name: Neural KG                      # substituted into the served pages
+  tagline: OKF + ARD
+  placeholder: e.g. Is the American Red Cross a 501(c)(3)?
+
+domains:                               # the kinds of thing this ARD describes
+  - name: company
+    identifiers: [cik, lei]
+  - name: nonprofit
+    identifiers: [ein]
+  - name: place
+    identifiers: [geo, gnis, "fips*"]  # a trailing * matches by prefix
+
+examples:                              # homepage question sections
+  - label: 🏛️ Nonprofits
+    dirs: [nonprofit-990, nonprofit-bmf]
+    queries:
+      - What was the American Red Cross total revenue?
+      - Is the Sierra Club a 501(c)(3)?
+```
+
+### `domains` is the part that matters
+
+The rest of the file is presentation. `domains` is read by the **query path**: `derive.py` uses
+it to tell an operation parameter that selects an entity by *identity* (`cik=`, `ein=`,
+`fips_place=`) from one that searches by *name* (`q=`, `org=`). Before this file, that was a
+tuple in the code with `startswith("fips")` hard-coded beside it.
+
+A corpus of molecules declares `inchikey` and `cas` and changes nothing else:
+
+```yaml
+identity: {name: ChemKG}
+domains:
+  - name: molecule
+    identifiers: [inchikey, cas]
+  - name: protein
+    identifiers: ["uniprot*"]
+```
+
+The list is **descriptive, not a closed vocabulary**. The `type` a question resolves to stays a
+free noun phrase and is never checked against `domains`. A closed vocabulary duplicated between
+a prompt and the code is a bug this project has already had once: the prompt offered one set of
+values while the code tested for a narrower set, so a model returning the documented-correct
+value silently degraded retrieval.
+
+### Notes
+
+- **Environment wins.** `AGENT_FINDER_URL` overrides `ard.finder_url`, because a container is
+  configured by its platform and a file baked into an image must not override that.
+- **A file that exists governs, including where it is silent.** If `instance.yaml` is present but
+  declares no `examples`, the homepage shows none — it does not fall back to the shipped
+  questions. That fallback looked safe and was not: it gave a molecules instance a homepage full
+  of US nonprofit questions.
+- **Write question lists as block sequences.** Every sample question ends in `?`, and YAML
+  rejects a bare `?` inside a flow sequence, so `queries: [What is ...?]` fails to parse.
+- Point elsewhere with `INSTANCE_CONFIG=/path/to/other.yaml`.
+
+---
+
 ## Configuration reference
 
 All optional except one provider's keys.
@@ -312,6 +388,8 @@ All optional except one provider's keys.
 | `DATA_GOV_API_KEY` | api.data.gov key for College Scorecard (else rate-limited DEMO_KEY) |
 | `ARD_STORE` / `DATABASE_URL` / `ARD_BUCKET` | Select a non-default storage backend for the commons |
 | `GRANTS_DB` | Override the grant-graph sqlite path |
+| `AGENT_FINDER_URL` | Where the ARD Agent Finder is; overrides `ard.finder_url` |
+| `INSTANCE_CONFIG` | Path to an instance file other than `./instance.yaml` |
 
 ---
 
@@ -323,6 +401,8 @@ accessor/          the generic OKF-driven fetcher + skill
 registry/index.py  the ARD index (build with: python3 registry/index.py build)
 tools/             generators (gen_*.py) and the grant-graph ETL (grants_download.py, bmf_ntee.py)
 catalog/           example ARD source/table descriptor dumps (~100 each)
+instance.yaml      what THIS deployment answers over (ARD, domains, identity, examples)
+instance.py        loads it; every key falls back to the engine's prior defaults
 llm.py             provider-agnostic chat + embeddings (Azure OpenAI | OpenAI | Gemini)
 harness.py         the async NL -> discover -> plan -> fetch -> check -> synthesize engine
 app.py             the Starlette ASGI web UI/API, streaming, quotas, health, and telemetry
