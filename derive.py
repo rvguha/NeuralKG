@@ -32,8 +32,9 @@ _DIALECTS = [
 ]
 
 # Which parameter names select an entity by IDENTITY rather than by name is a fact about the
-# corpus, not about the engine: a chemistry ARD selects on inchikey. Declared per deployment in
-# instance.yaml; the fallbacks there reproduce the values these tuples held.
+# corpus, not about the engine: an ARD over the Hugging Face Hub selects on repo_id and author,
+# and searches on search=. Declared per deployment in instance.yaml; the fallbacks there
+# reproduce the values these tuples held.
 _KEY_NAME = tuple(instance.name_selectors())                         # fuzzy name selectors
 _KEY_KW = ("keyword",)
 

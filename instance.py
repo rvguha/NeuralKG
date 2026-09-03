@@ -32,8 +32,8 @@ def path():
 
 # Identifier vocabulary is the one part of this file the QUERY PATH reads. `derive.py` uses it to
 # tell an operation parameter that selects an entity by identity (cik=, ein=, fips_place=) from
-# one that searches by name (q=, org=). A corpus of molecules would say inchikey and cas here;
-# nothing else about the engine would change.
+# one that searches by name (q=, org=). An ARD over the Hugging Face Hub would say repo_id and
+# author here, with search= among the name selectors; nothing else about the engine would change.
 _FALLBACK_IDENTIFIERS = ("cik", "ein", "qid", "gnis", "lei", "geo", "fips*")
 _FALLBACK_NAME_SELECTORS = ("q", "org", "awardee", "awardeename", "name", "org_names",
                             "recipient_search_text", "place")
@@ -61,9 +61,9 @@ def configured():
     """True when this deployment has an instance file at all.
 
     The distinction matters for presentational lists. `or <legacy literal>` looked like a safe
-    fallback and was not: an instance describing molecules, which correctly declares no example
-    questions, inherited a homepage full of US nonprofit questions. A file that exists governs,
-    including where it is silent."""
+    fallback and was not: an instance over the Hugging Face Hub, which correctly declares no
+    example questions of its own, inherited a homepage full of US nonprofit questions. A file
+    that exists governs, including where it is silent."""
     return bool(config())
 
 

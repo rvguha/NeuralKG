@@ -343,16 +343,30 @@ it to tell an operation parameter that selects an entity by *identity* (`cik=`, 
 `fips_place=`) from one that searches by *name* (`q=`, `org=`). Before this file, that was a
 tuple in the code with `startswith("fips")` hard-coded beside it.
 
-A corpus of molecules declares `inchikey` and `cas` and changes nothing else:
+A different world declares its own identifiers and changes nothing else. An ARD over the
+Hugging Face Hub, where a model is identified by its repository id, an organization by its
+account name, and free text searches rather than selects:
 
 ```yaml
-identity: {name: ChemKG}
+identity:
+  name: Model Hub KG
+  placeholder: e.g. Which models can run on a single 24GB GPU?
+
 domains:
-  - name: molecule
-    identifiers: [inchikey, cas]
-  - name: protein
-    identifiers: ["uniprot*"]
+  - name: model
+    identifiers: [repo_id, model_id]     # /api/models/{repo_id}
+  - name: dataset
+    identifiers: [dataset_id]            # /api/datasets/{dataset_id}
+  - name: organization
+    identifiers: [author]                # /api/models?author=openbmb
+
+name_selectors: [search]                 # /api/models?search=MiniCPM — a query, not an identity
 ```
+
+Those are the Hub's own parameter names, and the distinction is the one the engine cares about:
+`author=openbmb` names an account and returns that account's models, while `search=MiniCPM`
+returns whatever matches the string. The first is an identity the validator can check a returned
+record against; the second is a guess that has to be resolved before anything is trusted.
 
 The list is **descriptive, not a closed vocabulary**. The `type` a question resolves to stays a
 free noun phrase and is never checked against `domains`. A closed vocabulary duplicated between
@@ -366,8 +380,8 @@ value silently degraded retrieval.
   configured by its platform and a file baked into an image must not override that.
 - **A file that exists governs, including where it is silent.** If `instance.yaml` is present but
   declares no `examples`, the homepage shows none — it does not fall back to the shipped
-  questions. That fallback looked safe and was not: it gave a molecules instance a homepage full
-  of US nonprofit questions.
+  questions. That fallback looked safe and was not: it gave a Hugging Face Hub instance a
+  homepage full of US nonprofit questions.
 - **Write question lists as block sequences.** Every sample question ends in `?`, and YAML
   rejects a bare `?` inside a flow sequence, so `queries: [What is ...?]` fails to parse.
 - Point elsewhere with `INSTANCE_CONFIG=/path/to/other.yaml`.

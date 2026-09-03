@@ -4,8 +4,14 @@ The claim this file defends is that standing up Neural KG over a different ARD -
 world, with different kinds of thing in it -- is a configuration change, not a code change. A
 config that only *described* the deployment while the code kept its own hard-coded vocabulary
 would pass a shallower test and be worthless. So these assert on the query path: given an
-instance file describing molecules, the engine must classify `inchikey` as an identifier and
-must stop treating `cik` as one.
+instance file describing the Hugging Face Hub, the engine must classify `repo_id` as an
+identifier and must stop treating `cik` as one.
+
+The Hub is used rather than an invented corpus because its parameter names are real and
+checkable -- `/api/models/{repo_id}`, `?author=openbmb` selecting an account's models, and
+`?search=MiniCPM` matching a string. That distinction is exactly what `domains` encodes: an
+identity a returned record can be validated against, versus a guess that must be resolved
+before anything is trusted.
 """
 import os
 import sys
@@ -36,26 +42,31 @@ class InstanceSwapTests(unittest.TestCase):
         # Write question lists as block sequences, not inline `[...]`: YAML rejects a bare
         # "?" inside a flow sequence, and every sample question ends in one.
         self.use("""
-identity: {name: ChemKG}
+identity: {name: Model Hub KG}
 ard: {finder_url: "http://finder.internal:9000"}
 domains:
-  - name: molecule
-    identifiers: [inchikey, cas]
-  - name: protein
-    identifiers: ["uniprot*"]
+  - name: model
+    identifiers: [repo_id, model_id]
+  - name: organization
+    identifiers: [author]
+  - name: dataset
+    identifiers: ["dataset*"]
+name_selectors: [search]
 """)
-        self.assertTrue(instance.is_identifier("inchikey"))
-        self.assertTrue(instance.is_identifier("cas"))
-        self.assertTrue(instance.is_identifier("uniprot_id"))       # trailing * is a prefix
+        self.assertTrue(instance.is_identifier("repo_id"))
+        self.assertTrue(instance.is_identifier("author"))
+        self.assertTrue(instance.is_identifier("dataset_id"))       # trailing * is a prefix
+        self.assertFalse(instance.is_identifier("search"))          # a query, not an identity
         self.assertFalse(instance.is_identifier("cik"))             # this ARD has no companies
-        self.assertEqual(instance.identity()["name"], "ChemKG")
+        self.assertEqual(instance.name_selectors(), ("search",))
+        self.assertEqual(instance.identity()["name"], "Model Hub KG")
         self.assertEqual(instance.finder_url(), "http://finder.internal:9000")
 
     def test_derive_classifies_parameters_through_the_instance(self):
         """derive.py is the consumer; assert through it, not just through the accessor."""
-        self.use("domains:\n  - {name: molecule, identifiers: [inchikey]}\n")
+        self.use("domains:\n  - {name: model, identifiers: [repo_id]}\n")
         import derive
-        self.assertTrue(instance.is_identifier("inchikey"))
+        self.assertTrue(instance.is_identifier("repo_id"))
         self.assertFalse(instance.is_identifier("ein"))
         # derive reads the vocabulary rather than carrying its own copy
         self.assertNotIn("_KEY_ID", vars(derive))
@@ -63,18 +74,19 @@ domains:
     def test_a_declared_instance_does_not_inherit_another_corpus_questions(self):
         """The trap this caught: `examples() or <legacy literal>`.
 
-        An instance describing molecules correctly declares no example questions, and inherited
-        a homepage of US nonprofit questions -- "What was the American Red Cross total revenue?"
-        offered against a chemistry ARD. A file that exists governs, including where it is silent.
+        An instance over the Hugging Face Hub correctly declares no example questions of its
+        own, and inherited a homepage of US nonprofit questions -- "What was the American Red
+        Cross total revenue?" offered against a corpus of models. A file that exists governs,
+        including where it is silent.
         """
-        self.use("identity: {name: ChemKG}\ndomains:\n  - {name: molecule, identifiers: [cas]}\n")
+        self.use("identity: {name: Model Hub KG}\ndomains:\n  - {name: model, identifiers: [repo_id]}\n")
         import importlib
         import harness
         importlib.reload(harness)
         self.addCleanup(lambda: (instance.reload(), importlib.reload(harness)))
         self.assertEqual(harness.EXAMPLE_TABS, [])
         self.assertEqual(harness._SOURCE_ORDER, [])
-        self.assertIn("<h1>ChemKG</h1>", harness.PAGE)
+        self.assertIn("<h1>Model Hub KG</h1>", harness.PAGE)
         self.assertNotIn("American Red Cross", harness.PAGE)
 
     def test_environment_overrides_the_file(self):
