@@ -132,7 +132,7 @@ Apple total revenue  →  total revenue
 
 Whether the attribute or the whole question is used as the primary retrieval text depends on whether a specific named entity was identified. When one was, the attribute leads and the question is secondary; when none was — a topical search, an exchange rate — the question leads. This test is made on the presence of a resolved entity, not on its type.
 
-The TechSoup ARD index currently covers 11,023 measures across 17 sources, retrieving over descriptions and representative questions; other ARD deployments will index more or fewer. This query returned six SEC candidates: Revenues, several variants of Revenue from Contract with Customer, regulated revenue, and revenue net of interest expense.
+The reference ARD index used here covers 11,023 measures across 17 sources, retrieving over descriptions and representative questions; other ARD deployments will index more or fewer. This query returned six SEC candidates: Revenues, several variants of Revenue from Contract with Customer, regulated revenue, and revenue net of interest expense.
 
 Discovery is two stages: an embedding prefilter, then a small model that re-ranks the survivors against the full card for each — title, description, and the questions people actually ask for it. Measured over the corpus's source labels, the embedding alone puts the answering source first for 90.2% of questions and somewhere in the top fifteen for 99.5%; the re-rank raises rank-1 to 99.5% and costs no recall. The candidate set is scored, never truncated by fiat, which is the difference between this stage and the filter §3.1 describes.
 

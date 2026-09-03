@@ -183,7 +183,7 @@ FOUNDATION = {  # IRS foundation codes -> plain type
 }
 DEDUCT = {"1": "Contributions are tax-deductible", "2": "Contributions are NOT tax-deductible",
           "4": "Contributions are deductible by treaty (foreign organization)"}
-# IRS exempt-organization status codes — the good-standing signal a validator (e.g. TechSoup)
+# IRS exempt-organization status codes — the good-standing signal a validator
 # checks before granting a nonprofit discount/donation eligibility.
 EO_STATUS = {"1": "Active — unconditional exemption", "2": "Active — conditional exemption",
              "12": "Trust described in section 4947(a)(2)", "25": "Exemption revoked"}

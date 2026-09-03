@@ -33,6 +33,8 @@ class InstanceSwapTests(unittest.TestCase):
 
     def test_a_different_world_changes_what_counts_as_an_identifier(self):
         """The query path reads this, so it is the assertion that matters."""
+        # Write question lists as block sequences, not inline `[...]`: YAML rejects a bare
+        # "?" inside a flow sequence, and every sample question ends in one.
         self.use("""
 identity: {name: ChemKG}
 ard: {finder_url: "http://finder.internal:9000"}
@@ -74,31 +76,6 @@ domains:
         self.assertEqual(harness._SOURCE_ORDER, [])
         self.assertIn("<h1>ChemKG</h1>", harness.PAGE)
         self.assertNotIn("American Red Cross", harness.PAGE)
-
-    def test_views_carry_their_own_sample_question_sections(self):
-        """A view is a different audience over the SAME ARD, so its questions are config too.
-
-        TECHSOUP_TABS was a second hard-coded set of sections beside EXAMPLE_TABS -- the same
-        kind of corpus-specific content, in the same file, missed by the first pass because it
-        served a different route.
-
-        Note the block sequence below rather than `queries: [...]`. Every sample question ends
-        in "?", which YAML rejects inside a flow sequence, so the inline form fails to parse for
-        exactly the content this key is for."""
-        self.use("""
-views:
-  clinic:
-    label: For clinicians
-    examples:
-      - label: Dosing
-        queries:
-          - What is the half-life of metformin?
-""")
-        self.assertEqual(list(instance.views()), ["clinic"])
-        sections = instance.view_examples("clinic")
-        self.assertEqual(len(sections), 1)
-        self.assertEqual(sections[0]["label"], "Dosing")
-        self.assertEqual(instance.view_examples("techsoup"), [])   # not declared by this instance
 
     def test_environment_overrides_the_file(self):
         """A container is configured by its platform; a file baked into an image must not win."""

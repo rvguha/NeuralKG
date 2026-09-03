@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """US Dept. of Education — College Scorecard retrieval.
 
-Colleges and universities (mostly nonprofit, and core TechSoup customers) — tuition,
+Colleges and universities (mostly nonprofit) — tuition,
 enrollment, admission and completion rates, net price. Keyed by school NAME (the API does
 its own fuzzy matching), so no spine resolution is needed. Fields come back as flat dotted
 keys (e.g. "latest.cost.tuition.out_of_state"), which is what the leaf pins.

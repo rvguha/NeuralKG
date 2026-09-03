@@ -143,46 +143,6 @@ EXAMPLE_TABS = instance.examples() if instance.configured() else [
 ]
 
 
-# Curated TechSoup view — the data organized around what TechSoup and its nonprofit/library/
-# foundation customers actually need: validate an org, close the digital divide, understand a
-# nonprofit's finances, read the communities it serves, find funding.
-TECHSOUP_TABS = instance.view_examples("techsoup") if instance.configured() else [
-    {"label": "✅ Validate a nonprofit", "dirs": ["nonprofit-990", "nonprofit-bmf", "nonprofit-profile"],
-     "queries": [
-        "Is the American Red Cross a 501(c)(3)?",
-        "Is Feeding America in good standing with the IRS?",
-        "Are donations to the Sierra Club tax-deductible?",
-        "What sector does Habitat for Humanity work in?",
-        "Where is the Nature Conservancy headquartered?",
-        "When did the Wikimedia Foundation become tax-exempt?"]},
-    {"label": "🖥️ Digital divide", "dirs": ["census", "cdc-places"], "queries": [
-        "What percentage of households have broadband internet in Detroit?",
-        "Computer ownership rate in Chicago",
-        "What percentage of households have broadband in Mississippi?",
-        {"q": "Across California counties, is median household income correlated with diabetes rates?",
-         "tag": "correlation · materialized"}]},
-    {"label": "💰 Nonprofit finances", "dirs": ["nonprofit-990", "usaspending"], "queries": [
-        "What was the American Red Cross total revenue?",
-        "How much does the ACLU pay its officers?",
-        "How much federal funding has Feeding America received?",
-        {"q": "What share of the American Red Cross revenue comes from federal funding?",
-         "tag": "ratio · cross-source"},
-        {"q": "Compare the total revenue of the American Red Cross and Feeding America",
-         "tag": "comparison"}]},
-    {"label": "🍎 Communities served", "dirs": ["census", "cdc-places", "fema"], "queries": [
-        "What percentage of households receive SNAP in Detroit?",
-        "What is the median rent in Miami?",
-        "What is the homeownership rate in Houston?",
-        "Poverty rate in Chicago",
-        "Diabetes prevalence in Chicago",
-        "What disasters have been declared in California?"]},
-    {"label": "🎓 Funding & grants", "dirs": ["grants-gov", "usaspending", "nih-reporter", "nsf-awards"],
-     "queries": [
-        "What grants can a nonprofit apply for in education?",
-        "How much federal funding has the American Red Cross received?",
-        "How much NIH research funding does Stanford get?",
-        "NSF research awards for MIT"]},
-]
 
 
 def _source_categories():
@@ -2332,7 +2292,7 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8">
 <main class="main"><div class="mobile-bar"><button id="menu-button" class="menu-button" type="button">☰</button><b>Neural KG</b></div><div class="content">
 <h1>Neural KG</h1>
 <p class="byline"><a href="https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf" style="color:inherit;text-decoration:underline;text-decoration-color:#bbb;text-underline-offset:3px">OKF</a> + <a href="https://agenticresourcediscovery.org/" style="color:inherit;text-decoration:underline;text-decoration-color:#bbb;text-underline-offset:3px">ARD</a></p>
-<p class="sub">Ask a question in plain English. An ARD Agent Finder discovers which dataset answers it; the data is fetched live, the answer is checked, and the search backtracks until it actually answers your question. <a href="how-it-works" style="color:#1a73e8">How it works ›</a> · <a href="life-of-a-query" style="color:#1a73e8">Life of a query ›</a> · <a href="techsoup" style="color:#1a73e8">TechSoup view ›</a></p>
+<p class="sub">Ask a question in plain English. An ARD Agent Finder discovers which dataset answers it; the data is fetched live, the answer is checked, and the search backtracks until it actually answers your question. <a href="how-it-works" style="color:#1a73e8">How it works ›</a> · <a href="life-of-a-query" style="color:#1a73e8">Life of a query ›</a></p>
 <form id="f"><input id="q" placeholder="e.g. Is the American Red Cross a 501(c)(3)?" autofocus><button id="b">Ask</button></form>
 <div id="out" class="transcript"></div>
 <div id="welcome">
@@ -2657,32 +2617,6 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8">
 </script></body></html>"""
 
 
-# The TechSoup page reuses the main page's entire interaction (streaming console, live query,
-# result rendering) — only the framing copy and the tab source differ, so it is derived by
-# substitution rather than duplicated.
-TECHSOUP_PAGE = (PAGE
-    .replace("<title>Neural KG</title>", "<title>Data for Nonprofits — a TechSoup view</title>")
-    .replace('<h1>Neural KG</h1>',
-             '<h1>Data for Nonprofits</h1>')
-    .replace('<p class="sub">Ask a question in plain English. An ARD Agent Finder discovers which '
-             'dataset answers it; the data is fetched live, the answer is checked, and the search '
-             'backtracks until it actually answers your question. '
-             '<a href="how-it-works" style="color:#1a73e8">How it works ›</a> · <a href="life-of-a-query" style="color:#1a73e8">Life of a query ›</a> · <a href="techsoup" style="color:#1a73e8">TechSoup view ›</a></p>',
-             '<p class="sub">A curated view for TechSoup and the nonprofits, libraries, and '
-             'foundations it serves — validate an organization, measure the digital divide, read a '
-             "nonprofit's finances, understand the communities it serves, and find funding. Ask in "
-             'plain English; the answer is fetched live and cited. '
-             '<a href="how-it-works" style="color:#1a73e8">How it works ›</a> · <a href="life-of-a-query" style="color:#1a73e8">Life of a query ›</a> · '
-             '<a href="./" style="color:#1a73e8">‹ full data explorer</a></p>')
-    .replace("fetch('sources')", "fetch('techsoup-sources')")
-    .replace('placeholder="e.g. Is the American Red Cross a 501(c)(3)?"',
-             'placeholder="e.g. Is Feeding America in good standing with the IRS?"')
-    .replace("<h2 class=\"sh\">Example questions</h2>\n"
-             "<p class=\"shsub\">Pick a theme, then click a question to run it live.</p>",
-             "<h2 class=\"sh\">What can I ask?</h2>\n"
-             "<p class=\"shsub\">Grouped by what a nonprofit or its funders need. Click any question to run it live.</p>")
-    .replace('<h2 class="sh">Data sources</h2>',
-             '<h2 class="sh">Sources behind this view</h2>'))
 
 
 ARD_PAGE = r"""<!doctype html><html><head><meta charset="utf-8">
@@ -3031,8 +2965,7 @@ if __name__ == "__main__":
 
 
 # --- instance branding -----------------------------------------------------------------------
-# Applied AFTER every page constant exists, and after TECHSOUP_PAGE, which builds itself by
-# replacing this same <title>/<h1> pair and would miss them if they were renamed first.
+# Applied AFTER every page constant exists.
 # A no-op when the instance keeps the default name, so the shipped pages are byte-identical.
 _INSTANCE_NAME = instance.identity()["name"]
 

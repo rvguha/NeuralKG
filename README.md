@@ -60,7 +60,7 @@ documents of your own — the format is described under [Adding a source](#addin
 ## Quickstart
 
 ```bash
-git clone https://github.com/TechSoup/resource-raiser.git
+git clone https://github.com/rvguha/NeuralKG.git
 cd resource-raiser
 
 pip install -r requirements.txt            # numpy, pyyaml, openai (+ optional google-cloud-bigquery)
@@ -229,7 +229,7 @@ A broader machine-readable catalog of ~100 sources and ~100 example tables is in
 
 ## Using it
 
-**Web UI** — `http://127.0.0.1:8099/` (plus a curated `/techsoup` view and a `/sources` browser).
+**Web UI** — `http://127.0.0.1:8099/` (plus a `/sources` browser).
 
 **HTTP API:**
 

@@ -128,21 +128,6 @@ def examples():
     return listed if isinstance(listed, list) else []
 
 
-def views():
-    """Curated views over the same ARD: {path: {label, examples}}.
-
-    A view is a different audience, not a different corpus -- same engine, same index, different
-    questions offered and different framing. Keyed by the path it is served at."""
-    return _section("views")
-
-
-def view_examples(name):
-    """Sample-question sections for one view."""
-    view = views().get(name) or {}
-    listed = view.get("examples")
-    return listed if isinstance(listed, list) else []
-
-
 def source_examples():
     """dir -> [question], shown on the sources page."""
     return _section("source_examples")

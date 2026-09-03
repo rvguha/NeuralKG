@@ -425,7 +425,6 @@ def create_app(engine=harness.run, clients_factory=AsyncSourceClients):
             with open(os.path.join(os.path.dirname(__file__), "chat_history.js"), encoding="utf-8") as stream:
                 return Response(stream.read(), media_type="text/javascript",
                                 headers={"Cache-Control": "no-cache"})
-        if path == "techsoup": return HTMLResponse(harness.TECHSOUP_PAGE)
         if path in ("how-it-works", "how"): return HTMLResponse(harness.HOW_PAGE)
         if path in ("ard",): return HTMLResponse(harness.ARD_PAGE)
         if path in ("life-of-a-query", "loq"):
@@ -436,12 +435,6 @@ def create_app(engine=harness.run, clients_factory=AsyncSourceClients):
 
     async def sources(request):
         return JSONResponse({"sources": request.app.state.sources, "tabs": harness.EXAMPLE_TABS})
-
-    async def techsoup_sources(request):
-        directories = {directory for tab in harness.TECHSOUP_TABS for directory in tab["dirs"]}
-        return JSONResponse({"sources": [item for item in request.app.state.sources
-                                         if item["dir"] in directories],
-                             "tabs": harness.TECHSOUP_TABS})
 
     async def sites(request):
         return JSONResponse({"message_type": "sites",
@@ -492,7 +485,7 @@ def create_app(engine=harness.run, clients_factory=AsyncSourceClients):
 
     routes = [Route("/ask", ask, methods=["GET", "POST"]), Route("/healthz", healthz),
         Route("/health", health), Route("/costs", costs), Route("/sources", sources),
-        Route("/techsoup-sources", techsoup_sources), Route("/sites", sites),
+        Route("/sites", sites),
         Route("/ard/manifest", ard_manifest), Route("/ard/publishers", ard_publishers),
         Route("/ard/entry", ard_entry), Route("/ard/list", ard_list),
         Route("/{path:path}", static)]
