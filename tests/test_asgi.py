@@ -91,7 +91,13 @@ class AsgiTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('<script src="chat-history.js"></script>', response.text)
         self.assertIn('id="history-list"', response.text)
         self.assertIn('id="new-chat"', response.text)
-        self.assertIn("showConversation(CONVERSATION_ID)", response.text)
+        # The landing page mints a NEW conversation rather than resuming the session one:
+        # the id lives in sessionStorage, which outlives a reload, so resuming meant a
+        # visitor reopened the page inside their previous transcript.
+        self.assertIn("CHAT_STORE.newConversation()", response.text)
+        self.assertNotIn("showConversation(CONVERSATION_ID)", response.text)
+        # ...but selecting a stored chat must still restore it, or history is decorative.
+        self.assertIn("showConversation(id)", response.text)
         self.assertIn("CHAT_STORE.listConversations()", response.text)
         self.assertIn("CHAT_STORE.deleteConversation(id)", response.text)
         self.assertIn("CHAT_STORE.beginTurn", response.text)
