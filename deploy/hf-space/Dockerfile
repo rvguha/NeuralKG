@@ -25,6 +25,10 @@ RUN grep -v "google-cloud-bigquery" requirements.txt > /tmp/req.txt \
 
 # Engine.
 COPY --chown=app:app *.py *.js run.sh ./
+# The prose pages are SERVED, not documentation-only: /life-of-a-query reads
+# LIFE_OF_A_QUERY.md off disk at request time and 404s with "not deployed" when it is
+# absent. Copying only *.py left the route live and the file missing.
+COPY --chown=app:app *.md ./
 COPY --chown=app:app accessor ./accessor
 COPY --chown=app:app registry ./registry
 COPY --chown=app:app tools ./tools
