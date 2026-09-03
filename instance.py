@@ -32,8 +32,9 @@ def path():
 
 # Identifier vocabulary is the one part of this file the QUERY PATH reads. `derive.py` uses it to
 # tell an operation parameter that selects an entity by identity (cik=, ein=, fips_place=) from
-# one that searches by name (q=, org=). An ARD over the Hugging Face Hub would say repo_id and
-# author here, with search= among the name selectors; nothing else about the engine would change.
+# one that searches by name (q=, org=). An ARD over the WHO Global Health Observatory would say
+# SpatialDim and IndicatorCode here, with IndicatorName among the name selectors; nothing else
+# about the engine would change.
 _FALLBACK_IDENTIFIERS = ("cik", "ein", "qid", "gnis", "lei", "geo", "fips*")
 _FALLBACK_NAME_SELECTORS = ("q", "org", "awardee", "awardeename", "name", "org_names",
                             "recipient_search_text", "place")
@@ -61,9 +62,9 @@ def configured():
     """True when this deployment has an instance file at all.
 
     The distinction matters for presentational lists. `or <legacy literal>` looked like a safe
-    fallback and was not: an instance over the Hugging Face Hub, which correctly declares no
-    example questions of its own, inherited a homepage full of US nonprofit questions. A file
-    that exists governs, including where it is silent."""
+    fallback and was not: an instance over the WHO Global Health Observatory, which correctly
+    declares no example questions of its own, inherited a homepage full of US nonprofit
+    questions. A file that exists governs, including where it is silent."""
     return bool(config())
 
 
@@ -111,9 +112,17 @@ def name_selectors():
 
 
 def is_identifier(param):
-    """True when `param` selects by identity. Handles the `fips*` prefix form."""
-    name = (param or "").lower()
+    """True when `param` selects by identity. Handles the `fips*` prefix form.
+
+    Case-insensitive on BOTH sides. The parameter was folded and the configured entry was not,
+    which worked only because every identifier in the original vocabulary happened to be
+    lowercase (cik, ein, fips_place). Real APIs are not so obliging -- the WHO Global Health
+    Observatory selects on `SpatialDim` and `IndicatorCode` -- and the mismatch failed silently,
+    classifying an identity parameter as a name search.
+    """
+    name = (param or "").casefold()
     for entry in identifiers():
+        entry = str(entry).casefold()
         if entry.endswith("*"):
             if name.startswith(entry[:-1]):
                 return True

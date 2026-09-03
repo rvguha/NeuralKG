@@ -32,10 +32,13 @@ _DIALECTS = [
 ]
 
 # Which parameter names select an entity by IDENTITY rather than by name is a fact about the
-# corpus, not about the engine: an ARD over the Hugging Face Hub selects on repo_id and author,
-# and searches on search=. Declared per deployment in instance.yaml; the fallbacks there
-# reproduce the values these tuples held.
-_KEY_NAME = tuple(instance.name_selectors())                         # fuzzy name selectors
+# corpus, not about the engine: an ARD over the WHO Global Health Observatory selects on
+# SpatialDim and IndicatorCode, and searches on IndicatorName. Declared per deployment in
+# instance.yaml; the fallbacks there reproduce the values these tuples held.
+# Folded, because _names() lowercases every parameter it extracts while the instance file
+# spells them as the API does -- the GHO's is `IndicatorName`. Comparing the two directly
+# silently classified a name search as neither identity nor name.
+_KEY_NAME = tuple(str(n).casefold() for n in instance.name_selectors())
 _KEY_KW = ("keyword",)
 
 

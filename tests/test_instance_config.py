@@ -4,14 +4,18 @@ The claim this file defends is that standing up Neural KG over a different ARD -
 world, with different kinds of thing in it -- is a configuration change, not a code change. A
 config that only *described* the deployment while the code kept its own hard-coded vocabulary
 would pass a shallower test and be worthless. So these assert on the query path: given an
-instance file describing the Hugging Face Hub, the engine must classify `repo_id` as an
-identifier and must stop treating `cik` as one.
+instance file describing the WHO Global Health Observatory, the engine must classify
+`SpatialDim` as an identifier and must stop treating `cik` as one.
 
-The Hub is used rather than an invented corpus because its parameter names are real and
-checkable -- `/api/models/{repo_id}`, `?author=openbmb` selecting an account's models, and
-`?search=MiniCPM` matching a string. That distinction is exactly what `domains` encodes: an
-identity a returned record can be validated against, versus a guess that must be resolved
-before anything is trusted.
+The GHO is used rather than an invented corpus because it is a real UN statistical database of
+the same shape as the sources here -- numeric measures for a place and a year -- and its
+parameter names are checkable: `SpatialDim eq 'IND'` selects India's series, while
+`contains(IndicatorName,'life expectancy')` matches a string. That distinction is exactly what
+`domains` encodes: an identity a returned record can be validated against, versus a guess that
+must be resolved before anything is trusted.
+
+It also has camelCase parameter names, which the previous all-lowercase example could not
+exercise -- and that gap hid a real bug (see the case test below).
 """
 import os
 import sys
@@ -42,31 +46,49 @@ class InstanceSwapTests(unittest.TestCase):
         # Write question lists as block sequences, not inline `[...]`: YAML rejects a bare
         # "?" inside a flow sequence, and every sample question ends in one.
         self.use("""
-identity: {name: Model Hub KG}
+identity: {name: WHO Health Observatory}
 ard: {finder_url: "http://finder.internal:9000"}
 domains:
-  - name: model
-    identifiers: [repo_id, model_id]
-  - name: organization
-    identifiers: [author]
-  - name: dataset
-    identifiers: ["dataset*"]
-name_selectors: [search]
+  - name: country
+    identifiers: [SpatialDim]
+  - name: indicator
+    identifiers: [IndicatorCode]
+  - name: dimension
+    identifiers: ["Dim*"]
+name_selectors: [IndicatorName]
 """)
-        self.assertTrue(instance.is_identifier("repo_id"))
-        self.assertTrue(instance.is_identifier("author"))
-        self.assertTrue(instance.is_identifier("dataset_id"))       # trailing * is a prefix
-        self.assertFalse(instance.is_identifier("search"))          # a query, not an identity
+        self.assertTrue(instance.is_identifier("SpatialDim"))
+        self.assertTrue(instance.is_identifier("IndicatorCode"))
+        self.assertTrue(instance.is_identifier("Dim1"))             # trailing * is a prefix
+        self.assertFalse(instance.is_identifier("IndicatorName"))   # a query, not an identity
         self.assertFalse(instance.is_identifier("cik"))             # this ARD has no companies
-        self.assertEqual(instance.name_selectors(), ("search",))
-        self.assertEqual(instance.identity()["name"], "Model Hub KG")
+        self.assertEqual(instance.name_selectors(), ("IndicatorName",))
+        self.assertEqual(instance.identity()["name"], "WHO Health Observatory")
         self.assertEqual(instance.finder_url(), "http://finder.internal:9000")
+
+    def test_identifier_matching_is_case_insensitive(self):
+        """A real bug the all-lowercase example could not have caught.
+
+        `is_identifier` folded the parameter but not the configured entry, so it worked only
+        because every identifier in the original vocabulary was lowercase (cik, ein, fips_place).
+        The GHO selects on `SpatialDim`, and `derive._names()` lowercases every parameter it
+        extracts before classifying it -- so an identity parameter was silently taken for
+        neither an identity nor a name."""
+        self.use("domains:\n  - {name: country, identifiers: [SpatialDim]}\n"
+                 "name_selectors: [IndicatorName]\n")
+        for spelling in ("SpatialDim", "spatialdim", "SPATIALDIM"):
+            self.assertTrue(instance.is_identifier(spelling), spelling)
+        import importlib
+        import derive
+        importlib.reload(derive)
+        self.addCleanup(lambda: (instance.reload(), importlib.reload(derive)))
+        self.assertIn("indicatorname", derive._KEY_NAME)   # folded to match _names() output
 
     def test_derive_classifies_parameters_through_the_instance(self):
         """derive.py is the consumer; assert through it, not just through the accessor."""
-        self.use("domains:\n  - {name: model, identifiers: [repo_id]}\n")
+        self.use("domains:\n  - {name: country, identifiers: [SpatialDim]}\n")
         import derive
-        self.assertTrue(instance.is_identifier("repo_id"))
+        self.assertTrue(instance.is_identifier("SpatialDim"))
         self.assertFalse(instance.is_identifier("ein"))
         # derive reads the vocabulary rather than carrying its own copy
         self.assertNotIn("_KEY_ID", vars(derive))
@@ -74,19 +96,19 @@ name_selectors: [search]
     def test_a_declared_instance_does_not_inherit_another_corpus_questions(self):
         """The trap this caught: `examples() or <legacy literal>`.
 
-        An instance over the Hugging Face Hub correctly declares no example questions of its
-        own, and inherited a homepage of US nonprofit questions -- "What was the American Red
-        Cross total revenue?" offered against a corpus of models. A file that exists governs,
+        An instance over the WHO Global Health Observatory correctly declares no example
+        questions of its own, and inherited a homepage of US nonprofit questions -- "What was
+        the American Red Cross total revenue?" offered against world health statistics. A file that exists governs,
         including where it is silent.
         """
-        self.use("identity: {name: Model Hub KG}\ndomains:\n  - {name: model, identifiers: [repo_id]}\n")
+        self.use("identity: {name: WHO Health Observatory}\ndomains:\n  - {name: country, identifiers: [SpatialDim]}\n")
         import importlib
         import harness
         importlib.reload(harness)
         self.addCleanup(lambda: (instance.reload(), importlib.reload(harness)))
         self.assertEqual(harness.EXAMPLE_TABS, [])
         self.assertEqual(harness._SOURCE_ORDER, [])
-        self.assertIn("<h1>Model Hub KG</h1>", harness.PAGE)
+        self.assertIn("<h1>WHO Health Observatory</h1>", harness.PAGE)
         self.assertNotIn("American Red Cross", harness.PAGE)
 
     def test_environment_overrides_the_file(self):

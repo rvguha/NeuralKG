@@ -16,9 +16,10 @@
 #   domains          the kinds of thing this ARD describes, and how an entity of each kind is
 #                    IDENTIFIED. This is the only part the query path reads: derive.py uses it
 #                    to tell a parameter that selects by identity (cik=, ein=, fips_place=) from
-#                    one that searches by name (q=, org=). An ARD over the Hugging Face Hub
-#                    would list repo_id and author here, with search= among the name selectors,
-#                    and change nothing else. A trailing * matches by
+#                    one that searches by name (q=, org=). An ARD over the WHO Global Health
+#                    Observatory would list SpatialDim and IndicatorCode here, with
+#                    IndicatorName among the name selectors, and change nothing else.
+#                    Matching is case-insensitive. A trailing * matches by
 #                    prefix. The list is descriptive, not a closed vocabulary -- `type` from
 #                    query understanding is a free noun phrase and is never checked against it.
 #   NOTE            write question lists as block sequences (`- What ...?`), not inline

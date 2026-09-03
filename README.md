@@ -344,35 +344,40 @@ it to tell an operation parameter that selects an entity by *identity* (`cik=`, 
 tuple in the code with `startswith("fips")` hard-coded beside it.
 
 A different world declares its own identifiers and changes nothing else. An ARD over the
-Hugging Face Hub, where a model is identified by its repository id, an organization by its
-account name, and free text searches rather than selects:
+**WHO Global Health Observatory** — a UN statistical database with the same shape of content as
+the US sources here, numeric measures for a place and a year:
 
 ```yaml
 identity:
-  name: Model Hub KG
-  placeholder: e.g. Which models can run on a single 24GB GPU?
+  name: WHO Health Observatory
+  placeholder: e.g. What is life expectancy in India?
 
 domains:
-  - name: model
-    identifiers: [repo_id, model_id]     # /api/models/{repo_id}
-  - name: dataset
-    identifiers: [dataset_id]            # /api/datasets/{dataset_id}
-  - name: organization
-    identifiers: [author]                # /api/models?author=openbmb
+  - name: country
+    identifiers: [SpatialDim]          # ISO3 code: SpatialDim eq 'IND'
+  - name: indicator
+    identifiers: [IndicatorCode]       # /api/WHOSIS_000001
+  - name: year
+    identifiers: [TimeDim]             # TimeDim eq 2021
 
-name_selectors: [search]                 # /api/models?search=MiniCPM — a query, not an identity
+name_selectors: [IndicatorName]        # contains(IndicatorName,'life expectancy') — a search
 ```
 
-Those are the Hub's own parameter names, and the distinction is the one the engine cares about:
-`author=openbmb` names an account and returns that account's models, while `search=MiniCPM`
-returns whatever matches the string. The first is an identity the validator can check a returned
-record against; the second is a guess that has to be resolved before anything is trusted.
+Those are the GHO's own OData parameter names, and the distinction is the one the engine cares
+about. `SpatialDim eq 'IND'` names a country and returns India's series; `contains(IndicatorName,
+'life expectancy')` returns whatever matches the string. The first is an identity the validator
+can check a returned record against — if the row comes back for Indonesia, the answer is
+rejected. The second is a guess that has to be resolved before anything is trusted.
 
-The list is **descriptive, not a closed vocabulary**. The `type` a question resolves to stays a
-free noun phrase and is never checked against `domains`. A closed vocabulary duplicated between
-a prompt and the code is a bug this project has already had once: the prompt offered one set of
-values while the code tested for a narrower set, so a model returning the documented-correct
-value silently degraded retrieval.
+It is also a fair test of the engine rather than a toy, because the same question shapes apply:
+
+```
+timeseries   IND 2021 67.31 · 2020 70.19 · 2019 70.73 · 2018 70.35
+ranking      JPN 84.46 · SGP 83.86 · KOR 83.80  (life expectancy, 2021)
+```
+
+Standing this up needs OKF `_access.md` documents wrapping those endpoints — the work is
+describing the source, not changing the engine.
 
 ### Notes
 
@@ -380,10 +385,12 @@ value silently degraded retrieval.
   configured by its platform and a file baked into an image must not override that.
 - **A file that exists governs, including where it is silent.** If `instance.yaml` is present but
   declares no `examples`, the homepage shows none — it does not fall back to the shipped
-  questions. That fallback looked safe and was not: it gave a Hugging Face Hub instance a
-  homepage full of US nonprofit questions.
+  questions. That fallback looked safe and was not: it gave a WHO Global Health Observatory
+  instance a homepage full of US nonprofit questions.
 - **Write question lists as block sequences.** Every sample question ends in `?`, and YAML
   rejects a bare `?` inside a flow sequence, so `queries: [What is ...?]` fails to parse.
+- **Identifier matching is case-insensitive.** Real APIs are not all lowercase — the GHO uses
+  `SpatialDim` — so both the parameter and the configured entry are folded before comparison.
 - Point elsewhere with `INSTANCE_CONFIG=/path/to/other.yaml`.
 
 ---
