@@ -146,7 +146,7 @@ EXAMPLE_TABS = instance.examples() if instance.configured() else [
 # Curated TechSoup view — the data organized around what TechSoup and its nonprofit/library/
 # foundation customers actually need: validate an org, close the digital divide, understand a
 # nonprofit's finances, read the communities it serves, find funding.
-TECHSOUP_TABS = [
+TECHSOUP_TABS = instance.view_examples("techsoup") if instance.configured() else [
     {"label": "✅ Validate a nonprofit", "dirs": ["nonprofit-990", "nonprofit-bmf", "nonprofit-profile"],
      "queries": [
         "Is the American Red Cross a 501(c)(3)?",
