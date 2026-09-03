@@ -2,7 +2,7 @@
 
 ## Abstract
 
-Neural KG answers natural-language questions over independently published data sources without prior integration. Given a question, a language model interprets it into a structured intent; the system queries an ARD index for sources capable of supplying the required data, constructs a plan over the sources it returns, queries those sources directly, performs the requisite ETL just in time, and composes an answer from the records returned. Every answer is validated against the interpreted question before it is emitted, and questions whose required operation lies outside the available access paths are refused rather than approximated. This document walks through the execution of a single query, characterizes the boundary of the answerable query class, and reports where the current implementation falls short of the guarantees the architecture admits.
+Neural KG answers natural-language questions over independently published data sources without prior integration. Given a question, a language model interprets it into a structured intent; the system queries an ARD index for sources capable of supplying the required data, constructs a plan over the sources it returns, queries those sources directly, performs the requisite ETL just in time, and composes an answer from the records returned. Every answer is validated against the interpreted question before it is emitted, and questions whose required operation lies outside the available access paths are refused rather than approximated. Interpretation is deliberately blind to the corpus: nothing in it names a source, so the same engine answers over a different ARD without a code change. This document walks through the execution of a single query, characterizes the boundary of the answerable query class, and reports where the current implementation falls short of the guarantees the architecture admits.
 
 Two properties are worth stating at the outset, because they are easily confused. The system is **model-directed but not model-grounded**. A language model decides what the question means, which entity it names, which measure it asks for, and what shape of operation would answer it; a model also writes the final sentence the caller reads. No model supplies a number. Every figure in an answer comes from a publisher's response that survived deterministic validation, and no model may overturn a deterministic rejection.
 
@@ -28,7 +28,9 @@ None of these are visible before the request is issued. The executor responds by
 
 The division of labour is explicit, and it is the organizing principle of the rest of this document.
 
-**A model decides:** what the question is about (entity, and whether the name is unambiguous); what is being asked of it (the measure or attribute); what kind of thing the entity is; which shape of operation the question requires; which published sources are plausibly relevant; whether a named measure is ambiguous and what its distinct readings are; which of several candidate records corresponds to the entity in context; whether a returned record semantically answers the question in the residual case where structure alone cannot say; and how to word the final answer from admitted evidence.
+**A model decides:** what the question is about (entity, and whether the name is unambiguous); what is being asked of it (the measure or attribute); what kind of thing the entity is; which shape of operation the question requires; which of the candidate sources *the index returned* are relevant to the measure; whether a named measure is ambiguous and what its distinct readings are; which of several candidate records corresponds to the entity in context; whether a returned record semantically answers the question in the residual case where structure alone cannot say; and how to word the final answer from admitted evidence.
+
+A distinction inside the first list carries most of the architecture. Two different model calls touch the question of sources, and only one of them is allowed to know any: the call that *interprets* the question names no source and is given no catalog, while a later re-ranking call scores the candidates the ARD index returned. Interpretation is a question about the question; source selection is a question about the corpus, and answering the second one early is what makes an engine specific to its data.
 
 **Code decides:** which access paths each source actually exposes; whether the required operation is in the algebra at all; which identifier a given operation accepts; whether a returned record matches the resolved entity, unit, currency, period, and grain; whether a value is a measurement or a suppression sentinel; whether a population claim is complete; the order in which choice points are explored and abandoned; and every arithmetic operation.
 
@@ -54,7 +56,7 @@ The operations a question requires are determined by its *shape*, and the shape 
 | Correlation | Is county poverty associated with diabetes prevalence? | Joinable complete populations |
 | Topical | Find education grant opportunities. | Predicate or search operation |
 
-Shape assignment is consequential and is made before any source is examined. The classifier is given the distinctions that matter operationally rather than grammatically: *comparison* compares the same measure across different named entities, while *ratio* combines different measures, usually of one entity; if the entities being compared are named in the question it is a comparison, and if the engine must find them from a whole population it is a ranking or a filtered subset. These distinctions are stated to the model because they determine which sources are eligible, not because they are linguistically natural.
+Shape assignment is consequential and is made before any source is examined. The classifier is given the distinctions that matter operationally rather than grammatically: *comparison* compares the same measure across different named entities, while *ratio* combines different measures, usually of one entity; if the entities being compared are named in the question it is a comparison, and if the engine must find them from a whole population it is a ranking or a filtered subset. These distinctions are stated to the model because they determine which *access paths* the question requires — a ranking needs an operation that returns a whole population — not because they are linguistically natural. Which sources offer such a path is settled later, against the index; the classifier is told nothing about the corpus and could not apply such a fact if it were.
 
 Grant-graph questions follow a specialized route, since the direction of the relationship being traversed determines the query.
 
@@ -70,7 +72,16 @@ What was Apple's total revenue in 2023?
 
 ### 3.1 Interpretation
 
-A single model call reads the question and returns a structured intent. This is the most consequential call in the system: everything downstream is conditioned on it, and no later stage re-derives what it decides.
+Two model calls read the question and return a structured intent between them. This is the most consequential stage in the system: everything downstream is conditioned on it, and no later stage re-derives what it decides.
+
+The split is not arbitrary, and the line falls in a specific place:
+
+| Call | Returns | Why together |
+|---|---|---|
+| `understand-structure` | `shape`, `entity`, `entities`, `type`, `entity_status`, `entity_candidates` | Six of the eleven shapes are *defined* by how many entities the question names. A comparison is two named entities and one measure; a ranking is a population the engine must find. Deciding shape without deciding entity count is deciding half a question. |
+| `understand-measure` | `attribute`, `interpretations`, `period`, `periods`, `quantifier`, `threshold` | Which quantity, over which span. Independent of how many entities carry it. |
+
+This was measured rather than assumed. Splitting shape and entity into separate calls cost 10.1 points of shape accuracy — one shape, *topical*, fell from 10/10 to 0/10, because a call shown only the question and asked for a shape has no way to know whether a subject was named. Merging them and moving measure second gives 98.7% over the 308-case corpus, correct in every one of three full passes with no case flipping between runs.
 
 ```
 {
@@ -87,8 +98,7 @@ A single model call reads the question and returns a structured intent. This is 
   "shape":              "point",
   "quantifier":         "exhaustive",
   "threshold":          null,
-  "interpretations":    [],
-  "sources":            ["sec-edgar"]
+  "interpretations":    []
 }
 ```
 
@@ -102,7 +112,15 @@ Several fields deserve comment.
 
 **`interpretations`** is populated when the *measure* is ambiguous — when it could mean several materially different things a careful analyst would not conflate. This is the branch developed in Section 4.
 
-**`sources`** is the model's proposal of which source families are plausibly relevant, drawn from a list of directories and the entity types each covers. It narrows discovery; it does not determine it, and it is intersected with what the index actually returns.
+**There is no `sources` field, and this is the load-bearing absence.** An earlier design had interpretation propose which source families were plausibly relevant, drawn from a list of the local directories and the entity types each covers. It was described as a narrowing hint. In practice it was applied as a filter *before* candidates were scored, so a wrong proposal was unrecoverable: measured against the corpus, discovery reached the answering source for 86.5% of questions when the proposal was honoured and 100% when it was ignored. The 13.5% were not ranked badly. They had been removed from the index before ranking began.
+
+Two things were wrong, and only one of them was the accuracy.
+
+The filter also made the engine specific to its corpus. To propose a source family the prompt has to enumerate the families, so the classifier's text was generated from a directory listing — which means the same English question could be interpreted differently depending on which sources happened to be mounted, and that filesystem order differs between a laptop and a deployed host. Interpretation must be answerable from the question alone, because it runs *before* discovery and cannot know what discovery will find.
+
+Removing it cost 0.7 points of shape accuracy and bought corpus independence. That trade is the reason the engine can be pointed at another ARD by swapping the corpus, and a test enforces it rather than a convention: `tests/test_query_understanding_isolation.py` fails if any source directory name, or the generated catalog listing, appears in either understanding prompt. It asserts on source *names* rather than capability words, because a phrase like "summing records" is legitimate reasoning about a question and only a name is proof of coupling.
+
+Selecting among sources is still a model's judgment. It happens one stage later, in §3.2, applied to the candidates the index actually returned — where being wrong costs a rank rather than an eligibility.
 
 ### 3.2 Discovery
 
@@ -114,7 +132,11 @@ Apple total revenue  →  total revenue
 
 Whether the attribute or the whole question is used as the primary retrieval text depends on whether a specific named entity was identified. When one was, the attribute leads and the question is secondary; when none was — a topical search, an exchange rate — the question leads. This test is made on the presence of a resolved entity, not on its type.
 
-The TechSoup ARD index currently covers approximately 10,400 measures, retrieving over descriptions and representative questions; other ARD deployments will index more or fewer. This query returned six SEC candidates: Revenues, several variants of Revenue from Contract with Customer, regulated revenue, and revenue net of interest expense.
+The TechSoup ARD index currently covers 11,023 measures across 17 sources, retrieving over descriptions and representative questions; other ARD deployments will index more or fewer. This query returned six SEC candidates: Revenues, several variants of Revenue from Contract with Customer, regulated revenue, and revenue net of interest expense.
+
+Discovery is two stages: an embedding prefilter, then a small model that re-ranks the survivors against the full card for each — title, description, and the questions people actually ask for it. Measured over the corpus's source labels, the embedding alone puts the answering source first for 90.2% of questions and somewhere in the top fifteen for 99.5%; the re-rank raises rank-1 to 99.5% and costs no recall. The candidate set is scored, never truncated by fiat, which is the difference between this stage and the filter §3.1 describes.
+
+One measurement note, since the numbers above were wrong for a day. The corpus labels an *acceptable set* of sources per question, not one right answer, and nine questions about 501(c)(3) status listed only the Form 990 source when the Business Master File declares the same capability. Scored against the incomplete labels the re-ranker appeared to lose 4 points of recall against the prefilter, which invited the conclusion that re-ranking was the bottleneck. It was the labels. An under-specified expectation does not present as an under-specified expectation; it presents as a component underperforming.
 
 These constitute candidate routes. The index records the existence and capability of sources; the value itself resides only at the publisher.
 
@@ -297,7 +319,18 @@ Selection of the *shape of the answer* remains driven by the type of the admitte
 
 ### 3.11 Observability
 
-Because interpretation is model-directed, a failed query is far more often a bad judgment than a broken code path, and the trace has to expose the judgments. Progress is emitted as structured events over the life of a query: the entity the classifier detected and the kind of thing it took it to be; the property or measure it identified; the initial plan and the source families it proposes to search; the number of candidate tables the index returned and the top few; the crosswalk search, its candidate count, and its outcome — mapped, ambiguous, skipped, or not found; and the execution plan finally chosen.
+Because interpretation is model-directed, a failed query is far more often a bad judgment than a broken code path, and the trace has to expose the judgments. Progress is emitted as structured events over the life of a query, one per decision, and the events mirror the calls that made them:
+
+```
+🏷️ Question structure: timeseries · “Apple” → Apple Inc. · company
+🔎 Measure & period: total revenue · FY2019–FY2023 (5 periods)
+🧭 Initial plan: timeseries · FY2019–FY2023 · search all sources (ARD decides)
+📚 ARD summary: 6 candidate tables · top: Revenues (100, sec-edgar)
+🔗 Entity identifier mapping: crosswalk match · Apple Inc. · Wikidata Q312
+🧭 Execution plan: timeseries: one keyed read per period against Revenues
+```
+
+The event boundaries are a design statement, not a formatting choice. `shape` is reported under **structure** and not alongside the measure, because that is the call that produced it; when the trace attributed shape to the measure step, a shape error read as a fault in the measure prompt and sent the reader to the wrong file. Likewise "search all sources (ARD decides)" is the normal case: an earlier trace rendered the same condition as "search 0 source families", which read as a failure to find any rather than as the absence of a filter. A trace that misdescribes which stage decided something is worse than a sparser one, because it is trusted.
 
 The purpose is diagnostic, and the standard for these messages is that they must not assert more than was established. A crosswalk that obtained identifiers unusable by the target source has not succeeded, and reporting it as success sends the next reader of the trace to the wrong layer.
 
@@ -607,6 +640,6 @@ The converse also holds, and is the more common case now that interpretation is 
 
 ## 9. Summary
 
-Neural KG is a bounded query planner over the access paths that published APIs expose. A language model interprets the question into a structured intent — entity, measure, shape, period, and the ambiguities it can detect; semantic discovery proposes candidates; declared capabilities constrain them deterministically; resolution parameterizes the selected path, using an identity registry solely to obtain source-specific identifiers; retrieval obtains facts; execution searches the remaining choice points concurrently under an explicit per-query context; deterministic validation admits or rejects, and no model may overturn a rejection; ambiguity is resolved against fetched values; a model composes the final answer from admitted evidence alone; and refusal reports the boundary that was reached.
+Neural KG is a bounded query planner over the access paths that published APIs expose. A language model interprets the question into a structured intent — entity, measure, shape, period, and the ambiguities it can detect — naming no source, because interpretation runs before discovery and must be answerable from the question alone; semantic discovery then proposes candidates; declared capabilities constrain them deterministically; resolution parameterizes the selected path, using an identity registry solely to obtain source-specific identifiers; retrieval obtains facts; execution searches the remaining choice points concurrently under an explicit per-query context; deterministic validation admits or rejects, and no model may overturn a rejection; ambiguity is resolved against fetched values; a model composes the final answer from admitted evidence alone; and refusal reports the boundary that was reached.
 
 The model decides what is being asked and how to say the answer. It does not decide what is true.
