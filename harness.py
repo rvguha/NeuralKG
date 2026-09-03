@@ -2369,8 +2369,14 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8">
  var CHAT_STORE=null,CONVERSATION_ID=null,ACTIVE_TURN=null,TURN_MESSAGES=[],TURN_TERMINAL=null,TURN_ERROR=null,TURN_FINISHED=true;
  try{
    CHAT_STORE=new NeuralKGChatHistory.ChatTurnStore();
-   CONVERSATION_ID=CHAT_STORE.conversationId();
-   CHAT_STORE.hydrate().then(function(){renderHistory();showConversation(CONVERSATION_ID);}).catch(function(){renderHistoryUnavailable();});
+   // Land on a NEW chat, always. conversationId() reads sessionStorage, which outlives a reload
+   // and same-tab navigation for the life of the tab, so opening the page again re-rendered the
+   // previous conversation -- a visitor returning to a demo got someone else's train of thought,
+   // their own from an hour ago, mid-transcript, with no obvious way back to a blank prompt.
+   // Nothing is lost: prior chats are in the sidebar, and an id with no turns is never listed,
+   // so this does not leave an empty "New chat" behind.
+   CONVERSATION_ID=CHAT_STORE.newConversation();
+   CHAT_STORE.hydrate().then(function(){renderHistory();}).catch(function(){renderHistoryUnavailable();});
  }
  catch(_){CHAT_STORE=null;CONVERSATION_ID=null;}
  function turnTitle(conversation){var t=conversation.turns[0];return t&&t.prompt?t.prompt:'New chat';}
