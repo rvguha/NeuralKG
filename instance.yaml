@@ -1,0 +1,248 @@
+# What THIS deployment answers over.
+#
+# The engine holds no knowledge of any particular source -- nothing in the query path names one,
+# and tests/test_query_understanding_isolation.py fails if a source name reaches a prompt. This
+# file is the other half of that: the small set of facts that genuinely are per-deployment.
+# Point it at a different ARD, describe the kinds of thing that ARD knows about, and the same
+# code answers over a different world.
+#
+# Every key is optional. Omitted values fall back to what the engine used before this file
+# existed, so an instance that only changes `ard.finder_url` writes three lines.
+#
+#   ard.finder_url   where the ARD Agent Finder is. AGENT_FINDER_URL overrides it, because a
+#                    container is configured by its platform and a file baked into an image
+#                    must not win over that.
+#   identity         what to call the site. `name` is substituted into the served pages.
+#   domains          the kinds of thing this ARD describes, and how an entity of each kind is
+#                    IDENTIFIED. This is the only part the query path reads: derive.py uses it
+#                    to tell a parameter that selects by identity (cik=, ein=, fips_place=) from
+#                    one that searches by name (q=, org=). A corpus of molecules would list
+#                    inchikey and cas here and change nothing else. A trailing * matches by
+#                    prefix. The list is descriptive, not a closed vocabulary -- `type` from
+#                    query understanding is a free noun phrase and is never checked against it.
+#   examples         the homepage question tabs. Purely presentational, and wholly corpus-
+#                    specific: these questions are meaningless against another ARD.
+
+ard:
+  finder_url: http://127.0.0.1:8088
+identity:
+  name: Neural KG
+  tagline: OKF + ARD
+  description: Ask a question in plain English about US public data.
+  # Shown in the empty question box. Pinned rather than derived from the first example,
+  # so editing the examples does not silently change the prompt visitors see.
+  placeholder: e.g. Is the American Red Cross a 501(c)(3)?
+domains:
+- name: company
+  identifiers:
+  - cik
+  - lei
+  describes: US public companies, by SEC central index key
+- name: nonprofit
+  identifiers:
+  - ein
+  describes: US tax-exempt organizations, by IRS employer identification number
+- name: place
+  identifiers:
+  - geo
+  - gnis
+  - fips*
+  describes: US states, counties, cities and census places
+- name: any
+  identifiers:
+  - qid
+  describes: cross-domain Wikidata identity, used by the entity crosswalk
+name_selectors:
+- q
+- org
+- awardee
+- awardeename
+- name
+- org_names
+- recipient_search_text
+- place
+source_order:
+- sec-edgar
+- sec-bq
+- treasury
+- census
+- cdc-places
+- nonprofit-990
+- nonprofit-bmf
+- irs-990-bq
+- census-acs-bq
+- irs-grants
+- nonprofit-profile
+- usaspending
+- nih-reporter
+- nsf-awards
+- grants-gov
+- college-scorecard
+- fema
+source_examples:
+  sec-edgar:
+  - What was Apple's total revenue?
+  - Microsoft net income in 2023
+  - Apple's diluted earnings per share
+  treasury:
+  - What is the US national debt?
+  - Euro to dollar exchange rate
+  census:
+  - Median household income in California
+  - Poverty rate in Chicago
+  - Unemployment rate in Detroit
+  cdc-places:
+  - Diabetes prevalence in Chicago
+  - Obesity rate in Miami
+  nonprofit-990:
+  - American Red Cross total revenue
+  - Is the Sierra Club a 501(c)(3)?
+  usaspending:
+  - How much federal funding has the American Red Cross received?
+  nih-reporter:
+  - How much NIH research funding does Stanford get?
+  nsf-awards:
+  - NSF research awards for MIT
+  grants-gov:
+  - What grants can a nonprofit apply for in education?
+examples:
+- label: 🏛️ Nonprofits
+  dirs:
+  - nonprofit-990
+  - nonprofit-bmf
+  - nonprofit-profile
+  - usaspending
+  - grants-gov
+  - nih-reporter
+  - nsf-awards
+  queries:
+  - What was the American Red Cross total revenue?
+  - Is the Sierra Club a 501(c)(3)?
+  - Where is the Nature Conservancy headquartered?
+  - Are donations to the ACLU Foundation tax-deductible?
+  - When was the Sierra Club founded?
+  - Who is the CEO of the Wikimedia Foundation?
+  - What does Feeding America do?
+  - How much federal funding has the American Red Cross received?
+  - How much NIH research funding does St. Jude receive?
+  - What grants can a nonprofit apply for in education?
+  - How much does the ACLU pay its officers?
+  - Is the American Red Cross in good standing with the IRS?
+  - q: Compare the total revenue of the American Red Cross and Feeding America
+    tag: comparison · 2 lookups
+  - q: What share of the American Red Cross revenue comes from federal funding?
+    tag: ratio · cross-source join
+  - q: What is the largest nonprofit in the US?
+    tag: ranking · BigQuery SQL
+- label: 🎓 Academia & Research
+  dirs:
+  - nih-reporter
+  - nsf-awards
+  - nonprofit-990
+  - college-scorecard
+  queries:
+  - How much NIH research funding does Stanford get?
+  - NSF research awards for MIT
+  - How much NIH funding does Johns Hopkins receive?
+  - Harvard University total revenue
+  - NSF research awards for Caltech
+  - q: Give me some universities that get more than a billion dollars from NIH
+    tag: filtered-subset · propose-and-verify
+  - q: Which university gets the most NIH funding?
+    tag: refused · no source can rank
+- label: 📈 Companies
+  dirs:
+  - sec-edgar
+  queries:
+  - What was Apple's total revenue?
+  - Microsoft net income in 2023
+  - Apple's diluted earnings per share
+  - Tesla's research and development expense
+  - NVIDIA total revenue
+  - q: What were Apple's earnings?
+    tag: ambiguous · answered per interpretation
+  - q: How big is Microsoft?
+    tag: ambiguous · answered per interpretation
+- label: 🏘️ Communities & Health
+  dirs:
+  - census
+  - cdc-places
+  - fema
+  queries:
+  - What percentage of households have broadband internet in Detroit?
+  - What disasters have been declared in California?
+  - What percentage of households receive SNAP in Detroit?
+  - What is the median rent in Miami?
+  - What is the homeownership rate in Houston?
+  - Median household income in California
+  - Poverty rate in Chicago
+  - Diabetes prevalence in Chicago
+  - Obesity rate in Miami
+  - Unemployment rate in Detroit
+  - q: Which city has the highest diabetes rate?
+    tag: ranking · server-ordered
+  - q: Which cities have a diabetes rate above 20%?
+    tag: filtered-subset · threshold
+  - q: Across California counties, is median household income correlated with diabetes rates?
+    tag: correlation · materialized
+- label: 🏦 Government & Money
+  dirs:
+  - treasury
+  - usaspending
+  queries:
+  - What is the US national debt?
+  - Euro to dollar exchange rate
+  - Japanese yen to dollar exchange rate
+- label: 💰 Grants & Funding
+  dirs:
+  - grants-gov
+  - usaspending
+  - nih-reporter
+  - nsf-awards
+  queries:
+  - What grants can a nonprofit apply for in education?
+  - How much federal funding has Feeding America received?
+  - How much federal funding has Habitat for Humanity received?
+  - What grants are available for medical research?
+  - q: Which organization receives the most federal funding?
+    tag: ranking · server-ordered
+  - q: How much NIH research funding does Johns Hopkins receive?
+    tag: entity-list · fully paged
+- label: 🧭 Query shapes
+  dirs:
+  - cdc-places
+  - census
+  - usaspending
+  - nih-reporter
+  - nonprofit-990
+  - nsf-awards
+  - sec-edgar
+  queries:
+  - q: What was the American Red Cross total revenue?
+    tag: point
+  - q: Is the Sierra Club a 501(c)(3)?
+    tag: status
+  - q: NSF research awards for Caltech
+    tag: entity-list
+  - q: Compare the total revenue of the American Red Cross and Feeding America
+    tag: comparison · 2 lookups
+  - q: Which city has the highest diabetes rate?
+    tag: ranking · server-ordered
+  - q: Which organization receives the most federal funding?
+    tag: ranking · server-ordered
+  - q: Which cities have a diabetes rate above 20%?
+    tag: filtered-subset · threshold
+  - q: Give me some universities that get more than a billion dollars from NIH
+    tag: filtered-subset · propose-and-verify
+  - q: What share of the American Red Cross revenue comes from federal funding?
+    tag: ratio · cross-source join
+  - q: Across California counties, is median household income correlated with diabetes rates?
+    tag: correlation · materialized
+  - q: Which university gets the most NIH funding?
+    tag: refused · no source can rank
+  - q: Which nonprofit has the highest revenue?
+    tag: ranking · BigQuery SQL
+  - q: Which nonprofits have revenue over 10 billion dollars?
+    tag: filtered-subset · BigQuery
+  - q: What were Apple's earnings?
+    tag: ambiguous · answered per interpretation

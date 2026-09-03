@@ -11,7 +11,10 @@ import httpx
 
 import runtime
 
-BASE = os.getenv("AGENT_FINDER_URL", "http://127.0.0.1:8088").rstrip("/")
+import instance
+# AGENT_FINDER_URL still wins over the file: a container is configured by its platform,
+# and instance.yaml baked into an image must not override what the platform sets.
+BASE = instance.finder_url()
 # Generous default: a rerank on a slow LOCAL model can take minutes; a too-short timeout was raising
 # TimeoutError (a subclass of neither URLError nor ConnectionError), which escaped to the top -> HTTP 000.
 TIMEOUT = int(os.getenv("AGENT_FINDER_TIMEOUT", "180"))

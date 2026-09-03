@@ -45,13 +45,30 @@ class QueryUnderstandingIsolationTests(unittest.TestCase):
                     self.assertNotIn(directory, prompt)
 
     def test_no_prompt_enumerates_the_local_catalog(self):
-        """`SOURCE_TYPES` is built by globbing the filesystem. Injecting it made routing depend on
-        a local directory listing while discovery went to a remote ARD, and glob order differs
-        between filesystems -- the same question routed differently on macOS and on the VM."""
+        """A prompt must not carry a listing of what the corpus contains.
+
+        The removed design injected a source-name -> entityType table built by globbing the
+        filesystem, so routing depended on a local directory listing while discovery went to a
+        remote ARD -- and glob order differs between filesystems, so the same question routed
+        differently on macOS and on the VM. The table is gone; this reads the corpus directly so
+        the check survives it, and would catch the listing being reintroduced from any source.
+        """
+        entity_types = []
+        root = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sources")
+        for directory in sorted(os.listdir(root))[:12]:
+            access = os.path.join(root, directory, "_access.md")
+            if not os.path.isfile(access):
+                continue
+            with open(access, encoding="utf-8") as stream:
+                for line in stream:
+                    if line.startswith("entityType:"):
+                        entity_types.append(line.split(":", 1)[1].strip().strip('"'))
+                        break
+        self.assertTrue(entity_types, "expected entityType declarations to test against")
         for stage, prompt in self.prompts().items():
             with self.subTest(stage=stage):
                 self.assertNotIn("covers ", prompt)          # the "- <dir>: covers <type>" listing
-                for entity_type in list(harness.SOURCE_TYPES.values())[:12]:
+                for entity_type in entity_types:
                     if len(entity_type) > 40:                # distinctive enough to be evidence
                         self.assertNotIn(entity_type[:40], prompt)
 

@@ -12,6 +12,7 @@ Run as a CLI; the ASGI application in app.py owns HTTP serving:
   python3 -m uvicorn app:app --host 127.0.0.1 --port 8099
 """
 import asyncio, functools, os, sys, json, math, re
+import instance
 import runtime
 import driver, ard_client, planner, store, llm, nlweb, connectors, runtime, docpage
 from domain import Attempt, Clarification, ClarificationOption, Evidence, QueryIntent
@@ -24,35 +25,16 @@ TK = Toolkit()
 import glob as _glob
 
 
-def _source_types():
-    """Source name -> entityType, in a STABLE order.
+# `_source_types()` and SOURCE_TYPES were removed here. They globbed sources/*/_access.md at
+# import to build a source-name -> entityType listing, which existed solely to be injected into
+# the classifier prompt so it could pre-select source families. That routing was removed; the
+# listing outlived it, assigned at import and read by nothing. It also did filesystem I/O at
+# import time and made module load depend on a corpus being present -- the exact coupling
+# instance.yaml exists to end.
 
-    glob returns directory order, which differs between filesystems. The classifier is shown
-    this list and picks the first plausible source, so an unsorted order made the same question
-    route differently on macOS and on the Linux VM: "which nonprofit has the highest revenue"
-    chose irs-990-bq locally and nonprofit-990 in production, which then correctly refused a
-    ranking it cannot do. Deterministic per machine, divergent across them - which also means
-    local results were never evidence about production for any close routing decision.
-    """
-    out = {}
-    access_docs = (_glob.glob(os.path.join(ROOT, "sources", "*", "_access.md")) +
-                   _glob.glob(os.path.join(
-                       ROOT, "corpora", "gcp-bigquery", "okf", "*", "_access.md")))
-    for p in sorted(access_docs):
-        fm = driver.frontmatter(p)
-        if fm.get("entityType"):
-            directory = os.path.basename(os.path.dirname(p))
-            if "/corpora/gcp-bigquery/okf/" in p:
-                directory = ("gcp-bigquery-public" if directory == "public"
-                             else "gcp-marketplace-free")
-            out[directory] = fm["entityType"]
-    return out
-
-
-SOURCE_TYPES = _source_types()
 
 # illustrative example queries per source (homepage copy; the query engine is not driven by these)
-SOURCE_EXAMPLES = {
+SOURCE_EXAMPLES = instance.source_examples() if instance.configured() else {
     "sec-edgar": ["What was Apple's total revenue?", "Microsoft net income in 2023",
                   "Apple's diluted earnings per share"],
     "treasury": ["What is the US national debt?", "Euro to dollar exchange rate"],
@@ -65,11 +47,11 @@ SOURCE_EXAMPLES = {
     "nsf-awards": ["NSF research awards for MIT"],
     "grants-gov": ["What grants can a nonprofit apply for in education?"],
 }
-_SOURCE_ORDER = ["sec-edgar", "sec-bq", "treasury", "census", "cdc-places", "nonprofit-990", "nonprofit-bmf", "irs-990-bq", "census-acs-bq",
+_SOURCE_ORDER = instance.source_order() if instance.configured() else ["sec-edgar", "sec-bq", "treasury", "census", "cdc-places", "nonprofit-990", "nonprofit-bmf", "irs-990-bq", "census-acs-bq",
                  "irs-grants", "nonprofit-profile", "usaspending", "nih-reporter", "nsf-awards", "grants-gov", "college-scorecard", "fema"]
 
 # Example questions grouped into themes for the homepage tab bar (interactive entry point).
-EXAMPLE_TABS = [
+EXAMPLE_TABS = instance.examples() if instance.configured() else [
     {"label": "🏛️ Nonprofits",
      "dirs": ["nonprofit-990", "nonprofit-bmf", "nonprofit-profile", "usaspending", "grants-gov", "nih-reporter", "nsf-awards"],
      "queries": [
@@ -3046,3 +3028,28 @@ def main(argv):
 
 if __name__ == "__main__":
     main(sys.argv[1:])
+
+
+# --- instance branding -----------------------------------------------------------------------
+# Applied AFTER every page constant exists, and after TECHSOUP_PAGE, which builds itself by
+# replacing this same <title>/<h1> pair and would miss them if they were renamed first.
+# A no-op when the instance keeps the default name, so the shipped pages are byte-identical.
+_INSTANCE_NAME = instance.identity()["name"]
+
+# The input placeholder is an example question, so it belongs to the corpus, not the engine.
+# Hardcoded, it offered "Is the American Red Cross a 501(c)(3)?" to a chemistry ARD. Prefer an
+# explicit identity.placeholder, else the instance's own first example, else a neutral prompt.
+if instance.configured():
+    _tabs = instance.examples()
+    _first = (_tabs[0].get("queries") or [None])[0] if _tabs else None
+    _placeholder = instance.identity().get("placeholder") or _first or "Ask a question"
+    PAGE = PAGE.replace("e.g. Is the American Red Cross a 501(c)(3)?", _placeholder)
+
+if _INSTANCE_NAME != "Neural KG":
+    PAGE = PAGE.replace("<title>Neural KG</title>", f"<title>{_INSTANCE_NAME}</title>") \
+               .replace("<h1>Neural KG</h1>", f"<h1>{_INSTANCE_NAME}</h1>") \
+               .replace('<div class="brand"><span>Neural KG</span>',
+                        f'<div class="brand"><span>{_INSTANCE_NAME}</span>') \
+               .replace("<b>Neural KG</b>", f"<b>{_INSTANCE_NAME}</b>")
+    ARD_PAGE = ARD_PAGE.replace("Neural KG", _INSTANCE_NAME)
+    HOW_PAGE = HOW_PAGE.replace("Neural KG", _INSTANCE_NAME)

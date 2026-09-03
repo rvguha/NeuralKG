@@ -19,6 +19,7 @@ Two things are NOT visible in the query grammar and stay declared (the residue):
 Everything else here is read off the API.
 """
 import re
+import instance
 
 # A named query dialect fixes the whole path set — recognizing it is enough.
 _DIALECTS = [
@@ -30,9 +31,10 @@ _DIALECTS = [
      {"key", "filter", "order", "paginate", "enumerate"}),           # filter= sort= page[]
 ]
 
-_KEY_ID = ("cik", "ein", "qid", "gnis", "lei", "geo")               # canonical identifiers
-_KEY_NAME = ("q", "org", "awardee", "awardeename", "name", "org_names",
-             "recipient_search_text", "place")                       # fuzzy name selectors
+# Which parameter names select an entity by IDENTITY rather than by name is a fact about the
+# corpus, not about the engine: a chemistry ARD selects on inchikey. Declared per deployment in
+# instance.yaml; the fallbacks there reproduce the values these tuples held.
+_KEY_NAME = tuple(instance.name_selectors())                         # fuzzy name selectors
 _KEY_KW = ("keyword",)
 
 
@@ -47,7 +49,7 @@ def _names(op):
 
 def _key(names):
     for n in names:
-        if n in _KEY_ID or n.startswith("fips"):
+        if instance.is_identifier(n):
             return {"field": n, "kind": "canonical-id"}
     for n in names:
         if n in _KEY_NAME:
