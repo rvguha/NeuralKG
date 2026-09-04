@@ -597,6 +597,18 @@ def _bind_param(binding, f):
         if not f.key:
             raise Backtrack("no key")
         return f.key
+    if binding == "$name":
+        # The entity as the QUESTION named it, preferring a resolved crosswalk label when there
+        # is one. For a source whose own designations are the identifiers -- the NASA Exoplanet
+        # Archive keys on "Kepler-22 b", the College Scorecard on a school name -- there is
+        # nothing to resolve first, and requiring $key makes such a source depend on a crosswalk
+        # service that has no reason to carry a key for it. college.py already worked around this
+        # with `f.key or f.mention` in per-source Python; this makes it a binding any descriptor
+        # can declare, with no code.
+        name = (f.state.get("entity") or {}).get("name") or f.mention
+        if not name:
+            raise Backtrack("no entity name")
+        return name
     if isinstance(binding, str) and binding.startswith("~"):
         return f.fm.get(binding[1:], "")
     return binding
@@ -1155,6 +1167,13 @@ async def _link_entity_async(ctx, *, context):
     if status in ("none", "ambiguous"):
         reason = "no named entity" if status == "none" else "entity needs clarification"
         return await finish([None], "skipped", reason=reason)
+    # A crosswalk service is a property of the CORPUS, not of the engine. Wikidata works for US
+    # organizations and places because it curates exactly those keys -- QID -> CIK, EIN, FIPS.
+    # It is the wrong model elsewhere: the NASA Exoplanet Archive's own designations ARE the
+    # identifiers, so there is nothing to resolve, and calling Wikidata costs two requests to
+    # learn a QID nothing will use. An instance declares `ard.crosswalk: none` to skip it.
+    if instance.crosswalk() == "none":
+        return await finish([None], "skipped", reason="this instance declares no crosswalk")
     import resolver
     qid = (ctx.get("entity_qid") or "").strip()
     if not (canonical or mention or qid):
@@ -1384,7 +1403,14 @@ async def _fetch_async(state, ctx, *, context):
             import bq
             return await bq.answer_dataset_async(
                 fm, f.ctx.get("question") or f.attribute, context=context)
-        if any(fm.get(marker) for marker in ("variable", "measureid", "tfield")):
+        # The declarative fetcher is selected by the SOURCE declaring a `fetch:` block, not by the
+        # leaf carrying one of a few known frontmatter keys. Gating on ("variable", "measureid",
+        # "tfield") meant the generic path was reachable only by a corpus that happened to spell
+        # its pinned column the way Census, CDC or Treasury do, so a new source with a valid
+        # `fetch:` spec and any other key name fell off the end of this chain into "no structured
+        # retrieval for this source" -- which reads as an unsupported source rather than an
+        # unrecognised key. The three names are kept for access documents that predate `fetch:`.
+        if _fetch_spec(f) or any(fm.get(m) for m in ("variable", "measureid", "tfield")):
             return await _s_rest_async(f, context=context)
         if fm.get("search"):
             return await _s_search_async(f, context=context)

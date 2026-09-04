@@ -1,8 +1,10 @@
 """Deterministic tests across adjacent stage boundaries, with external edges injected."""
+import inspect
 import unittest
 from unittest import mock
 
 import connectors
+import harness
 import planner
 import renderers
 from domain import Attempt, QueryIntent
@@ -93,3 +95,30 @@ class AsyncConnectorIntegrationTests(unittest.IsolatedAsyncioTestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DescriptorDrivenFetchTests(unittest.TestCase):
+    """A source with a `fetch:` block must reach the generic fetcher without per-source code.
+
+    Both of these were found by pointing the engine at a second corpus (the NASA Exoplanet
+    Archive) rather than by reading the code, and each presented as an unrelated refusal.
+    """
+
+    def test_generic_fetcher_is_selected_by_the_fetch_block(self):
+        """Not by the leaf spelling its pinned column `variable`, `measureid` or `tfield`.
+
+        A new source with a valid fetch spec and any other key name fell through the dispatch
+        chain into "no structured retrieval for this source", which names the source as
+        unsupported when the truth is that a key name was unrecognised."""
+        source = inspect.getsource(harness)
+        self.assertIn("if _fetch_spec(f) or any(fm.get(m) for m in", source)
+
+    def test_name_binding_needs_no_crosswalk_key(self):
+        """`$name` binds the entity as the question named it.
+
+        Requiring `$key` made a name-keyed source depend on a crosswalk service having a key for
+        it. college.py had already worked around this in per-source Python with `f.key or
+        f.mention`; `$name` makes it declarable."""
+        source = inspect.getsource(harness)
+        self.assertIn('if binding == "$name":', source)
+        self.assertIn('(f.state.get("entity") or {}).get("name") or f.mention', source)

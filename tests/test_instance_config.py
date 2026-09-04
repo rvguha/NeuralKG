@@ -112,6 +112,20 @@ name_selectors: [q]
         self.assertIn("<h1>Exoplanet KG</h1>", harness.PAGE)
         self.assertNotIn("American Red Cross", harness.PAGE)
 
+    def test_crosswalk_service_is_declared_not_assumed(self):
+        """Entity resolution is corpus-shaped, and Wikidata is one shape of it.
+
+        The engine assumed a hub identifier that CARRIES per-source keys (QID -> CIK, EIN, FIPS),
+        which is true of US organizations and places because Wikidata curates exactly those. It is
+        false for a corpus whose own designations are the identifiers: the NASA Exoplanet Archive
+        keys on "Kepler-22 b", so there is nothing to resolve and the two Wikidata requests buy a
+        QID nothing will use."""
+        self.assertEqual(instance.crosswalk(), "wikidata")          # the shipped default
+        self.use("ard: {crosswalk: none}\n")
+        self.assertEqual(instance.crosswalk(), "none")
+        self.use("ard: {crosswalk: WIKIDATA}\n")
+        self.assertEqual(instance.crosswalk(), "wikidata")          # folded and trimmed
+
     def test_environment_overrides_the_file(self):
         """A container is configured by its platform; a file baked into an image must not win."""
         self.use('ard: {finder_url: "http://from-file:1234"}')

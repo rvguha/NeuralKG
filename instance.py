@@ -87,6 +87,19 @@ def finder_url():
             or "http://127.0.0.1:8088").rstrip("/")
 
 
+def crosswalk():
+    """Which entity-crosswalk service this instance uses, or "none".
+
+    Resolution is corpus-shaped, not engine-shaped. Wikidata is a hub that CARRIES per-source
+    keys (QID -> CIK, EIN, FIPS), which fits US organizations and places because Wikidata curates
+    exactly those. It is the wrong model for a corpus whose own designations are the identifiers
+    -- the NASA Exoplanet Archive keys on "Kepler-22 b" -- and for one where the join is
+    positional rather than by key, as SIMBAD-to-Gaia is. Only "wikidata" and "none" exist today;
+    the point of the setting is that the assumption is written down rather than compiled in.
+    """
+    return str(_section("ard").get("crosswalk") or "wikidata").strip().lower()
+
+
 def domains():
     """The kinds of thing this ARD describes: [{name, identifiers, describes}].
 
