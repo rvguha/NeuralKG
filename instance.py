@@ -87,8 +87,52 @@ def finder_url():
             or "http://127.0.0.1:8088").rstrip("/")
 
 
+# Co-identification strategies. Which one applies is a property of the KIND OF THING, not of the
+# deployment: an instance may hold planets whose catalogue designations are already identifiers
+# and stars that must be resolved by name to coordinates. Declared per domain as `coidentify`.
+#
+#   hub         resolve the name to a hub identifier that CARRIES per-source keys, and read them
+#               off it. Wikidata: QID -> CIK, EIN, FIPS. Works where someone curates the
+#               crosswalk, which in practice means organizations, places and people.
+#   native      the source's own designation IS the identifier. Nothing to resolve; the name from
+#               the question is the key. NASA Exoplanet Archive ("Kepler-22 b"), College
+#               Scorecard (a school name).
+#   resolver    a type-specific naming authority maps the name to an id or a position, but
+#               carries no per-source keys. SIMBAD for astronomical objects. NOT IMPLEMENTED.
+#   positional  no shared identifier at all; the join is geometric, within a radius. SIMBAD to
+#               Gaia or SDSS. Needs a cone-search binding the engine does not have. NOT
+#               IMPLEMENTED.
+#   structural  the identifier is COMPUTED from the object rather than looked up -- an InChIKey
+#               is a hash of a molecular structure, so two sources agree without a registry.
+#               NOT IMPLEMENTED.
+STRATEGIES = ("hub", "native", "resolver", "positional", "structural")
+IMPLEMENTED_STRATEGIES = ("hub", "native")
+
+
+def coidentify(item_type=None):
+    """The co-identification strategy for an item of `item_type`.
+
+    `item_type` is the open noun phrase query understanding returned ("company", "a US city",
+    "planet"). It is matched against declared domain names leniently and ONLY here -- never in a
+    prompt, and a miss is not an error. That matters: `type` stays a free noun phrase precisely
+    so the model is not constrained by a vocabulary, and a domain that fails to match simply
+    falls back to the instance default rather than failing the query.
+    """
+    phrase = (item_type or "").strip().casefold()
+    if phrase:
+        for domain in domains():
+            name = str(domain.get("name") or "").casefold()
+            declared = str(domain.get("coidentify") or "").strip().casefold()
+            if name and declared and (name == phrase or name in phrase or phrase in name):
+                return declared
+    return crosswalk()
+
+
 def crosswalk():
-    """Which entity-crosswalk service this instance uses, or "none".
+    """The instance-wide DEFAULT strategy, for item types no domain claims.
+
+    Kept as `ard.crosswalk` for backward compatibility and because most deployments have one
+    answer. "none" is accepted as a synonym for "native": both mean nothing is resolved.
 
     Resolution is corpus-shaped, not engine-shaped. Wikidata is a hub that CARRIES per-source
     keys (QID -> CIK, EIN, FIPS), which fits US organizations and places because Wikidata curates
@@ -97,7 +141,8 @@ def crosswalk():
     positional rather than by key, as SIMBAD-to-Gaia is. Only "wikidata" and "none" exist today;
     the point of the setting is that the assumption is written down rather than compiled in.
     """
-    return str(_section("ard").get("crosswalk") or "wikidata").strip().lower()
+    declared = str(_section("ard").get("crosswalk") or "hub").strip().lower()
+    return {"none": "native", "wikidata": "hub"}.get(declared, declared)
 
 
 def domains():

@@ -38,15 +38,18 @@ identity:
   placeholder: e.g. Is the American Red Cross a 501(c)(3)?
 domains:
 - name: company
+  coidentify: hub          # Wikidata carries CIK for US registrants
   identifiers:
   - cik
   - lei
   describes: US public companies, by SEC central index key
 - name: nonprofit
+  coidentify: hub          # Wikidata carries EIN
   identifiers:
   - ein
   describes: US tax-exempt organizations, by IRS employer identification number
 - name: place
+  coidentify: hub          # Wikidata carries FIPS and GNIS
   identifiers:
   - geo
   - gnis

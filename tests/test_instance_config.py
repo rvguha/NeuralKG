@@ -112,6 +112,43 @@ name_selectors: [q]
         self.assertIn("<h1>Exoplanet KG</h1>", harness.PAGE)
         self.assertNotIn("American Red Cross", harness.PAGE)
 
+    def test_coidentification_strategy_is_per_item_type(self):
+        """How two sources agree they mean the same object depends on the KIND OF THING.
+
+        A single instance can hold both: planets whose catalogue designations are already
+        identifiers, and stars that must be resolved by name. An instance-wide switch cannot
+        express that, which is why the strategy hangs off the domain.
+        """
+        self.use("""
+ard: {crosswalk: hub}
+domains:
+  - name: planet
+    identifiers: [pl_name]
+    coidentify: native
+  - name: star
+    identifiers: [hostname]
+    coidentify: hub
+""")
+        self.assertEqual(instance.coidentify("planet"), "native")
+        self.assertEqual(instance.coidentify("star"), "hub")
+        # the item type is a free noun phrase, so matching is lenient in both directions
+        self.assertEqual(instance.coidentify("an exoplanet planet"), "native")
+        # and a type no domain claims falls back to the instance default rather than failing:
+        # `type` stays open precisely so the model is not constrained by a vocabulary
+        self.assertEqual(instance.coidentify("galaxy cluster"), "hub")
+        self.assertEqual(instance.coidentify(None), "hub")
+
+    def test_unimplemented_strategies_are_nameable_but_distinguishable(self):
+        """positional and structural are real strategies we have not built.
+
+        They are in the vocabulary so a corpus can say what it needs, and separated from what
+        works so the engine can refuse loudly instead of silently resolving against the wrong
+        naming authority -- which would not error, it would answer about a different object."""
+        self.assertIn("positional", instance.STRATEGIES)
+        self.assertIn("structural", instance.STRATEGIES)
+        self.assertNotIn("positional", instance.IMPLEMENTED_STRATEGIES)
+        self.assertEqual(instance.IMPLEMENTED_STRATEGIES, ("hub", "native"))
+
     def test_crosswalk_service_is_declared_not_assumed(self):
         """Entity resolution is corpus-shaped, and Wikidata is one shape of it.
 
@@ -120,11 +157,12 @@ name_selectors: [q]
         false for a corpus whose own designations are the identifiers: the NASA Exoplanet Archive
         keys on "Kepler-22 b", so there is nothing to resolve and the two Wikidata requests buy a
         QID nothing will use."""
-        self.assertEqual(instance.crosswalk(), "wikidata")          # the shipped default
+        self.assertEqual(instance.crosswalk(), "hub")               # the shipped default
+        # the older spellings still parse: they named a service, the strategy names a method
         self.use("ard: {crosswalk: none}\n")
-        self.assertEqual(instance.crosswalk(), "none")
+        self.assertEqual(instance.crosswalk(), "native")
         self.use("ard: {crosswalk: WIKIDATA}\n")
-        self.assertEqual(instance.crosswalk(), "wikidata")          # folded and trimmed
+        self.assertEqual(instance.crosswalk(), "hub")
 
     def test_environment_overrides_the_file(self):
         """A container is configured by its platform; a file baked into an image must not win."""

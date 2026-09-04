@@ -1167,13 +1167,24 @@ async def _link_entity_async(ctx, *, context):
     if status in ("none", "ambiguous"):
         reason = "no named entity" if status == "none" else "entity needs clarification"
         return await finish([None], "skipped", reason=reason)
-    # A crosswalk service is a property of the CORPUS, not of the engine. Wikidata works for US
-    # organizations and places because it curates exactly those keys -- QID -> CIK, EIN, FIPS.
-    # It is the wrong model elsewhere: the NASA Exoplanet Archive's own designations ARE the
-    # identifiers, so there is nothing to resolve, and calling Wikidata costs two requests to
-    # learn a QID nothing will use. An instance declares `ard.crosswalk: none` to skip it.
-    if instance.crosswalk() == "none":
-        return await finish([None], "skipped", reason="this instance declares no crosswalk")
+    # How two sources agree that they mean the same object is a property of the KIND OF THING,
+    # not of the engine and not of the deployment. Wikidata works for US organizations and places
+    # because it curates exactly those keys (QID -> CIK, EIN, FIPS); it is the wrong model for a
+    # catalogue whose own designations are already identifiers, and it has nothing to say about
+    # objects that co-identify by position. So the strategy is declared per domain and selected
+    # by the item type this question is about.
+    strategy = instance.coidentify(ctx.get("type"))
+    if strategy == "native":
+        # The source's own designation is the key: nothing to resolve, and the name from the
+        # question is passed through by the descriptor's `$name` binding.
+        return await finish([None], "skipped", reason=f"{strategy}: the name is the identifier")
+    if strategy not in instance.IMPLEMENTED_STRATEGIES:
+        # Named in the vocabulary but not built. Refusing loudly beats silently falling back to
+        # the hub, which would resolve against the wrong naming authority and could return a
+        # confident answer about a different object.
+        raise runtime.Refused(
+            f"co-identification strategy '{strategy}' is declared for this item type but is not "
+            f"implemented (available: {', '.join(instance.IMPLEMENTED_STRATEGIES)})")
     import resolver
     qid = (ctx.get("entity_qid") or "").strip()
     if not (canonical or mention or qid):
