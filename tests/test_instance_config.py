@@ -4,18 +4,18 @@ The claim this file defends is that standing up Neural KG over a different ARD -
 world, with different kinds of thing in it -- is a configuration change, not a code change. A
 config that only *described* the deployment while the code kept its own hard-coded vocabulary
 would pass a shallower test and be worthless. So these assert on the query path: given an
-instance file describing the WHO Global Health Observatory, the engine must classify
-`SpatialDim` as an identifier and must stop treating `cik` as one.
+instance file describing the NASA Exoplanet Archive, the engine must classify `pl_name` as an
+identifier and must stop treating `cik` as one.
 
-The GHO is used rather than an invented corpus because it is a real UN statistical database of
-the same shape as the sources here -- numeric measures for a place and a year -- and its
-parameter names are checkable: `SpatialDim eq 'IND'` selects India's series, while
-`contains(IndicatorName,'life expectancy')` matches a string. That distinction is exactly what
-`domains` encodes: an identity a returned record can be validated against, versus a guess that
-must be resolved before anything is trusted.
+The archive is used rather than an invented corpus because it is real, open, and structurally
+the same problem as the sources here -- named objects with numeric attributes, answering in the
+same shapes: a point read (Kepler-22 b has radius 2.1 R-earth), a ranking (largest radius), a
+timeseries (discoveries per year). `pl_name = 'Kepler-22 b'` names a planet and a row returned
+for Kepler-22 c is rejected at validation; `like '%Kepler%'` is a guess that must be resolved
+first. That is exactly what `domains` encodes.
 
-It also has camelCase parameter names, which the previous all-lowercase example could not
-exercise -- and that gap hid a real bug (see the case test below).
+Case-insensitivity is asserted separately below. An all-lowercase invented example agreed with
+the code by construction and hid a real bug; real APIs spell parameters however they like.
 """
 import os
 import sys
@@ -46,24 +46,24 @@ class InstanceSwapTests(unittest.TestCase):
         # Write question lists as block sequences, not inline `[...]`: YAML rejects a bare
         # "?" inside a flow sequence, and every sample question ends in one.
         self.use("""
-identity: {name: WHO Health Observatory}
+identity: {name: Exoplanet KG}
 ard: {finder_url: "http://finder.internal:9000"}
 domains:
-  - name: country
-    identifiers: [SpatialDim]
-  - name: indicator
-    identifiers: [IndicatorCode]
-  - name: dimension
-    identifiers: ["Dim*"]
-name_selectors: [IndicatorName]
+  - name: planet
+    identifiers: [pl_name]
+  - name: star
+    identifiers: [hostname]
+  - name: photometry
+    identifiers: ["sy_*"]
+name_selectors: [q]
 """)
-        self.assertTrue(instance.is_identifier("SpatialDim"))
-        self.assertTrue(instance.is_identifier("IndicatorCode"))
-        self.assertTrue(instance.is_identifier("Dim1"))             # trailing * is a prefix
-        self.assertFalse(instance.is_identifier("IndicatorName"))   # a query, not an identity
+        self.assertTrue(instance.is_identifier("pl_name"))
+        self.assertTrue(instance.is_identifier("hostname"))
+        self.assertTrue(instance.is_identifier("sy_dist"))          # trailing * is a prefix
+        self.assertFalse(instance.is_identifier("q"))               # a search, not an identity
         self.assertFalse(instance.is_identifier("cik"))             # this ARD has no companies
-        self.assertEqual(instance.name_selectors(), ("IndicatorName",))
-        self.assertEqual(instance.identity()["name"], "WHO Health Observatory")
+        self.assertEqual(instance.name_selectors(), ("q",))
+        self.assertEqual(instance.identity()["name"], "Exoplanet KG")
         self.assertEqual(instance.finder_url(), "http://finder.internal:9000")
 
     def test_identifier_matching_is_case_insensitive(self):
@@ -71,24 +71,25 @@ name_selectors: [IndicatorName]
 
         `is_identifier` folded the parameter but not the configured entry, so it worked only
         because every identifier in the original vocabulary was lowercase (cik, ein, fips_place).
-        The GHO selects on `SpatialDim`, and `derive._names()` lowercases every parameter it
-        extracts before classifying it -- so an identity parameter was silently taken for
-        neither an identity nor a name."""
-        self.use("domains:\n  - {name: country, identifiers: [SpatialDim]}\n"
-                 "name_selectors: [IndicatorName]\n")
-        for spelling in ("SpatialDim", "spatialdim", "SPATIALDIM"):
+        `derive._names()` lowercases every parameter it extracts before classifying it, so a
+        camelCase identity parameter was silently taken for neither an identity nor a name."""
+        # awardeeName is real and already in this corpus -- derive.py's own URL regex cites
+        # `?awardeeName=` from USASpending -- so the camelCase case is not hypothetical.
+        self.use("domains:\n  - {name: recipient, identifiers: [awardeeId]}\n"
+                 "name_selectors: [awardeeName]\n")
+        for spelling in ("awardeeId", "awardeeid", "AWARDEEID"):
             self.assertTrue(instance.is_identifier(spelling), spelling)
         import importlib
         import derive
         importlib.reload(derive)
         self.addCleanup(lambda: (instance.reload(), importlib.reload(derive)))
-        self.assertIn("indicatorname", derive._KEY_NAME)   # folded to match _names() output
+        self.assertIn("awardeename", derive._KEY_NAME)   # folded to match _names() output
 
     def test_derive_classifies_parameters_through_the_instance(self):
         """derive.py is the consumer; assert through it, not just through the accessor."""
-        self.use("domains:\n  - {name: country, identifiers: [SpatialDim]}\n")
+        self.use("domains:\n  - {name: planet, identifiers: [pl_name]}\n")
         import derive
-        self.assertTrue(instance.is_identifier("SpatialDim"))
+        self.assertTrue(instance.is_identifier("pl_name"))
         self.assertFalse(instance.is_identifier("ein"))
         # derive reads the vocabulary rather than carrying its own copy
         self.assertNotIn("_KEY_ID", vars(derive))
@@ -96,19 +97,19 @@ name_selectors: [IndicatorName]
     def test_a_declared_instance_does_not_inherit_another_corpus_questions(self):
         """The trap this caught: `examples() or <legacy literal>`.
 
-        An instance over the WHO Global Health Observatory correctly declares no example
-        questions of its own, and inherited a homepage of US nonprofit questions -- "What was
-        the American Red Cross total revenue?" offered against world health statistics. A file that exists governs,
+        An instance over the NASA Exoplanet Archive correctly declares no example questions of
+        its own, and inherited a homepage of US nonprofit questions -- "What was the American
+        Red Cross total revenue?" offered against a catalogue of planets. A file that exists governs,
         including where it is silent.
         """
-        self.use("identity: {name: WHO Health Observatory}\ndomains:\n  - {name: country, identifiers: [SpatialDim]}\n")
+        self.use("identity: {name: Exoplanet KG}\ndomains:\n  - {name: planet, identifiers: [pl_name]}\n")
         import importlib
         import harness
         importlib.reload(harness)
         self.addCleanup(lambda: (instance.reload(), importlib.reload(harness)))
         self.assertEqual(harness.EXAMPLE_TABS, [])
         self.assertEqual(harness._SOURCE_ORDER, [])
-        self.assertIn("<h1>WHO Health Observatory</h1>", harness.PAGE)
+        self.assertIn("<h1>Exoplanet KG</h1>", harness.PAGE)
         self.assertNotIn("American Red Cross", harness.PAGE)
 
     def test_environment_overrides_the_file(self):

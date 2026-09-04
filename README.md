@@ -344,39 +344,41 @@ it to tell an operation parameter that selects an entity by *identity* (`cik=`, 
 tuple in the code with `startswith("fips")` hard-coded beside it.
 
 A different world declares its own identifiers and changes nothing else. An ARD over the
-**WHO Global Health Observatory** — a UN statistical database with the same shape of content as
-the US sources here, numeric measures for a place and a year:
+**NASA Exoplanet Archive** — named objects with numeric attributes, which is structurally the
+same problem as companies with revenues:
 
 ```yaml
 identity:
-  name: WHO Health Observatory
-  placeholder: e.g. What is life expectancy in India?
+  name: Exoplanet KG
+  placeholder: e.g. Which exoplanet has the largest radius?
 
 domains:
-  - name: country
-    identifiers: [SpatialDim]          # ISO3 code: SpatialDim eq 'IND'
-  - name: indicator
-    identifiers: [IndicatorCode]       # /api/WHOSIS_000001
-  - name: year
-    identifiers: [TimeDim]             # TimeDim eq 2021
+  - name: planet
+    identifiers: [pl_name]             # where pl_name = 'Kepler-22 b'
+  - name: star
+    identifiers: [hostname]            # where hostname = 'Kepler-22'
 
-name_selectors: [IndicatorName]        # contains(IndicatorName,'life expectancy') — a search
+name_selectors: [q]                    # like '%Kepler%' — a search, not an identity
 ```
 
-Those are the GHO's own OData parameter names, and the distinction is the one the engine cares
-about. `SpatialDim eq 'IND'` names a country and returns India's series; `contains(IndicatorName,
-'life expectancy')` returns whatever matches the string. The first is an identity the validator
-can check a returned record against — if the row comes back for Indonesia, the answer is
-rejected. The second is a guess that has to be resolved before anything is trusted.
+The distinction is the one the engine cares about. `pl_name = 'Kepler-22 b'` names a planet, and
+a row that comes back for Kepler-22 c is rejected at validation. `like '%Kepler%'` returns
+whatever matches the string, and has to be resolved before anything is trusted.
 
-It is also a fair test of the engine rather than a toy, because the same question shapes apply:
+It is a fair test rather than a toy because the archive answers in the same shapes as the
+sources here — these are live results from its TAP endpoint:
 
 ```
-timeseries   IND 2021 67.31 · 2020 70.19 · 2019 70.73 · 2018 70.35
-ranking      JPN 84.46 · SGP 83.86 · KOR 83.80  (life expectancy, 2021)
+point        Kepler-22 b   radius 2.1 R⊕, mass 9.1 M⊕, discovered 2011
+ranking      HAT-P-8 b 15.69 · HD 2039 b 12.7 · K2-43 b 4.51   (largest radius)
+timeseries   discoveries per year: 2019 194 · 2020 234 · 2021 564 · 2022 367 · 2023 323
 ```
 
-Standing this up needs OKF `_access.md` documents wrapping those endpoints — the work is
+`disc_year` is the period axis, the way a fiscal year is for SEC filings. The archive speaks
+ADQL over TAP, so it is a server-aggregate source like the BigQuery ones here: ranking and
+counting happen at the publisher rather than by pulling rows.
+
+Standing this up needs OKF `_access.md` documents wrapping those queries — the work is
 describing the source, not changing the engine.
 
 ### Notes
@@ -385,12 +387,12 @@ describing the source, not changing the engine.
   configured by its platform and a file baked into an image must not override that.
 - **A file that exists governs, including where it is silent.** If `instance.yaml` is present but
   declares no `examples`, the homepage shows none — it does not fall back to the shipped
-  questions. That fallback looked safe and was not: it gave a WHO Global Health Observatory
-  instance a homepage full of US nonprofit questions.
+  questions. That fallback looked safe and was not: it gave an exoplanet instance a homepage
+  full of US nonprofit questions.
 - **Write question lists as block sequences.** Every sample question ends in `?`, and YAML
   rejects a bare `?` inside a flow sequence, so `queries: [What is ...?]` fails to parse.
-- **Identifier matching is case-insensitive.** Real APIs are not all lowercase — the GHO uses
-  `SpatialDim` — so both the parameter and the configured entry are folded before comparison.
+- **Identifier matching is case-insensitive.** Real APIs are not all lowercase, so both the
+  parameter and the configured entry are folded before comparison.
 - Point elsewhere with `INSTANCE_CONFIG=/path/to/other.yaml`.
 
 ---

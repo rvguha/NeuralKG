@@ -2970,7 +2970,7 @@ if __name__ == "__main__":
 _INSTANCE_NAME = instance.identity()["name"]
 
 # The input placeholder is an example question, so it belongs to the corpus, not the engine.
-# Hardcoded, it offered "Is the American Red Cross a 501(c)(3)?" to a world-health ARD. Prefer an
+# Hardcoded, it offered "Is the American Red Cross a 501(c)(3)?" to an astronomy ARD. Prefer an
 # explicit identity.placeholder, else the instance's own first example, else a neutral prompt.
 if instance.configured():
     _tabs = instance.examples()
