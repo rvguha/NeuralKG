@@ -194,6 +194,15 @@ def examples():
     return listed if isinstance(listed, list) else []
 
 
+def extensions():
+    """Importable modules that register connector, auth or planning code for this instance.
+
+    Loaded in declared order by extensions.py. Empty for the default deployment, which is why
+    the engine behaves identically without one."""
+    listed = config().get("extensions")
+    return [str(m) for m in listed] if isinstance(listed, list) else []
+
+
 def source_examples():
     """dir -> [question], shown on the sources page."""
     return _section("source_examples")

@@ -13,6 +13,7 @@ Run as a CLI; the ASGI application in app.py owns HTTP serving:
 """
 import asyncio, functools, os, sys, json, math, re
 import instance
+import extensions
 import runtime
 import driver, ard_client, planner, store, llm, nlweb, connectors, runtime, docpage
 from domain import Attempt, Clarification, ClarificationOption, Evidence, QueryIntent
@@ -1389,6 +1390,18 @@ async def _fetch_async(state, ctx, *, context):
     f = _F(fm, identifier, state.get("key"), state.get("period") or "latest",
            ctx.get("attribute") or "", ctx.get("entity") or "", state, ctx)
     try:
+        # An instance's own executors come first: a deployment that registers `bigquery_guarded`
+        # or `composite` is replacing the fetch path deliberately, and must not be shadowed by a
+        # built-in that happens to match one of the frontmatter markers below. Selected by the
+        # document's `executor:` field -- named, not inferred, so a descriptor says what runs it.
+        declared = fm.get("executor")
+        if declared:
+            handler = extensions.executor(declared)
+            if handler is None:
+                raise runtime.Refused(
+                    f"this source declares executor {declared!r}, which no loaded extension "
+                    f"registers (loaded: {', '.join(sorted(extensions.registry().executors)) or 'none'})")
+            return await handler(f, context=context)
         if fm.get("concept"):
             return await _s_concept_async(f, context=context)
         import nonprofit
