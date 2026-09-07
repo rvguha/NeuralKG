@@ -134,7 +134,17 @@ Whether the attribute or the whole question is used as the primary retrieval tex
 
 The reference ARD index used here covers 11,023 measures across 17 sources, retrieving over descriptions and representative questions; other ARD deployments will index more or fewer. This query returned six SEC candidates: Revenues, several variants of Revenue from Contract with Customer, regulated revenue, and revenue net of interest expense.
 
-Discovery is two stages: an embedding prefilter, then a small model that re-ranks the survivors against the full card for each — title, description, and the questions people actually ask for it. Measured over the corpus's source labels, the embedding alone puts the answering source first for 90.2% of questions and somewhere in the top fifteen for 99.5%; the re-rank raises rank-1 to 99.5% and costs no recall. The candidate set is scored, never truncated by fiat, which is the difference between this stage and the filter §3.1 describes.
+Discovery is two stages: an embedding prefilter, then a small model that re-ranks the survivors against the full card for each — title, description, and the questions people actually ask for it. The candidate set is scored, never truncated by fiat, which is the difference between this stage and the filter §3.1 describes.
+
+Measured over the corpus's source labels, 193 questions, the re-rank finds the answering source for every question the prefilter can reach. The prefilter's own quality depends on how discovery is called, and the difference is worth stating because it is easy to quote the wrong number:
+
+| | attribute + question (what the engine sends) | question alone |
+|---|---|---|
+| prefilter, rank 1 | 83.4% | 90.2% |
+| prefilter, top 15 | 99.0% | 99.5% |
+| after re-rank | 99.5% | 99.5% |
+
+The engine sends two texts — the entity-expunged attribute and the original question — and pools them by the higher similarity. That costs 6.8 points of rank-1 quality, because a short generic attribute sits closer to everything in embedding space than a long specific question does, so pooling raw similarities compares two different scales and the generic text's whole neighbourhood outranks the specific text's best match. The re-rank absorbs it, so the cost is candidate quality and tokens rather than wrong answers — but a single-text measurement of this stage flatters it, and for months that was the only measurement being taken.
 
 One measurement note, since the numbers above were wrong for a day. The corpus labels an *acceptable set* of sources per question, not one right answer, and nine questions about 501(c)(3) status listed only the Form 990 source when the Business Master File declares the same capability. Scored against the incomplete labels the re-ranker appeared to lose 4 points of recall against the prefilter, which invited the conclusion that re-ranking was the bottleneck. It was the labels. An under-specified expectation does not present as an under-specified expectation; it presents as a component underperforming.
 
