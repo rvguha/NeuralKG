@@ -25,6 +25,11 @@ RUN grep -v "google-cloud-bigquery" requirements.txt > /tmp/req.txt \
 
 # Engine.
 COPY --chown=app:app *.py *.js run.sh ./
+# instance.yaml is what makes this deployment THIS deployment -- identity, domains,
+# example questions, the co-identification strategy. Without it instance.configured()
+# is false and the engine silently falls back to the literals it shipped with, which
+# looks like a working site serving the wrong catalogue's questions.
+COPY --chown=app:app instance.yaml ./
 # The prose pages are SERVED, not documentation-only: /life-of-a-query reads
 # LIFE_OF_A_QUERY.md off disk at request time and 404s with "not deployed" when it is
 # absent. Copying only *.py left the route live and the file missing.
