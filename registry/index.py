@@ -664,6 +664,8 @@ async def search_many_async(queries, k=5, prefilter=None, sources=None, rerank=T
         spread = _np_std([c["embed_score"] for c in window])
         if spread >= PREFILTER_NARROW_STD:
             break                      # the ordering discriminated and still nothing cleared
+        print(f"widen: examined={examined} best={best} slice_std={spread:.2f}",
+              file=sys.stderr, flush=True)
         cut = min(examined + PREFILTER_SLICE, PREFILTER_EXAMINED_MAX)
     raise NoRelevantTablesError(best, examined=examined)
 
