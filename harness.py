@@ -271,7 +271,13 @@ def _legacy_discovery_system(src_list):
             "Also return 'interpretations': whenever the MEASURE is genuinely ambiguous — it could mean "
             "several materially DIFFERENT things a careful analyst would not conflate — a list of the 2-4 "
             "distinct specific measures it could mean (each a concrete attribute string, entity removed). "
-            "These words are ALWAYS ambiguous, so ALWAYS populate interpretations for them:\n"
+            "Every interpretation must be a reading of the WHOLE attribute, keeping every qualifier the "
+            "question attached to it — who or what it is about, and any restriction on it. For 'pay its "
+            "officers' the readings are ['officer salary','officer total compensation'], NEVER "
+            "['salary','total compensation']: dropping 'officers' turns a question about a handful of "
+            "executives into one about the entire payroll, and the answer to the widened question looks "
+            "perfectly valid. An interpretation that is broader than the attribute is not an "
+            "interpretation of it.\n"            "These words are ALWAYS ambiguous, so ALWAYS populate interpretations for them:\n"
             "  'earnings' / 'profit' / 'profits' -> ['net income','operating income','EBITDA','gross profit']\n"
             "  'how big is X' / 'size of X' -> ['total revenue','total assets','number of employees','net income']\n"
             "  'performance' -> ['total revenue','net income','diluted earnings per share']\n"
@@ -1444,11 +1450,25 @@ async def _fetch_async(state, ctx, *, context):
 
 
 async def _answers_async(question, data, structural=None, *, context):
-    if structural is not None:
-        if not structural.accepted:
-            return False, structural.reason
-        if not structural.residual_semantic_check:
-            return True, ""
+    """Does this data answer THIS question — the whole question, not its parts.
+
+    The structural checks compare fields: unit, currency, period, grain, entity, and a
+    token-subset test on the measure label. Every one of those can pass while the answer is to a
+    different question. "How much does the ACLU pay its officers?" was answered with Salaries and
+    Wages -- $19.9M of total payroll against the $1.7M asked for -- and every structural check
+    passed, because the entity, the unit, the currency and the period were all right. Only the
+    measure was wrong, and the subset test read "salary" against "Salaries and Wages" as close
+    enough to call inconclusive rather than wrong.
+
+    So this runs on EVERY answer, not only when a structural check was inconclusive. Structure is
+    necessary and not sufficient: the measure is chosen by a model, and no prompt makes that safe
+    -- the fix that was supposed to stop the case above ("an interpretation must keep every
+    qualifier") did not survive contact, and the model still returned 'base salary' for a question
+    about officers. A final check against the original wording is the only thing that sees the
+    question as a whole.
+    """
+    if structural is not None and not structural.accepted:
+        return False, structural.reason
     try:
         raw = await llm.chat_async(
             _ADJUDICATION_SYSTEM,
@@ -1466,9 +1486,10 @@ async def _answers_async(question, data, structural=None, *, context):
         return True, ""
 
 
-async def _search_async(question, ctx=None, hits=None, *, context):
+async def _search_async(question, ctx=None, hits=None, assumptions=None, *, context):
     if ctx is None or hits is None:
-        ctx, hits = await discover_async(question, context=context)
+        ctx, hits = await discover_async(question, assumptions=assumptions,
+                                        context=context)
     if not hits:
         raise runtime.Refused("agent finder returned no sources")
     period = ctx.get("period") or "latest"
@@ -1547,9 +1568,14 @@ async def _present_async(question, evidence, *, context):
     return answer.strip(), "llm-synthesis"
 
 
-async def retrieve_for(question, *, context):
-    """Async universal join primitive; concurrent callers use forked scratch state."""
-    _ctx, _hits, hit, _tried, data, state = await _search_async(question, context=context)
+async def retrieve_for(question, *, assumptions=None, context):
+    """Async universal join primitive; concurrent callers use forked scratch state.
+
+    `assumptions` pins fields of the understood question (an attribute, a period) WITHOUT
+    rewriting the question text. That distinction matters: retrieval is conditioned on the
+    wording, so a rewritten question loses whatever words the rewrite did not happen to keep."""
+    _ctx, _hits, hit, _tried, data, state = await _search_async(
+        question, assumptions=assumptions, context=context)
     val = data.get("value", data.get("value_usd", data.get("total_usd")))
     try:
         val = float(val)
@@ -1713,9 +1739,16 @@ async def _run_ambiguous_async(question, ctx, *, context):
     entity, period = ctx.get("entity") or "", ctx.get("period") or "latest"
     year = "" if period == "latest" else f" in {period}"
     async def branch(interp, branch_context):
-        subquestion = f"{interp} for {entity}{year}" if entity else f"{interp}{year}"
+        # Pin the interpretation, keep the QUESTION. Building `f"{interp} for {entity}"` and
+        # retrieving on that discarded every word the rewrite did not reproduce: "How much does
+        # the ACLU pay its officers?" became "salary for American Civil Liberties Union", which
+        # retrieved Salaries and Wages -- the whole payroll, $19.9M against the $1.7M actually
+        # asked for. That is a correct answer to the rewritten question and a wrong answer to the
+        # one that was asked, and nothing downstream could tell, because the rewrite was the only
+        # record of what was wanted.
         try:
-            result = await retrieve_for(subquestion, context=branch_context)
+            result = await retrieve_for(question, assumptions={"attribute": interp},
+                                        context=branch_context)
             data = result.get("data") or {}
             return {"interpretation": interp, "value": result.get("value"),
                     "label": data.get("metric") or data.get("measure") or interp,

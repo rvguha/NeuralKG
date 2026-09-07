@@ -396,9 +396,10 @@ class RelevanceScoringError(RuntimeError):
 
 
 class NoRelevantTablesError(LookupError):
-    def __init__(self, top_score=None, threshold=MIN_RERANK_SCORE):
+    def __init__(self, top_score=None, threshold=MIN_RERANK_SCORE, examined=None):
         self.top_score = top_score
         self.threshold = threshold
+        self.examined = examined            # how many candidates were actually scored
         super().__init__("no table cleared the LLM relevance threshold")
 
 
@@ -420,7 +421,10 @@ def _rerank(query, candidates, k):
             reasoning_effort=os.getenv("ARD_RERANK_REASONING_EFFORT", "low"))).get("ranked", [])
     except Exception:
         return None
-    return _ranked_candidates(ranked, candidates, k)
+    eligible, top = _ranked_candidates(ranked, candidates, k)
+    if candidates and not eligible:
+        raise NoRelevantTablesError(top, examined=len(candidates))
+    return eligible
 
 
 def _rerank_messages(query, candidates, k):
@@ -438,7 +442,11 @@ def _rerank_messages(query, candidates, k):
         "downstream from the actual reported data, and a dropped candidate can never be chosen. "
         "For an amount prefer a dollar/count/median value; for a rate or share prefer a percentage. "
         f'Return JSON {{"ranked":[{{"i":<candidate number>,"score":<0-100 relevance>}}]}} '
-        f"for the {k} most relevant tables, best first. Omit only the CLEARLY irrelevant. "
+        f"for the {k} most relevant tables, best first. SCORE EVERY candidate you return and "
+        "NEVER return an empty list: an irrelevant table gets a LOW score (0-20), it is not "
+        "omitted. The score is evidence the caller acts on — 'everything scored 5' means "
+        "retrieval returned the wrong set and the search should widen, while returning "
+        "nothing at all is indistinguishable from a failed call. "
         "Return only the compact JSON object; do not explain any choice.")
     return system, f"Query: {query}\n\nCandidate tables:\n{listing}"
 
@@ -456,10 +464,9 @@ def _ranked_candidates(ranked, candidates, k):
                 and isinstance(score, (int, float))):
             scored.append({**candidates[i], "score": score})
     eligible = [candidate for candidate in scored if candidate["score"] >= MIN_RERANK_SCORE]
-    if candidates and not eligible:
-        top = max((candidate["score"] for candidate in scored), default=None)
-        raise NoRelevantTablesError(top)
-    return eligible
+    # Report, never raise. Whether "nothing cleared the threshold" is fatal depends on how much of
+    # the ordering has been examined, and only the caller knows that.
+    return eligible, max((candidate["score"] for candidate in scored), default=None)
 
 
 async def _rerank_async(query, candidates, k, context):
@@ -533,6 +540,24 @@ PREFILTER = int(os.getenv("ARD_PREFILTER", "15"))
 # Apple 9, Sierra Club 6, median household income 24, poverty-rate-in-Chicago 44.
 PREFILTER_MAX = int(os.getenv("ARD_PREFILTER_MAX", "150"))
 PREFILTER_BAND = float(os.getenv("ARD_PREFILTER_BAND", "0.05")) * 100   # embed_score is 0-100
+
+# Widening. Vector search sometimes cannot separate a large set of near-identical descriptions:
+# the ordering inside such a band is close to arbitrary, so the answer may sit just outside
+# whatever slice we happened to take. When a slice yields nothing above the threshold AND its
+# score distribution is narrow — the signal that ranking was arbitrary — take the next slice and
+# score that too, to a hard ceiling. A WIDE distribution says the ordering was meaningful, so if
+# nothing in it cleared the bar the answer is probably not deeper either, and further rounds are
+# spend without evidence.
+PREFILTER_SLICE = int(os.getenv("ARD_PREFILTER_SLICE", "30"))
+PREFILTER_EXAMINED_MAX = int(os.getenv("ARD_PREFILTER_EXAMINED_MAX", "120"))
+# Measured over the corpus: queries whose top-30 the re-ranker can separate score std 3.4-6.8;
+# the ones where it cannot sit at 1.3-2.8. The ACLU officer-pay failure is 2.77 with the answer
+# at rank 31 — just outside the first slice, which is the case this exists for.
+PREFILTER_NARROW_STD = float(os.getenv("ARD_PREFILTER_NARROW_STD", "3.0"))
+
+
+def _np_std(values):
+    return float(np.std(np.asarray(values, dtype=np.float64))) if values else 0.0
 
 
 def _adaptive_prefilter(embed_scores, floor):
@@ -615,15 +640,32 @@ async def search_many_async(queries, k=5, prefilter=None, sources=None, rerank=T
         candidates.append({**m, "embed_score": round(float(scores[i]) * 100, 1)})
         if len(candidates) >= max(prefilter, PREFILTER_MAX):
             break
-    candidates = candidates[:_adaptive_prefilter(
-        [c["embed_score"] for c in candidates], prefilter) if rerank else prefilter]
     if not rerank:
         return [{**candidate, "score": candidate["embed_score"]}
-                for candidate in candidates[:k]]
-    reranked = await _rerank_async(rerank_query or queries[0], candidates, k, context)
-    if reranked is None:
-        raise RelevanceScoringError("LLM table relevance scoring failed")
-    return reranked
+                for candidate in candidates[:prefilter][:k]]
+
+    # First slice is at least PREFILTER_SLICE, or the adaptive band when that is wider.
+    first = max(PREFILTER_SLICE, _adaptive_prefilter(
+        [c["embed_score"] for c in candidates], prefilter))
+    examined, best, cut = 0, None, min(first, PREFILTER_EXAMINED_MAX)
+    while examined < min(len(candidates), PREFILTER_EXAMINED_MAX):
+        window = candidates[examined:cut]
+        if not window:
+            break
+        reranked = await _rerank_async(rerank_query or queries[0], window, k, context)
+        if reranked is None:
+            raise RelevanceScoringError("LLM table relevance scoring failed")
+        eligible, top = reranked
+        examined = cut
+        if top is not None and (best is None or top > best):
+            best = top
+        if eligible:
+            return eligible
+        spread = _np_std([c["embed_score"] for c in window])
+        if spread >= PREFILTER_NARROW_STD:
+            break                      # the ordering discriminated and still nothing cleared
+        cut = min(examined + PREFILTER_SLICE, PREFILTER_EXAMINED_MAX)
+    raise NoRelevantTablesError(best, examined=examined)
 
 
 async def search_async(query, k=5, prefilter=None, sources=None, rerank=True, *, context):
