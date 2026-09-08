@@ -48,6 +48,7 @@ import driver
 import harness
 import nlweb
 import runtime
+import stage_reports
 from query_context import QueryContext
 from source_clients import AsyncSourceClients
 
@@ -483,7 +484,9 @@ def create_app(engine=harness.run, clients_factory=AsyncSourceClients):
                 "queries": (item.get("representativeQueries") or [])[:4]}
                 for item in data.get("entries", [])]})
 
-    routes = [Route("/ask", ask, methods=["GET", "POST"]), Route("/healthz", healthz),
+    routes = [Route("/tests", stage_reports.serve), Route("/tests/", stage_reports.serve),
+        Route("/tests/{artifact:path}", stage_reports.serve),
+        Route("/ask", ask, methods=["GET", "POST"]), Route("/healthz", healthz),
         Route("/health", health), Route("/costs", costs), Route("/sources", sources),
         Route("/sites", sites),
         Route("/ard/manifest", ard_manifest), Route("/ard/publishers", ard_publishers),
