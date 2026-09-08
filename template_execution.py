@@ -136,6 +136,14 @@ async def run(question, understanding, hits, *, context):
         return await template_dag_execution.run(question,understanding,hits,context=context)
     payload={'question':question,'candidates':candidates,'resources':hits}
     plan = await compile_plan(payload, candidates, hits, context=context)
+    if plan['candidate'] == 'lookup.scalar':
+        # Check the original wording, before a bound read replaces an ambiguous
+        # measure with one specific interpretation (e.g. earnings -> EPS).
+        measure = json.loads(await harness.llm.chat_async(
+            harness._measure_understanding_system({'entity':plan['reads'][0]['entity']}),
+            question, context=context, json_mode=True, stage='understand-measure'))
+        if len(measure.get('interpretations') or []) >= 2:
+            raise runtime.Refused('The requested measure has multiple interpretations; preserve the clarification flow')
     await harness._asay(context,'plan_chosen',shape=plan['candidate'],verdict='executable',summary=plan.get('reason',''))
     evidence=[]; attempts=[]
     for index, read in enumerate(plan['reads']):
@@ -144,7 +152,24 @@ async def run(question, understanding, hits, *, context):
         coords={'entity':read['entity'],'type':read['type'],'attribute':read['measure'],'period':read['period'],'strict_period':True}
         _,_,_,_,data,state=await harness._search_async(read['question'],ctx=coords,hits=[hit],context=context)
         ev=state['_evidence']
+        if isinstance(data,dict) and (data.get('_ambiguity') or data.get('ambiguity')):
+            raise runtime.Refused('The source returned ambiguity; preserve the clarification flow')
         check_period(read['period'],ev.to_dict())
+        rich = ev.kind == 'complex' or any(data.get(k) for k in ('results','entity_groups','interpretations','ranking','series','coverage','ambiguity')) if isinstance(data,dict) else ev.kind == 'complex'
+        identity = plan.get('expression') in ({'read':0},{'op':'identity','args':[{'read':0}]})
+        if rich:
+            if plan['candidate']=='lookup.scalar' and len(plan['reads'])==1 and identity:
+                answer,renderer=await harness._present_async(question,ev,context=context)
+                actual=harness._cite_concept_actually_used(hit,data)
+                await harness._asay(context,'input_completed',index=index,evidence=ev.to_dict())
+                await harness._asay(context,'synthesis_started',shape=plan['candidate'])
+                return {'question':question,'shape':plan['candidate'],'answer':answer,'answer_renderer':renderer,
+                        'plan':plan,'data':data,'evidence':ev.to_dict(),
+                        'attempts':[a.to_dict() for a in state.get('_attempts',[])],
+                        'source':{'identifier':actual['identifier'],'title':actual['title'],'publisher':actual.get('publisher')},
+                        'candidates':hits,'template_candidates':understanding['candidates'],
+                        'usage':context.usage_ledger.snapshot(),'discovery_usage':context.discovery_ledger.snapshot()}
+            raise runtime.Refused('This calculation needs the established structured-data path to preserve records, scope and ambiguity')
         if ev.value is None:raise runtime.Refused('Read did not produce a scalar; hidden aggregation is not permitted')
         evidence.append(ev.to_dict()); attempts.extend(a.to_dict() for a in state.get('_attempts',[]))
         await harness._asay(context,'input_completed', index=index, evidence=evidence[-1])

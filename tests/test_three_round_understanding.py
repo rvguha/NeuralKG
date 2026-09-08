@@ -146,9 +146,9 @@ class ThreeRoundTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(search.await_args.args[0],['first','second'])
         self.assertEqual(search.await_args.kwargs['sources'],['explicit'])
 
-    async def test_new_candidates_never_fall_back_to_old_point_executor(self):
+    async def test_empty_candidates_cannot_become_an_arbitrary_point_answer(self):
         with mock.patch.object(harness,'discover_async',return_value=({'candidates':[]},[])),mock.patch.object(harness.planner,'plan') as planner:
-            with self.assertRaisesRegex(runtime.Refused,'candidate-aware planning'):
+            with self.assertRaisesRegex(runtime.Refused,'agent finder returned no sources'):
                 await harness.run('q',context=QueryContext())
         planner.assert_not_called()
 

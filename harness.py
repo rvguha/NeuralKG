@@ -1019,10 +1019,12 @@ async def query_understanding_async(question, *, context):
 classify_async = query_understanding_async
 
 
-async def discover_async(question, sites=None, assumptions=None, *, context):
+async def discover_async(question, sites=None, assumptions=None, *, context, _understand=None):
     """Understand and discover without crossing a synchronous provider boundary."""
     await _asay(context, "status", icon="🔍", msg="Reading your question…")
-    ctx = await query_understanding_async(question, context=context)
+    if _understand is None and context.execution_mode == 'established':
+        _understand = _legacy_query_understanding_async
+    ctx = await (_understand or query_understanding_async)(question, context=context)
     if 'candidates' in ctx:
         context.memo['understanding'] = ctx
         if assumptions:
@@ -1083,13 +1085,20 @@ async def discover_async(question, sites=None, assumptions=None, *, context):
         attribute = readings[0]
     primary = (attribute or question) if resolvable else question
     secondary = question if resolvable else (attribute or question)
-    extra = readings[1:3] if not ctx.get("attribute") and readings else []
+    extra = readings
+    # Preserve the original question, while making unresolved alternatives (or
+    # a caller-selected interpretation) visible to relevance scoring as well.
+    discovery_question = question
+    if readings:
+        discovery_question += '\nPossible measures to answer separately: ' + '; '.join(readings)
+    elif isinstance(assumptions, dict) and assumptions.get('attribute'):
+        discovery_question += '\nCaller-selected measure: ' + str(assumptions['attribute'])
     await _asay(context, "status", icon="📚",
                 msg="Asking the ARD Agent Finder which data tables can answer this…")
     try:
         found = await ard_client.search_many_async(
             [primary, secondary] + extra, k=12, sources=sources,
-            rerank_query=question, context=context)
+            rerank_query=discovery_question, context=context)
     except ard_client.DiscoveryError as exc:
         raise runtime.Refused(str(exc)) from exc
     seen, hits = set(), []
@@ -2143,7 +2152,7 @@ async def _run_correlate_async(question, ctx, *, context):
             "caveats": ["correlation is not causation", "this is an ecological correlation"]}
 
 
-async def run(question, sites=None, assumptions=None, on_ambiguity="answer", *, context=None):
+async def run(question, sites=None, assumptions=None, on_ambiguity="answer", *, context=None, _compatibility=False):
     """Complete event-loop-native engine, including every composite plan."""
     owned_clients = None
     if context is None:
@@ -2155,11 +2164,37 @@ async def run(question, sites=None, assumptions=None, on_ambiguity="answer", *, 
     try:
         if on_ambiguity not in ("answer", "ask", "all"):
             on_ambiguity = "answer"
-        ctx, hits = await discover_async(
-            question, sites=sites, assumptions=assumptions, context=context)
-        if 'candidates' in ctx:
-            import template_execution
-            return await template_execution.run(question, ctx, hits, context=context)
+        async def preserve(reason):
+            context.memo.setdefault('compatibility_attempts', []).append({'reason':reason})
+            await _asay(context,'status',icon='↪️',msg='Using the established retrieval and answer path: '+reason)
+            branch = context.fork()
+            branch.execution_mode = 'established'
+            result = await run(question, sites=sites, assumptions=assumptions,
+                               on_ambiguity=on_ambiguity, context=branch, _compatibility=True)
+            context.memo['compatibility'] = branch.memo
+            context.memo['attempts'] = branch.memo.get('attempts', [])
+            result['execution_path'] = 'established-pipeline'
+            result['compatibility_reason'] = reason
+            result['template_candidates'] = (context.memo.get('understanding') or {}).get('candidates',[])
+            return result
+
+        if assumptions and not _compatibility:
+            return await preserve('applying the clarification you selected')
+        if _compatibility:
+            ctx, hits = await discover_async(question,sites=sites,assumptions=assumptions,
+                context=context,_understand=_legacy_query_understanding_async)
+        else:
+            try:
+                ctx, hits = await discover_async(question,sites=sites,assumptions=assumptions,context=context)
+                if 'candidates' in ctx:
+                    import template_execution
+                    result = await template_execution.run(question,ctx,hits,context=context)
+                    result['execution_path'] = 'template'
+                    return result
+            except (runtime.QueryCancelled,runtime.QueryBudgetExceeded):
+                raise
+            except (runtime.Refused, ard_client.NoRelevantTablesError) as exc:
+                return await preserve(str(exc))
         if not hits:
             raise runtime.Refused("agent finder returned no sources")
         candidates = ctx.get("entity_candidates") or []
@@ -2203,8 +2238,8 @@ async def run(question, sites=None, assumptions=None, on_ambiguity="answer", *, 
         plan = planner.plan(shape, hits, ctx.get("quantifier") or "exhaustive")
         await _asay(context, "plan_chosen", shape=shape, verdict=plan["verdict"],
                     why=plan.get("why", ""), summary=planner.describe(shape, plan))
-        grant_hit = next((hit for hit in ([plan["hit"]] if plan.get("hit") else []) + hits[:2]
-                          if (driver.frontmatter(hit["identifier"]) or {}).get("irsgrants")), None)
+        selected_hit = plan.get('hit')
+        grant_hit = selected_hit if selected_hit and (driver.frontmatter(selected_hit['identifier']) or {}).get('irsgrants') else None
         state = None
         if grant_hit:
             import grants as grants_module
@@ -2264,6 +2299,10 @@ async def run(question, sites=None, assumptions=None, on_ambiguity="answer", *, 
                                      "reason": resolution.get("reason"),
                                      "options": clarification.to_dict()["options"]}
         hit = _cite_concept_actually_used(hit, data)
+        if (plan.get('hit') or {}).get('identifier') != hit.get('identifier'):
+            plan = {**plan, 'hit':hit}
+            await _asay(context,'plan_chosen',shape=shape,verdict=plan['verdict'],
+                        summary='Actual source after retrieval: '+hit.get('title',hit['identifier']))
         if state and state.get("_evidence"):
             evidence, attempts = state["_evidence"], state.get("_attempts") or []
             evidence.identifier = hit["identifier"]

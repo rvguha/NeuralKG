@@ -93,7 +93,7 @@ class AsyncPointEngineTests(unittest.IsolatedAsyncioTestCase):
         for case in NAMED_CASES:
             by_question.setdefault(case["question"], []).append(case)
 
-        async def discover(question, sites=None, assumptions=None, context=None):
+        async def discover(question, sites=None, assumptions=None, context=None, _understand=None):
             choices = by_question[question]
             case = next((item for item in choices if item.get("assumptions") == assumptions), choices[0])
             shape = case["shape"]

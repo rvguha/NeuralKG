@@ -74,5 +74,5 @@ class WiringTests(unittest.IsolatedAsyncioTestCase):
     async def test_candidates_dispatch_to_new_executor(self):
         with patch.object(harness,'discover_async',AsyncMock(return_value=({'candidates':[]},[]))), patch.object(te,'run',AsyncMock(return_value={'answer':'fixed'})) as execute:
             answer=await harness.run('q',context=QueryContext())
-        self.assertEqual(answer,{'answer':'fixed'})
+        self.assertEqual(answer,{'answer':'fixed','execution_path':'template'})
         execute.assert_awaited_once()

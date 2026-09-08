@@ -162,6 +162,8 @@ def _result_messages(stream, request, result):
             "discovery_usage": result.get("discovery_usage"), "intent": result.get("intent"),
             "attempts": result.get("attempts") or [], "evidence": result.get("evidence"),
             "answer_renderer": result.get("answer_renderer")}
+        content['execution_path'] = result.get('execution_path')
+        content['compatibility_reason'] = result.get('compatibility_reason')
         if result.get('template_candidates'):
             content['template_candidates'] = result['template_candidates']
         if clarification:

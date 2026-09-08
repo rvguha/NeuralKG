@@ -14,6 +14,8 @@ def save(context, question, events, result=None, error=None):
             'understanding': context.memo.get('understanding'),
             'resources': context.memo.get('resources'),
             'planning_attempts': context.memo.get('planning_attempts', []),
+            'compatibility_attempts': context.memo.get('compatibility_attempts', []),
+            'compatibility': context.memo.get('compatibility'),
             'result': result, 'error': error,
             'usage': context.usage_ledger.snapshot() if context.usage_ledger else None,
             'discovery_usage': context.discovery_ledger.snapshot() if context.discovery_ledger else None}
