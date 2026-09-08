@@ -29,6 +29,11 @@ shapes:
     A latest-period discovery dependency uses lookup.event-bound instead.
   examples:
   - Is the Sierra Club classified as a 501(c)(3)?
+  negative_examples:
+  - question: By what percentage did Tesla's revenue grow from 2021 to 2023?
+    input_condition: Two reported revenue values, with common units and reporting basis.
+    why_not: Two independently acquired scalar operands and a formula require the binary plan.
+    instead: lookup.binary
   not:
     lookup.binary: Two independently acquired scalar operands and a formula require the binary plan.
     lookup.event-bound: A date discovered by one request before binding the value request adds a dependency.
@@ -107,6 +112,17 @@ shapes:
     constructing a breakdown from contributions uses reduce.grouped.
   examples:
   - Show Pfizer's company profile.
+  negative_examples:
+  - question: What is total NIH funding by state?
+    input_condition: Raw contributions with co-delivered state keys and a unique contribution grain.
+    why_not: A published record or component vector is not construction of group statistics from contributions.
+    instead: reduce.grouped
+  - question: By what percentage did Tesla's revenue grow from 2021 to 2023?
+    input_condition: Two reported revenue values, with common units and reporting basis.
+    why_not: The requested output requires Compute from two independently bound scalar operands. Two supplied
+      values; annualized means endpoint CAGR; period-over-period uses supplied period totals; geographic allocation
+      weight is supplied. Derived operands and raw windows route separately.
+    instead: lookup.binary
   not:
     reduce.grouped: A published record or component vector is not construction of group statistics from contributions.
   slots:
@@ -148,6 +164,11 @@ shapes:
     raw windows route separately.
   examples:
   - By what percentage did Tesla's revenue grow from 2021 to 2023?
+  negative_examples:
+  - question: Is the Sierra Club classified as a 501(c)(3)?
+    input_condition: A directly addressable status value, with requested freshness metadata if any.
+    why_not: Two independently acquired scalar operands and a formula require the binary plan.
+    instead: lookup.scalar
   not:
     lookup.scalar: Two independently acquired scalar operands and a formula require the binary plan.
     reduce.entity-share: A denominator calculated from population contributions requires enumeration and reduction.
@@ -206,6 +227,11 @@ shapes:
     release.
   examples:
   - What did the original release report for June 2023 unemployment?
+  negative_examples:
+  - question: Was this nonprofit's 2021 revenue restated between the original and amended filings?
+    input_condition: Two release-addressable values and their reporting bases; not a single historical lookup.
+    why_not: Determining whether a value changed between releases needs two release assertions.
+    instead: lookup.version-comparison
   not:
     lookup.version-comparison: Determining whether a value changed between releases needs two release assertions.
   slots:
@@ -253,6 +279,11 @@ shapes:
     binding the value request.
   examples:
   - What was GM's revenue in the year it filed for bankruptcy?
+  negative_examples:
+  - question: Is the Sierra Club classified as a 501(c)(3)?
+    input_condition: A directly addressable status value, with requested freshness metadata if any.
+    why_not: A date discovered by one request before binding the value request adds a dependency.
+    instead: lookup.scalar
   not:
     lookup.scalar: A date discovered by one request before binding the value request adds a dependency.
   slots:
@@ -305,6 +336,12 @@ shapes:
     claims, missing rows do not.
   examples:
   - List Texas nonprofits with revenue above $5 million and at least 50 employees.
+  negative_examples:
+  - question: List every county with its health spending where available, retaining counties without spending
+      data.
+    input_condition: County relation and spending relation, left join, null markers for missing spending.
+    why_not: Predicates needing fields from different inputs require alignment, not a row-only predicate.
+    instead: join.enrich
   not:
     join.enrich: Predicates needing fields from different inputs require alignment, not a row-only predicate.
     set.union: OR over independently enumerated memberships needs union and deduplication.
@@ -353,6 +390,11 @@ shapes:
     is fan-out cardinality one.
   examples:
   - Show Ford and GM revenue for each year from 2015 through 2023.
+  negative_examples:
+  - question: Show Harvard and MIT NIH funding side by side.
+    input_condition: Two reported values; no requested normalization or calculated difference.
+    why_not: Series inputs preserve multiple time observations; scalar operands are already bound values.
+    instead: compare.values
   not:
     compare.values: Series inputs preserve multiple time observations; scalar operands are already bound values.
   slots:
@@ -418,6 +460,26 @@ shapes:
     not a hidden resampling or derived measure.
   examples:
   - Show Harvard and MIT NIH funding side by side.
+  negative_examples:
+  - question: Show Ford and GM revenue for each year from 2015 through 2023.
+    input_condition: Series input for each named company and an explicit calendar alignment policy.
+    why_not: Series inputs preserve multiple time observations; scalar operands are already bound values.
+    instead: series.values
+  - question: Which of Harvard, MIT and Yale received the most NIH funding?
+    input_condition: One directly supplied funding value per named candidate.
+    why_not: The requested output requires Order a closed named set by supplied values. The comparison measure
+      is supplied, not computed from new operands.
+    instead: compare.winner
+  - question: By what percentage did Tesla's revenue grow from 2021 to 2023?
+    input_condition: Two reported revenue values, with common units and reporting basis.
+    why_not: The requested output requires Compute from two independently bound scalar operands. Two supplied
+      values; annualized means endpoint CAGR; period-over-period uses supplied period totals; geographic allocation
+      weight is supplied. Derived operands and raw windows route separately.
+    instead: lookup.binary
+  - question: Do Apple and Samsung report identical revenue for the iPhone in 2023?
+    input_condition: Two independently supplied publisher assertions must be tested for equality.
+    why_not: Displaying two values does not perform the requested equality test.
+    instead: lookup.binary
   not:
     series.values: Series inputs preserve multiple time observations; scalar operands are already bound values.
     compare.derived-values: Computing normalization per operand adds explicit paired reads and a formula.
@@ -459,6 +521,16 @@ shapes:
     e.g. per-capita normalization or endpoint growth.
   examples:
   - Show research funding per faculty member for Harvard and MIT.
+  negative_examples:
+  - question: Show Harvard and MIT NIH funding side by side.
+    input_condition: Two reported values; no requested normalization or calculated difference.
+    why_not: Computing normalization per operand adds explicit paired reads and a formula.
+    instead: compare.values
+  - question: Which grew revenue faster from 2020 to 2024, Pfizer or Merck?
+    input_condition: Two revenue endpoints per candidate, with percent growth specified or clarified.
+    why_not: The requested output requires Order named candidates by a two-input computed measure. Compute ratio,
+      difference or growth per candidate before ordering.
+    instead: compare.derived-winner
   not:
     compare.values: Computing normalization per operand adds explicit paired reads and a formula.
   slots:
@@ -508,6 +580,11 @@ shapes:
   asks: Order a closed named set by supplied values. The comparison measure is supplied, not computed from new operands.
   examples:
   - Which of Harvard, MIT and Yale received the most NIH funding?
+  negative_examples:
+  - question: Which grew revenue faster from 2020 to 2024, Pfizer or Merck?
+    input_condition: Two revenue endpoints per candidate, with percent growth specified or clarified.
+    why_not: Ranking an explicitly derived measure needs its operands and computation before ordering.
+    instead: compare.derived-winner
   not:
     compare.derived-winner: Ranking an explicitly derived measure needs its operands and computation before ordering.
     rank.population: Named finite candidates do not require open-population enumeration.
@@ -571,6 +648,11 @@ shapes:
     before ordering.
   examples:
   - Which grew revenue faster from 2020 to 2024, Pfizer or Merck?
+  negative_examples:
+  - question: Which of Harvard, MIT and Yale received the most NIH funding?
+    input_condition: One directly supplied funding value per named candidate.
+    why_not: Ranking an explicitly derived measure needs its operands and computation before ordering.
+    instead: compare.winner
   not:
     compare.winner: Ranking an explicitly derived measure needs its operands and computation before ordering.
   slots:
@@ -644,6 +726,11 @@ shapes:
     reads and a formula.
   examples:
   - What is the gap between Stanford and MIT research funding per faculty member?
+  negative_examples:
+  - question: By what percentage did Tesla's revenue grow from 2021 to 2023?
+    input_condition: Two reported revenue values, with common units and reporting basis.
+    why_not: Subtracting two already supplied values does not require calculating each value first.
+    instead: lookup.binary
   not:
     lookup.binary: Subtracting two already supplied values does not require calculating each value first.
   slots:
@@ -698,6 +785,11 @@ shapes:
     all population scores must be comparable.
   examples:
   - Which ten counties have the lowest diabetes rates?
+  negative_examples:
+  - question: Which of Harvard, MIT and Yale received the most NIH funding?
+    input_condition: One directly supplied funding value per named candidate.
+    why_not: Named finite candidates do not require open-population enumeration.
+    instead: compare.winner
   not:
     compare.winner: Named finite candidates do not require open-population enumeration.
     rank.named-position: A key-relative window needs the named member's position, not a supplied top-N offset.
@@ -759,6 +851,11 @@ shapes:
     zero returns its rank. Projection does not perform another read.
   examples:
   - Which universities are immediately above and below Duke in NIH funding rank?
+  negative_examples:
+  - question: Which ten counties have the lowest diabetes rates?
+    input_condition: Complete county scores or a certified global ordered endpoint, with ties specified.
+    why_not: A key-relative window needs the named member's position, not a supplied top-N offset.
+    instead: rank.population
   not:
     rank.population: A key-relative window needs the named member's position, not a supplied top-N offset.
     rank.reference-distance: Closest numeric values are not necessarily the adjacent ordinal ranks.
@@ -834,6 +931,11 @@ shapes:
     value distance can order neighbors differently from rank distance.
   examples:
   - Which five counties have obesity rates closest to Travis County's rate?
+  negative_examples:
+  - question: Which universities are immediately above and below Duke in NIH funding rank?
+    input_condition: Population ordering plus location of Duke; the offset is not given in advance.
+    why_not: Closest numeric values are not necessarily the adjacent ordinal ranks.
+    instead: rank.named-position
   not:
     rank.named-position: Closest numeric values are not necessarily the adjacent ordinal ranks.
   slots:
@@ -918,6 +1020,13 @@ shapes:
     and rank subtraction.
   examples:
   - Which counties rose the most in obesity rank between 2015 and 2023?
+  negative_examples:
+  - question: Which companies' stock prices rose over 20 percent in 2025 while consumer complaints fell at least
+      15 percent?
+    input_condition: Price endpoints and complaint endpoints, aligned by company; four acquisitions and explicit
+      change formulas.
+    why_not: A change of rank requires ranking both full populations before subtraction.
+    instead: join.double-change
   not:
     join.double-change: A change of rank requires ranking both full populations before subtraction.
   slots:
@@ -999,6 +1108,11 @@ shapes:
     required; tied-value convention is explicit.
   examples:
   - What percentile is Rice University in for research spending?
+  negative_examples:
+  - question: What is the interquartile range of county obesity rates?
+    input_condition: Complete observations, quantiles .25 and .75, and an interpolation convention.
+    why_not: Percentile rank counts around a reference value; a quantile selects an ordered population value.
+    instead: reduce.quantiles
   not:
     reduce.quantiles: Percentile rank counts around a reference value; a quantile selects an ordered population
       value.
@@ -1055,6 +1169,11 @@ shapes:
     bridge or prior group aggregate.
   examples:
   - Which nonprofit has the largest revenue in each state?
+  negative_examples:
+  - question: Which ten counties have the lowest diabetes rates?
+    input_condition: Complete county scores or a certified global ordered endpoint, with ties specified.
+    why_not: Selecting within each group adds group partitioning.
+    instead: rank.population
   not:
     rank.population: Selecting within each group adds group partitioning.
   slots:
@@ -1126,6 +1245,11 @@ shapes:
     IQR/quantiles, top-N share, Gini and distinct counts use other templates.
   examples:
   - What is the mean diabetes rate across US counties?
+  negative_examples:
+  - question: What is the interquartile range of county obesity rates?
+    input_condition: Complete observations, quantiles .25 and .75, and an interpolation convention.
+    why_not: Exact quantiles and IQR require order statistics, not bounded-state moment accumulation.
+    instead: reduce.quantiles
   not:
     reduce.quantiles: Exact quantiles and IQR require order statistics, not bounded-state moment accumulation.
     reduce.distinct: Distinct counting requires identity deduplication state.
@@ -1194,6 +1318,11 @@ shapes:
     and subtracts results. No fixed-state approximation substituted.
   examples:
   - What is the interquartile range of county obesity rates?
+  negative_examples:
+  - question: What percentile is Rice University in for research spending?
+    input_condition: Rice's reference value and a complete population for below/equal/total counts.
+    why_not: Percentile rank counts around a reference value; a quantile selects an ordered population value.
+    instead: rank.percentile
   not:
     rank.percentile: Percentile rank counts around a reference value; a quantile selects an ordered population value.
     reduce.streaming: Exact quantiles and IQR require order statistics, not bounded-state moment accumulation.
@@ -1252,6 +1381,11 @@ shapes:
     unless requested.
   examples:
   - How many distinct parent organizations received grants, counting chapters once?
+  negative_examples:
+  - question: What is the mean diabetes rate across US counties?
+    input_condition: Complete comparable county observations; unweighted mean explicitly requested.
+    why_not: Distinct counting requires identity deduplication state.
+    instead: reduce.streaming
   not:
     reduce.streaming: Distinct counting requires identity deduplication state.
   slots:
@@ -1294,6 +1428,12 @@ shapes:
   asks: Count rows in supplied numeric bins. Bin edges are supplied constants; data-derived edges use reduce.adaptive-histogram.
   examples:
   - How many nonprofits have revenue below $1 million, from $1 million to $5 million, and above $5 million?
+  negative_examples:
+  - question: Divide nonprofit revenues into ten equal-width bands from the minimum to maximum and count each
+      band.
+    input_condition: Complete revenues; equal-width-from-min-max rule, ten bins and edge policy.
+    why_not: Deriving boundaries from the observations adds a preliminary dependency.
+    instead: reduce.adaptive-histogram
   not:
     reduce.adaptive-histogram: Deriving boundaries from the observations adds a preliminary dependency.
   slots:
@@ -1348,6 +1488,12 @@ shapes:
     before binning.
   examples:
   - Divide nonprofit revenues into ten equal-width bands from the minimum to maximum and count each band.
+  negative_examples:
+  - question: How many nonprofits have revenue below $1 million, from $1 million to $5 million, and above $5
+      million?
+    input_condition: Complete revenue observations and explicit edge-inclusion rules.
+    why_not: Deriving boundaries from the observations adds a preliminary dependency.
+    instead: reduce.histogram
   not:
     reduce.histogram: Deriving boundaries from the observations adds a preliminary dependency.
   slots:
@@ -1412,6 +1558,11 @@ shapes:
     etc. Related counts may be filtered afterward. Grouped distinct/quantile and bridge allocation are separate.
   examples:
   - What is total NIH funding by state?
+  negative_examples:
+  - question: Show Pfizer's company profile.
+    input_condition: A publisher-provided record with the requested fields.
+    why_not: A published record or component vector is not construction of group statistics from contributions.
+    instead: lookup.record
   not:
     lookup.record: A published record or component vector is not construction of group statistics from contributions.
     join.related-count: Predicates accepting zero need the candidate universe and retained zero-match members.
@@ -1484,6 +1635,11 @@ shapes:
     independently and retain zero-match members. Positive-count-only predicates can use reduce.grouped.
   examples:
   - Which registered companies filed fewer than two patents last year, including companies with none?
+  negative_examples:
+  - question: What is total NIH funding by state?
+    input_condition: Raw contributions with co-delivered state keys and a unique contribution grain.
+    why_not: Predicates accepting zero need the candidate universe and retained zero-match members.
+    instead: reduce.grouped
   not:
     reduce.grouped: Predicates accepting zero need the candidate universe and retained zero-match members.
   slots:
@@ -1565,6 +1721,11 @@ shapes:
   asks: Count distinct identities within each group. Statistic=count-distinct, with co-delivered group membership.
   examples:
   - How many distinct grant recipients are there in each state?
+  negative_examples:
+  - question: What is total NIH funding by state?
+    input_condition: Raw contributions with co-delivered state keys and a unique contribution grain.
+    why_not: Distinct contributors must be deduplicated within each group.
+    instead: reduce.grouped
   not:
     reduce.grouped: Distinct contributors must be deduplicated within each group.
   slots:
@@ -1626,6 +1787,11 @@ shapes:
   asks: Compute exact quantiles within each group. Statistic=median or another quantile; group membership is co-delivered.
   examples:
   - What is median nonprofit revenue in each state?
+  negative_examples:
+  - question: What is total NIH funding by state?
+    input_condition: Raw contributions with co-delivered state keys and a unique contribution grain.
+    why_not: Exact grouped medians need per-group order statistics.
+    instead: reduce.grouped
   not:
     reduce.grouped: Exact grouped medians need per-group order statistics.
   slots:
@@ -1692,6 +1858,11 @@ shapes:
     count.
   examples:
   - What is total funding by research topic if each grant is divided equally among its assigned topics?
+  negative_examples:
+  - question: What is total NIH funding by state?
+    input_condition: Raw contributions with co-delivered state keys and a unique contribution grain.
+    why_not: A separate overlapping-membership bridge adds a join and explicit allocation.
+    instead: reduce.grouped
   not:
     reduce.grouped: A separate overlapping-membership bridge adds a join and explicit allocation.
   slots:
@@ -1773,6 +1944,12 @@ shapes:
     deduplicate on group plus contributor. Fractional distinct counts require clarification, not silent allocation.
   examples:
   - How many distinct grants address each research topic, counting a multi-topic grant once in each topic?
+  negative_examples:
+  - question: What is median grant size in each research topic, including multi-topic grants in every assigned
+      topic?
+    input_condition: Separate topic bridge, full-to-each membership and one contribution per grant per group.
+    why_not: Grouped identity counts and grouped value quantiles need different computation kernels.
+    instead: reduce.bridge-quantile
   not:
     reduce.bridge-quantile: Grouped identity counts and grouped value quantiles need different computation kernels.
   slots:
@@ -1836,6 +2013,12 @@ shapes:
     membership. Fractional weighted quantile is not implied by median.
   examples:
   - What is median grant size in each research topic, including multi-topic grants in every assigned topic?
+  negative_examples:
+  - question: How many distinct grants address each research topic, counting a multi-topic grant once in each
+      topic?
+    input_condition: Separate grant/topic bridge and stable grant identity; full membership in each topic.
+    why_not: Grouped identity counts and grouped value quantiles need different computation kernels.
+    instead: reduce.bridge-distinct
   not:
     reduce.bridge-distinct: Grouped identity counts and grouped value quantiles need different computation kernels.
   slots:
@@ -1913,6 +2096,11 @@ shapes:
     overlapping full allocations cannot claim shares of the original total.
   examples:
   - What fraction of all federal grant dollars goes to each state?
+  negative_examples:
+  - question: What is total NIH funding by state?
+    input_condition: Raw contributions with co-delivered state keys and a unique contribution grain.
+    why_not: Dividing each group total by the combined total adds a denominator reduction.
+    instead: reduce.grouped
   not:
     reduce.grouped: Dividing each group total by the combined total adds a denominator reduction.
   slots:
@@ -1978,6 +2166,11 @@ shapes:
   asks: Divide the top-N contribution sum by the population sum. Concentration requested as top-N share.
   examples:
   - What share of NIH funding goes to the ten most-funded universities?
+  negative_examples:
+  - question: What is the mean diabetes rate across US counties?
+    input_condition: Complete comparable county observations; unweighted mean explicitly requested.
+    why_not: Top-N share requires selecting the largest contributions; HHI can use sum and sum-of-squares.
+    instead: reduce.streaming
   not:
     reduce.streaming: Top-N share requires selecting the largest contributions; HHI can use sum and sum-of-squares.
   slots:
@@ -2049,6 +2242,11 @@ shapes:
     convention must be supplied.
   examples:
   - What is the Gini coefficient of federal contracting dollars across vendors?
+  negative_examples:
+  - question: What is the mean diabetes rate across US counties?
+    input_condition: Complete comparable county observations; unweighted mean explicitly requested.
+    why_not: Gini requires ordered contribution accumulation; HHI does not.
+    instead: reduce.streaming
   not:
     reduce.streaming: Gini requires ordered contribution accumulation; HHI does not.
   slots:
@@ -2093,6 +2291,11 @@ shapes:
     ordering and uses assoc.population-ranks.
   examples:
   - What is the population-weighted mean obesity rate across counties?
+  negative_examples:
+  - question: What is the Spearman correlation between county income and diabetes rate?
+    input_condition: Separately acquired measures aligned by county, average-rank ties and missing-value policy.
+    why_not: Spearman requires rank transformation before paired-moment correlation.
+    instead: assoc.population-ranks
   not:
     assoc.population-ranks: Spearman requires rank transformation before paired-moment correlation.
   slots:
@@ -2167,6 +2370,11 @@ shapes:
     needs an interval-weight contract.
   examples:
   - For how many quarters was Boeing's cash flow negative?
+  negative_examples:
+  - question: What is the interquartile range of Kansas annual farm income since 2000?
+    input_condition: Complete annual observations and exact quantile convention.
+    why_not: Exact series quantiles cannot be computed by the declared fixed-state reducer.
+    instead: series.quantiles
   not:
     series.quantiles: Exact series quantiles cannot be computed by the declared fixed-state reducer.
     series.event-bound-reduction: An unresolved named event must supply the series boundary before acquisition.
@@ -2222,6 +2430,11 @@ shapes:
     the date is not already resolved in the prompt bindings.
   examples:
   - How much federal funding has Puerto Rico received since Hurricane Maria?
+  negative_examples:
+  - question: For how many quarters was Boeing's cash flow negative?
+    input_condition: Complete quarterly series and predicate value<0; counts observed quarters, not elapsed days.
+    why_not: An unresolved named event must supply the series boundary before acquisition.
+    instead: series.streaming
   not:
     series.streaming: An unresolved named event must supply the series boundary before acquisition.
   slots:
@@ -2284,6 +2497,11 @@ shapes:
   asks: Compute exact series quantiles or their spread. Dispersion requested as IQR or another order statistic.
   examples:
   - What is the interquartile range of Kansas annual farm income since 2000?
+  negative_examples:
+  - question: For how many quarters was Boeing's cash flow negative?
+    input_condition: Complete quarterly series and predicate value<0; counts observed quarters, not elapsed days.
+    why_not: Exact series quantiles cannot be computed by the declared fixed-state reducer.
+    instead: series.streaming
   not:
     series.streaming: Exact series quantiles cannot be computed by the declared fixed-state reducer.
   slots:
@@ -2344,6 +2562,11 @@ shapes:
     endpoint CAGR.
   examples:
   - What is the arithmetic mean of Texas Medicaid enrollment's annual percentage changes since 2015?
+  negative_examples:
+  - question: By what percentage did Tesla's revenue grow from 2021 to 2023?
+    input_condition: Two reported revenue values, with common units and reporting basis.
+    why_not: Average adjacent-period growth differs from endpoint CAGR.
+    instead: lookup.binary
   not:
     lookup.binary: Average adjacent-period growth differs from endpoint CAGR.
     series.acceleration: Second differences are not an average of first-period growth rates.
@@ -2401,6 +2624,11 @@ shapes:
     raw observations; dates alone do not supply those totals.
   examples:
   - How much did total spending in Q3 2024 exceed total spending in Q3 2023?
+  negative_examples:
+  - question: By what percentage did Tesla's revenue grow from 2021 to 2023?
+    input_condition: Two reported revenue values, with common units and reporting basis.
+    why_not: Raw observations in each comparison window must first be reduced.
+    instead: lookup.binary
   not:
     lookup.binary: Raw observations in each comparison window must first be reduced.
   slots:
@@ -2462,6 +2690,11 @@ shapes:
     bound; do not infer a regression model.
   examples:
   - Is the mean second difference of annual Medicare spending positive over the last ten years?
+  negative_examples:
+  - question: What is the arithmetic mean of Texas Medicaid enrollment's annual percentage changes since 2015?
+    input_condition: Annual observations, complete spacing, zero-baseline policy; not endpoint CAGR.
+    why_not: Second differences are not an average of first-period growth rates.
+    instead: series.growth-average
   not:
     series.growth-average: Second differences are not an average of first-period growth rates.
   slots:
@@ -2520,6 +2753,12 @@ shapes:
     tie handling.
   examples:
   - In which year did Boeing's revenue peak?
+  negative_examples:
+  - question: In which year did Apple's revenue first exceed $100 billion?
+    input_condition: Chronological observations covering all earlier candidate periods or a certified first-match
+      endpoint.
+    why_not: Earliest threshold match differs from maximum or minimum value.
+    instead: series.first-match
   not:
     series.first-match: Earliest threshold match differs from maximum or minimum value.
   slots:
@@ -2582,6 +2821,11 @@ shapes:
     semantics are level threshold unless consecutive crossing is explicitly requested.
   examples:
   - In which year did Apple's revenue first exceed $100 billion?
+  negative_examples:
+  - question: In which year did Boeing's revenue peak?
+    input_condition: Comparable historical series and tie policy.
+    why_not: Earliest threshold match differs from maximum or minimum value.
+    instead: series.extreme-time
   not:
     series.extreme-time: Earliest threshold match differs from maximum or minimum value.
   slots:
@@ -2650,6 +2894,12 @@ shapes:
     three-valued/null and empty-population semantics. Negative witness search requires coverage.
   examples:
   - Does every state in this survey have an obesity rate below 40 percent?
+  negative_examples:
+  - question: Which SEC registrants have no matching record in the federal contractor registry?
+    input_condition: Candidate and contractor registries aligned on identity; claim limited to the specified
+      registry's records.
+    why_not: A whole-population Boolean differs from returning candidates with matching or missing related records.
+    instead: join.membership
   not:
     join.membership: A whole-population Boolean differs from returning candidates with matching or missing related
       records.
@@ -2712,6 +2962,11 @@ shapes:
     projects unique shared keys. Cross-input conjunction applies predicate to joined fields.
   examples:
   - List every county with its health spending where available, retaining counties without spending data.
+  negative_examples:
+  - question: List Texas nonprofits with revenue above $5 million and at least 50 employees.
+    input_condition: State, revenue and employee count present on the same enumerable record relation.
+    why_not: Predicates needing fields from different inputs require alignment, not a row-only predicate.
+    instead: records.select
   not:
     records.select: Predicates needing fields from different inputs require alignment, not a row-only predicate.
     join.path: Successive edge traversal creates request dependencies across hops.
@@ -2794,6 +3049,12 @@ shapes:
     is bound. Anti-match supports scoped record absence; authoritative non-membership requires completeness evidence.
   examples:
   - Which SEC registrants have no matching record in the federal contractor registry?
+  negative_examples:
+  - question: Does every state in this survey have an obesity rate below 40 percent?
+    input_condition: Defined state universe and observed predicates; a counterexample proves false, otherwise
+      full coverage is required for true.
+    why_not: A whole-population Boolean differs from returning candidates with matching or missing related records.
+    instead: quantify.witness
   not:
     quantify.witness: A whole-population Boolean differs from returning candidates with matching or missing related
       records.
@@ -2869,6 +3130,11 @@ shapes:
     enumerated; do not require a match in both sets.
   examples:
   - List all organizations appearing in either the federal contractor registry or the SEC registry.
+  negative_examples:
+  - question: List Texas nonprofits with revenue above $5 million and at least 50 employees.
+    input_condition: State, revenue and employee count present on the same enumerable record relation.
+    why_not: OR over independently enumerated memberships needs union and deduplication.
+    instead: records.select
   not:
     records.select: OR over independently enumerated memberships needs union and deduplication.
   slots:
@@ -2915,6 +3181,12 @@ shapes:
     a direction binding.
   examples:
   - Which organizations appear in exactly one of the two registries?
+  negative_examples:
+  - question: Which SEC registrants have no matching record in the federal contractor registry?
+    input_condition: Candidate and contractor registries aligned on identity; claim limited to the specified
+      registry's records.
+    why_not: One-sided match polarity does not also emit unmatched members of the other side.
+    instead: join.membership
   not:
     join.membership: One-sided match polarity does not also emit unmatched members of the other side.
   slots:
@@ -2982,6 +3254,11 @@ shapes:
     missing to zero.
   examples:
   - Which companies' stock prices rose over 20 percent in 2025 while consumer complaints fell at least 15 percent?
+  negative_examples:
+  - question: Which counties rose the most in obesity rank between 2015 and 2023?
+    input_condition: Comparable population snapshots at both endpoints and entity alignment.
+    why_not: A change of rank requires ranking both full populations before subtraction.
+    instead: rank.change
   not:
     rank.change: A change of rank requires ranking both full populations before subtraction.
     join.change-and-level: Two changes need four endpoint inputs; one change plus one level needs three.
@@ -3073,6 +3350,13 @@ shapes:
     level; independently bound windows do not add another shape.'
   examples:
   - Which companies grew revenue over 20 percent last year and now have more than 10,000 employees?
+  negative_examples:
+  - question: Which companies' stock prices rose over 20 percent in 2025 while consumer complaints fell at least
+      15 percent?
+    input_condition: Price endpoints and complaint endpoints, aligned by company; four acquisitions and explicit
+      change formulas.
+    why_not: Two changes need four endpoint inputs; one change plus one level needs three.
+    instead: join.double-change
   not:
     join.double-change: Two changes need four endpoint inputs; one change plus one level needs three.
   slots:
@@ -3158,6 +3442,11 @@ shapes:
     and ordering; N=1 is a limit binding.
   examples:
   - Among counties with poverty above 20 percent, which five have the highest life expectancy?
+  negative_examples:
+  - question: Which nonprofits spend more than 30 percent of revenue on overhead?
+    input_condition: Separately acquired overhead and revenue, same reporting period and denominator policy.
+    why_not: Filtering then ranking by a second input differs from filtering a calculated two-input value.
+    instead: join.derived-filter
   not:
     join.derived-filter: Filtering then ranking by a second input differs from filtering a calculated two-input
       value.
@@ -3243,6 +3532,11 @@ shapes:
     formula cannot acquire new data.
   examples:
   - Which nonprofits spend more than 30 percent of revenue on overhead?
+  negative_examples:
+  - question: Among counties with poverty above 20 percent, which five have the highest life expectancy?
+    input_condition: Separate poverty and life-expectancy inputs, identity alignment, filtering before ranking.
+    why_not: Filtering then ranking by a second input differs from filtering a calculated two-input value.
+    instead: join.filter-rank
   not:
     join.filter-rank: Filtering then ranking by a second input differs from filtering a calculated two-input value.
   slots:
@@ -3315,6 +3609,12 @@ shapes:
     without double counting consolidated parent totals.
   examples:
   - What is total headcount across Alphabet and its subsidiaries, counting each employee contribution once?
+  negative_examples:
+  - question: What is the national organization's revenue excluding its chapters, given a consolidated total?
+    input_condition: Explicit chapter hierarchy and compatible chapter contributions needed to reconcile the
+      consolidated total.
+    why_not: Combining descendants and reconciling parent-only scope are different computations.
+    instead: hierarchy.exclusive
   not:
     hierarchy.exclusive: Combining descendants and reconciling parent-only scope are different computations.
   slots:
@@ -3383,6 +3683,13 @@ shapes:
     otherwise hierarchy scope and reporting basis must support subtraction.
   examples:
   - What is the national organization's revenue excluding its chapters, given a consolidated total?
+  negative_examples:
+  - question: What is total headcount across Alphabet and its subsidiaries, counting each employee contribution
+      once?
+    input_condition: Explicit hierarchy and non-overlapping reporting scopes; never sum consolidated and included
+      subordinate totals twice.
+    why_not: Combining descendants and reconciling parent-only scope are different computations.
+    instead: hierarchy.rollup
   not:
     hierarchy.rollup: Combining descendants and reconciling parent-only scope are different computations.
   slots:
@@ -3453,6 +3760,11 @@ shapes:
     intersect and apply a specified allocation model.'
   examples:
   - Allocate this district's total population across overlapping service areas in proportion to overlap area.
+  negative_examples:
+  - question: By what percentage did Tesla's revenue grow from 2021 to 2023?
+    input_condition: Two reported revenue values, with common units and reporting basis.
+    why_not: Deriving an allocation weight from geometries adds intersection and weight computation.
+    instead: lookup.binary
   not:
     lookup.binary: Deriving an allocation weight from geometries adds intersection and weight computation.
   slots:
@@ -3516,6 +3828,11 @@ shapes:
     raw population values, not a supplied scalar.
   examples:
   - What fraction of all NIH grant dollars goes to Johns Hopkins?
+  negative_examples:
+  - question: By what percentage did Tesla's revenue grow from 2021 to 2023?
+    input_condition: Two reported revenue values, with common units and reporting basis.
+    why_not: A denominator calculated from population contributions requires enumeration and reduction.
+    instead: lookup.binary
   not:
     lookup.binary: A denominator calculated from population contributions requires enumeration and reduction.
   slots:
@@ -3577,6 +3894,11 @@ shapes:
     use average ranks. Ranking is explicit, not hidden in a correlation-method argument.
   examples:
   - What is the Spearman correlation between county income and diabetes rate?
+  negative_examples:
+  - question: What is the population-weighted mean obesity rate across counties?
+    input_condition: Rates and population weights from separate relations, aligned one-to-one by county.
+    why_not: Spearman requires rank transformation before paired-moment correlation.
+    instead: join.paired-reduce
   not:
     join.paired-reduce: Spearman requires rank transformation before paired-moment correlation.
   slots:
@@ -3664,6 +3986,17 @@ shapes:
     is a time-coordinate binding. Searching many lags is not implicit. This kernel is Pearson, not hidden rank correlation.
   examples:
   - What is the Pearson correlation between research funding this year and patent counts next year?
+  negative_examples:
+  - question: What is the Spearman correlation between annual research funding and next-year patent counts?
+    input_condition: Two annual series, specified lag, common paired domain, explicit rank transform.
+    why_not: Spearman adds rank transformation; Pearson uses paired moments directly.
+    instead: assoc.series-ranks
+  - question: What is the Spearman correlation between county income and diabetes rate?
+    input_condition: Separately acquired measures aligned by county, average-rank ties and missing-value policy.
+    why_not: The requested output requires Align and rank observations before calculating Spearman correlation.
+      Spearman rather than Pearson; ties use average ranks. Ranking is explicit, not hidden in a correlation-method
+      argument.
+    instead: assoc.population-ranks
   not:
     assoc.series-ranks: Spearman adds rank transformation; Pearson uses paired moments directly.
   slots:
@@ -3753,6 +4086,17 @@ shapes:
     lag zero remains a legal binding.
   examples:
   - What is the Spearman correlation between annual research funding and next-year patent counts?
+  negative_examples:
+  - question: What is the Pearson correlation between research funding this year and patent counts next year?
+    input_condition: Two comparable annual series with specified one-year lag; no search over lags.
+    why_not: Spearman adds rank transformation; Pearson uses paired moments directly.
+    instead: assoc.series
+  - question: What is the Spearman correlation between county income and diabetes rate?
+    input_condition: Separately acquired measures aligned by county, average-rank ties and missing-value policy.
+    why_not: The requested output requires Align and rank observations before calculating Spearman correlation.
+      Spearman rather than Pearson; ties use average ranks. Ranking is explicit, not hidden in a correlation-method
+      argument.
+    instead: assoc.population-ranks
   not:
     assoc.series: Spearman adds rank transformation; Pearson uses paired moments directly.
   slots:
@@ -3853,6 +4197,11 @@ shapes:
     summaries, not a significance test.
   examples:
   - How much higher is mean obesity in rural counties than urban counties?
+  negative_examples:
+  - question: Using Welch's two-sample t-test, do rural and urban counties differ in mean obesity?
+    input_condition: Two observation groups with declared sampling assumptions and significance threshold.
+    why_not: A difference of descriptive statistics is not a hypothesis test or significance claim.
+    instead: assoc.group-test
   not:
     assoc.group-test: A difference of descriptive statistics is not a hypothesis test or significance claim.
   slots:
@@ -3914,6 +4263,12 @@ shapes:
     and threshold must be bound.
   examples:
   - Using Welch's two-sample t-test, do rural and urban counties differ in mean obesity?
+  negative_examples:
+  - question: How much higher is mean obesity in rural counties than urban counties?
+    input_condition: Two defined complete groups, means calculated independently then subtracted; no significance
+      claim.
+    why_not: A difference of descriptive statistics is not a hypothesis test or significance claim.
+    instead: assoc.group-statistic
   not:
     assoc.group-statistic: A difference of descriptive statistics is not a hypothesis test or significance claim.
   slots:
@@ -3967,6 +4322,12 @@ shapes:
     population.
   examples:
   - Fit an ordinary least-squares model of county outcomes on spending and return the ten largest positive residuals.
+  negative_examples:
+  - question: Using the supplied linear prediction model, which counties exceed predicted outcomes by more than
+      ten points?
+    input_condition: Supplied coefficients and feature schema; no model fitting.
+    why_not: An already supplied model is evaluated, not fitted again.
+    instead: assoc.baseline-outliers
   not:
     assoc.baseline-outliers: An already supplied model is evaluated, not fitted again.
   slots:
@@ -4039,6 +4400,13 @@ shapes:
     fitting may be hidden in evaluation.
   examples:
   - Using the supplied linear prediction model, which counties exceed predicted outcomes by more than ten points?
+  negative_examples:
+  - question: Fit an ordinary least-squares model of county outcomes on spending and return the ten largest positive
+      residuals.
+    input_condition: Aligned training observations, named predictor/outcome, intercept policy and residual selection
+      rule.
+    why_not: An already supplied model is evaluated, not fitted again.
+    instead: assoc.fitted-outliers
   not:
     assoc.fitted-outliers: An already supplied model is evaluated, not fitted again.
   slots:
@@ -4092,6 +4460,11 @@ shapes:
     data; negative answer scoped to the searched catalog.
   examples:
   - Does this catalog contain a dataset with county obesity rates for 2024?
+  negative_examples:
+  - question: How does this Census measure define household income?
+    input_condition: Known measure descriptor with definition, units and basis fields.
+    why_not: Scoped discovery and match testing differ from reading a known descriptor field.
+    instead: meta.definition
   not:
     meta.definition: Scoped discovery and match testing differ from reading a known descriptor field.
   slots:
@@ -4137,6 +4510,11 @@ shapes:
     original datasets-covering-air-quality example; discovery contract must support complete enumeration.
   examples:
   - How many datasets in this catalog cover air quality?
+  negative_examples:
+  - question: What is the mean diabetes rate across US counties?
+    input_condition: Complete comparable county observations; unweighted mean explicitly requested.
+    why_not: Resource catalog enumeration is a discovery input contract, not publisher observations.
+    instead: reduce.streaming
   not:
     reduce.streaming: Resource catalog enumeration is a discovery input contract, not publisher observations.
   slots:
@@ -4183,6 +4561,11 @@ shapes:
     one release.
   examples:
   - Was this nonprofit's 2021 revenue restated between the original and amended filings?
+  negative_examples:
+  - question: What did the original release report for June 2023 unemployment?
+    input_condition: A release-addressable historical assertion, not today's revised value.
+    why_not: Determining whether a value changed between releases needs two release assertions.
+    instead: lookup.version
   not:
     lookup.version: Determining whether a value changed between releases needs two release assertions.
   slots:
@@ -4237,6 +4620,12 @@ shapes:
     is not silently a scalar lookup.
   examples:
   - How does this Census measure define household income?
+  negative_examples:
+  - question: Does this catalog contain a dataset with county obesity rates for 2024?
+    input_condition: Searchable resource descriptors, scope and discovery completeness; not a publisher value
+      query.
+    why_not: Scoped discovery and match testing differ from reading a known descriptor field.
+    instead: meta.available
   not:
     meta.available: Scoped discovery and match testing differ from reading a known descriptor field.
   slots:
@@ -4276,6 +4665,11 @@ shapes:
     rule retrieval and actor-specific evaluation are explicit.'
   examples:
   - Which mental-health grants is a rural nonprofit clinic eligible to apply for?
+  negative_examples:
+  - question: List Texas nonprofits with revenue above $5 million and at least 50 employees.
+    input_condition: State, revenue and employee count present on the same enumerable record relation.
+    why_not: Unknown eligibility requiring rule acquisition is not a materialized searchable field.
+    instead: records.select
   not:
     records.select: Unknown eligibility requiring rule acquisition is not a materialized searchable field.
   slots:
@@ -4345,6 +4739,12 @@ shapes:
     semantics; relation and required set have independent coverage.
   examples:
   - Which companies operate in every state in the required-state list?
+  negative_examples:
+  - question: Which SEC registrants have no matching record in the federal contractor registry?
+    input_condition: Candidate and contractor registries aligned on identity; claim limited to the specified
+      registry's records.
+    why_not: All required related members needs required-set coverage, not a single witness.
+    instead: join.membership
   not:
     join.membership: All required related members needs required-set coverage, not a single witness.
   slots:
@@ -4434,6 +4834,12 @@ shapes:
     by the same bounded loop; no arbitrary recursive subplans or unbounded transitive closure.
   examples:
   - In which states are the universities employing researchers who received NSF awards?
+  negative_examples:
+  - question: List every county with its health spending where available, retaining counties without spending
+      data.
+    input_condition: County relation and spending relation, left join, null markers for missing spending.
+    why_not: Successive edge traversal creates request dependencies across hops.
+    instead: join.enrich
   not:
     join.enrich: Successive edge traversal creates request dependencies across hops.
   slots:
@@ -4503,6 +4909,12 @@ shapes:
     joining. Already-published aggregates may use join.enrich as a physical substitution.
   examples:
   - Show total NIH funding per county beside total federal spending per county.
+  negative_examples:
+  - question: List every county with its health spending where available, retaining counties without spending
+      data.
+    input_condition: County relation and spending relation, left join, null markers for missing spending.
+    why_not: Raw contributions must be reduced independently before alignment to protect grain.
+    instead: join.enrich
   not:
     join.enrich: Raw contributions must be reduced independently before alignment to protect grain.
   slots:
@@ -4592,6 +5004,11 @@ shapes:
     direction; as-of is backward. Interval-version validity and tie policies remain enforced.
   examples:
   - Match each grant to the exchange-rate observation most recently published at or before its award date.
+  negative_examples:
+  - question: Which grants and contracts had overlapping funding periods?
+    input_condition: Both interval relations and explicit endpoint-inclusion semantics.
+    why_not: A directed nearest-time match selects one observation; interval overlap can return many pairs.
+    instead: temporal.overlap
   not:
     temporal.overlap: A directed nearest-time match selects one observation; interval overlap can return many pairs.
     temporal.sequence: Testing event precedence and returning qualifying entities is not nearest observation selection.
@@ -4670,6 +5087,13 @@ shapes:
     against a constant window.
   examples:
   - Which grants and contracts had overlapping funding periods?
+  negative_examples:
+  - question: Match each grant to the exchange-rate observation most recently published at or before its award
+      date.
+    input_condition: Grant dates and versioned exchange-rate observations; backward direction, validity and tolerance
+      guards.
+    why_not: A directed nearest-time match selects one observation; interval overlap can return many pairs.
+    instead: temporal.match
   not:
     temporal.match: A directed nearest-time match selects one observation; interval overlap can return many pairs.
   slots:
@@ -4729,6 +5153,13 @@ shapes:
     projection deduplicates qualifying entities.
   examples:
   - Which companies had a complaint spike before a recall?
+  negative_examples:
+  - question: Match each grant to the exchange-rate observation most recently published at or before its award
+      date.
+    input_condition: Grant dates and versioned exchange-rate observations; backward direction, validity and tolerance
+      guards.
+    why_not: Testing event precedence and returning qualifying entities is not nearest observation selection.
+    instead: temporal.match
   not:
     temporal.match: Testing event precedence and returning qualifying entities is not nearest observation selection.
   slots:
@@ -4802,6 +5233,11 @@ shapes:
     region codes are a guarded filter optimization.
   examples:
   - Which federal facilities lie inside Oregon's boundary?
+  negative_examples:
+  - question: Which clinics lie within ten kilometers of this specified contaminated site?
+    input_condition: Resolved reference point, clinic geometries and geodesic distance metric.
+    why_not: Boundary containment and distance to a point require different geometric computations.
+    instead: spatial.radius
   not:
     spatial.radius: Boundary containment and distance to a point require different geometric computations.
   slots:
@@ -4864,6 +5300,11 @@ shapes:
     precedes radius test.
   examples:
   - Which clinics lie within ten kilometers of this specified contaminated site?
+  negative_examples:
+  - question: Which federal facilities lie inside Oregon's boundary?
+    input_condition: Resolved boundary geometry, facility geometries and coordinate-system compatibility.
+    why_not: Boundary containment and distance to a point require different geometric computations.
+    instead: spatial.contains
   not:
     spatial.contains: Boundary containment and distance to a point require different geometric computations.
     spatial.nearest: A radius filter differs from selecting the minimum distance.
@@ -4934,6 +5375,11 @@ shapes:
     original request.
   examples:
   - Which national laboratory is nearest to this Denver address?
+  negative_examples:
+  - question: Which clinics lie within ten kilometers of this specified contaminated site?
+    input_condition: Resolved reference point, clinic geometries and geodesic distance metric.
+    why_not: A radius filter differs from selecting the minimum distance.
+    instead: spatial.radius
   not:
     spatial.radius: A radius filter differs from selecting the minimum distance.
   slots:

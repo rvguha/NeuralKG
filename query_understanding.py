@@ -16,7 +16,7 @@ class UnderstandingError(runtime.Refused):
         self.trace = trace
 
 SELECT = '''Select up to three plausible approaches to answering the QUESTION from the supplied shapes.
-Use only their descriptions and examples. Different approaches can answer the same question depending on available APIs; the planner will choose later. Do not assume any source exists or reject an approach because its inputs may be unavailable.
+Use only their descriptions and examples. Negative examples show close but different requests under explicit input conditions; use their explanations to distinguish required operations, not as keyword exclusions. Different approaches can answer the same question depending on available APIs; the planner will choose later. Do not assume any source exists or reject an approach because its inputs may be unavailable.
 Return JSON {"shapes": ["id", ...]} in preference order, with distinct supplied IDs only. Return [] for a non-data request or no suitable approach. Do not pad the list.'''
 EXTRACT = '''Analyze the QUESTION independently for this one full shape entry. Extract all bindings and details needed by its declared slots and plan, without executing anything or assuming source capabilities.
 Return JSON with "bindings" (object keyed only by declared slot names), "entities" (list of objects with string mention, description, type and a potential_matches list), "measures" (list), "periods" (list), "missing" (list of {"slot": "declared slot name", "reason": "what is unknown"}), "acquisition_queries" (list of natural-language request strings for the required inputs), "applicability" ("plausible" or "inapplicable"), and "reason" (string).
@@ -40,7 +40,7 @@ def load_catalog():
 
 
 def brief(shape):
-    return {key: shape[key] for key in ('id', 'asks', 'examples')}
+    return {key: shape[key] for key in ('id', 'asks', 'examples', 'negative_examples') if key in shape}
 
 
 async def parallel(calls):

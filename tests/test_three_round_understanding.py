@@ -13,6 +13,7 @@ from template_stage_run import evaluate_case
 
 def catalog(n=76):
     return [dict(id=f's{i}', asks=f'Description {i}', examples=[f'Example {i}'],
+                 negative_examples=[{'question':f'Near miss {i}', 'input_condition':'Other operation required', 'why_not':'Different output', 'instead':'other'}],
                  slots={'x':{'type':'number'}}, requires={'proof':'provided by API'},
                  plan={'nodes':[]}, returns={'grain':'scalar'}) for i in range(n)]
 
@@ -37,12 +38,13 @@ class ThreeRoundTests(unittest.IsolatedAsyncioTestCase):
                 await batches_ready.wait()
                 self.assertLessEqual(len(payload['shapes']),30)
                 for s in payload['shapes']:
-                    self.assertEqual(set(s),{'id','asks','examples'})
+                    self.assertEqual(set(s),{'id','asks','examples','negative_examples'})
+                    self.assertEqual(s['negative_examples'],shapes[int(s['id'][1:])]['negative_examples'])
                 return json.dumps({'shapes':[s['id'] for s in payload['shapes'][:3]]})
             if stage=='understand-shortlist':
                 self.assertEqual(batch_started,3)
                 self.assertEqual(len(payload['shapes']),9)
-                self.assertTrue(all(set(s)=={'id','asks','examples'} for s in payload['shapes']))
+                self.assertTrue(all(set(s)=={'id','asks','examples','negative_examples'} for s in payload['shapes']))
                 return json.dumps({'shapes':['s0','s30','s60']})
             self.assertEqual(stage,'understand-extract')
             self.assertEqual(set(payload),{'question','shape'})
@@ -115,6 +117,13 @@ class ThreeRoundTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(shapes),76)
         for shape in shapes:
             self.assertEqual(qu.brief(shape)['examples'],shape['examples'])
+            self.assertEqual(qu.brief(shape)['negative_examples'],shape['negative_examples'])
+            self.assertTrue(shape['negative_examples'])
+            for example in shape['negative_examples']:
+                self.assertEqual(set(example),{'question','input_condition','why_not','instead'})
+                self.assertTrue(all(isinstance(v,str) and v.strip() for v in example.values()))
+                self.assertIn(example['instead'],{s['id'] for s in shapes})
+                self.assertNotEqual(example['instead'],shape['id'])
 
     async def test_cancellation_does_not_leave_parallel_requests_running(self):
         started=asyncio.Event(); active=0
