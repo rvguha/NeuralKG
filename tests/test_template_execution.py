@@ -7,6 +7,41 @@ import harness
 
 
 class TemplateExecutionTests(unittest.TestCase):
+    def test_derived_display_winner_difference(self):
+        plan={'candidate':'compare.derived-values','reads':[{'entity':e} for e in ['A','A','B','B']],
+              'pair_expression':{'op':'divide','args':[{'read':0},{'read':1}]},'direction':'max'}
+        evidence=[{'value':v,'unit':u,'currency':'USD' if u=='USD' else None} for v,u in [(100,'USD'),(5,'persons'),(90,'USD'),(3,'persons')]]
+        self.assertEqual([r['value'] for r in te.derived_result(plan,evidence)],[20,30])
+        plan['candidate']='compare.derived-winner'
+        self.assertEqual(te.derived_result(plan,evidence)[0]['entity'],'B')
+        plan['candidate']='compare.derived-difference'
+        self.assertEqual(te.derived_result(plan,evidence),-10)
+        evidence[1]['value']=0
+        with self.assertRaises(runtime.Refused):te.derived_result(plan,evidence)
+
+    def test_derived_rejects_dimensionally_invalid_expression(self):
+        with self.assertRaises(runtime.Refused):
+            te.expression_units({'op':'add','args':[{'read':0},{'read':1}]},[{'unit':'USD'},{'unit':'persons'}])
+
+    def test_derived_plan_rejects_missing_operand_or_mixed_entities(self):
+        read={'entity':'A','type':'company','measure':'revenue','period':'2023','question':'revenue for A','source':'s'}
+        plan={'candidate':'compare.derived-values','reads':[dict(read),dict(read)],
+              'pair_expression':{'op':'divide','args':[{'read':0},{'read':1}]}}
+        candidates=[{'shape':'compare.derived-values'}]; hits=[{'identifier':'s'}]
+        te.validate(plan,candidates,hits)
+        plan['reads'][1]['entity']='B'
+        with self.assertRaises(runtime.Refused):te.validate(plan,candidates,hits)
+        plan['reads']=[read]
+        with self.assertRaises(runtime.Refused):te.validate(plan,candidates,hits)
+        plan['reads']=[read,dict(read)]
+        plan['pair_expression']={'read':0}
+        with self.assertRaises(runtime.Refused):te.validate(plan,candidates,hits)
+
+    def test_structure_validation_does_not_evaluate_placeholder_data(self):
+        expr={'op':'divide','args':[{'read':0},{'op':'subtract','args':[{'read':0},{'read':1}]}]}
+        self.assertEqual(te.expression_references(expr,2),{0,1})
+        self.assertEqual(te.expression(expr,[6,3]),2)
+
     def test_period_substitution_is_rejected(self):
         te.check_period('2023',{'period':'FY2023'})
         with self.assertRaises(runtime.Refused):te.check_period('2023',{'period':'FY2025'})

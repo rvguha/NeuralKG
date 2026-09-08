@@ -9,13 +9,64 @@ import re
 import llm
 import runtime
 
-SUPPORTED = {'lookup.scalar', 'lookup.binary', 'compare.values', 'compare.winner'}
+DERIVED = {'compare.derived-values', 'compare.derived-winner', 'compare.derived-difference'}
+SUPPORTED = {'lookup.scalar', 'lookup.binary', 'compare.values', 'compare.winner'} | DERIVED
 SYSTEM = '''Compile one supplied candidate into an executable scalar-input plan using ONLY supplied ARD resources.
-Return JSON {"candidate": "shape id or null", "reason": "explanation", "reads": [{"question": "precise data request", "entity": "mention or empty", "type": "entity type", "measure": "exact measure", "period": "explicit requested period or latest if unspecified", "source": "supplied identifier"}], "expression": {"op": "operation", "args": [...]}, "direction": "max or min"}.
+Return JSON {"candidate": "shape id or null", "reason": "explanation", "reads": [{"question": "precise data request", "entity": "mention or empty", "type": "entity type", "measure": "exact measure", "period": "explicit requested period or latest if unspecified", "source": "supplied identifier"}], "expression": {"op": "operation", "args": [...]}, "pair_expression": {"op": "operation", "args": [...]}, "direction": "max or min"}. Use expression for lookup templates and pair_expression for derived templates; unused fields may be null.
 Only supplied candidate IDs are permitted. lookup.scalar requires one read and expression; lookup.binary exactly two reads and expression. compare.values displays the named inputs; compare.winner orders a CLOSED named set, never discovers a population. Every read must be a supplied scalar, not a hidden aggregation, join, inferred proxy or raw record collection. Check descriptor grain, measure, period and access contract. No missing operands. If unavailable or materially ambiguous return candidate:null and explain.
 Expressions are finite trees: {"read":0} references a zero-based read; numeric literals are constants; {"op":"identity|add|subtract|multiply|divide|eq|gt|lt", "args":[...]} computes values. No code. For scalar use identity unless the question requests a test. Bind operations from the question, not from knowledge of likely values. Do not invent identifiers or source availability. Preserve entity and statistical definitions. Distinguish funds received from an agency from data published by that agency.'''
 SYSTEM += '\nThe currently supported period bindings are a four-digit year (e.g. "2023") or "latest". Do not expand a year into a date range or invent a calendar/fiscal convention. Copy source identifiers exactly from the provided resources.'
 SYSTEM += '\nARD resources are descriptors of callable data sources, NOT fetched values. Your reads WILL be executed after planning. A company/year scalar accessor is sufficient to plan reading AMD or Intel revenue even though neither value appears in the descriptor. Do not refuse because data has not been fetched yet or because executing the plan needs external requests; that is the purpose of the reads. Refuse only if the descriptors do not support the required inputs or intent is unresolved.'
+SYSTEM += '\nDerived templates require exactly TWO reads per named entity, consecutive in reads. Use pair_expression (the SAME expression for every pair, with local read indices 0 and 1) to calculate the requested measure. compare.derived-values displays calculated values; compare.derived-winner chooses max/min; compare.derived-difference requires exactly two pairs and subtracts the second calculated value from the first. Order pairs accordingly. Both reads in each pair must name the same entity. Include every operand; never substitute a supplied derived value for its two-input computation. Only the finite expression operators above are implemented; unsupported formulas must be refused.'
+
+
+def expression_references(node, count):
+    """Validate structure without evaluating fake values (which can divide by zero)."""
+    if type(node) in (int,float) and math.isfinite(node): return set()
+    if not isinstance(node,dict): raise runtime.Refused('Invalid expression')
+    if set(node)=={'read'}:
+        i=node['read']
+        if type(i)!=int or not 0<=i<count:raise runtime.Refused('Invalid read reference')
+        return {i}
+    if set(node)!={'op','args'} or node['op'] not in {'identity','add','subtract','multiply','divide','eq','gt','lt'}:
+        raise runtime.Refused('Unsupported expression operation')
+    args=node['args']
+    if not isinstance(args,list) or len(args)!=(1 if node['op']=='identity' else 2):raise runtime.Refused('Invalid expression arity')
+    return set().union(*(expression_references(a,count) for a in args))
+
+
+def derived_result(plan, evidence):
+    pairs=list(zip(evidence[::2],evidence[1::2]))
+    signatures=[tuple((e.get('unit'),e.get('currency')) for e in pair) for pair in pairs]
+    if any(not e.get('unit') for pair in pairs for e in pair):raise runtime.Refused('Derived operands require known units')
+    if len(set(signatures))!=1:raise runtime.Refused('Derived pairs need corresponding units/currencies')
+    rows=[]
+    for i,pair in enumerate(pairs):
+        expression_units(plan['pair_expression'],pair)
+        value=expression(plan['pair_expression'],[e['value'] for e in pair])
+        if type(value) not in (int,float) or not math.isfinite(value):raise runtime.Refused('Derived comparison requires finite numeric values')
+        rows.append({'entity':plan['reads'][2*i]['entity'],'value':value,'input_indices':[2*i,2*i+1]})
+    if plan['candidate']=='compare.derived-values':return rows
+    if plan['candidate']=='compare.derived-difference':return rows[0]['value']-rows[1]['value']
+    best=(max if plan['direction']=='max' else min)(r['value'] for r in rows)
+    return [r for r in rows if r['value']==best]
+
+
+def expression_units(node, evidence):
+    if type(node) in (int,float):return {}
+    if 'read' in node:
+        e=evidence[node['read']]
+        return {(e['unit'],e.get('currency')):1}
+    args=[expression_units(a,evidence) for a in node['args']]
+    op=node['op']
+    if op=='identity':return args[0]
+    a,b=args
+    if op in ('add','subtract','eq','gt','lt'):
+        if a!=b:raise runtime.Refused('Expression combines incompatible units')
+        return {} if op in ('eq','gt','lt') else a
+    result=dict(a)
+    for unit,power in b.items():result[unit]=result.get(unit,0)+(power if op=='multiply' else -power)
+    return {unit:power for unit,power in result.items() if power}
 
 
 def check_period(requested, evidence):
@@ -68,9 +119,13 @@ def validate(plan, candidates, hits):
         if not read['question'].strip() or not read['measure'].strip() or not read['period'].strip():raise runtime.Refused('Unbound read')
         if read['period']!='latest' and not re.fullmatch(r'\d{4}',read['period']):raise runtime.Refused('Unsupported period binding; use an explicit year, not an inferred date range')
     if shape.startswith('lookup.'):
-        # Validate references and expression structure without executing real data.
-        expression(plan.get('expression'),[1]*len(reads))
-    if shape=='compare.winner' and plan.get('direction') not in ('max','min'):raise runtime.Refused('Missing ordering')
+        if expression_references(plan.get('expression'),len(reads))!=set(range(len(reads))):raise runtime.Refused('Expression omits required inputs')
+    if shape in DERIVED:
+        if len(reads)%2 or len(reads)<2 or (shape=='compare.derived-difference' and len(reads)!=4):raise runtime.Refused('Derived plan requires pairs of reads')
+        if expression_references(plan.get('pair_expression'),2)!={0,1}:raise runtime.Refused('Derived expression must use both operands')
+        for a,b in zip(reads[::2],reads[1::2]):
+            if not a['entity'].strip() or a['entity'].strip().casefold()!=b['entity'].strip().casefold():raise runtime.Refused('Derived operands must belong to the same named entity')
+    if shape in ('compare.winner','compare.derived-winner') and plan.get('direction') not in ('max','min'):raise runtime.Refused('Missing ordering')
 
 
 async def run(question, understanding, hits, *, context):
@@ -95,10 +150,11 @@ async def run(question, understanding, hits, *, context):
         evidence.append(ev.to_dict()); attempts.extend(a.to_dict() for a in state.get('_attempts',[]))
     values=[e['value'] for e in evidence]
     shape=plan['candidate']
-    if len(values)>1:
+    if len(values)>1 and shape not in DERIVED:
         # Conservative admission: uncertain conversions require an explicit adapter.
         if len({(e.get('unit'),e.get('currency')) for e in evidence})!=1:raise runtime.Refused('Operands need explicit unit/currency reconciliation')
-    if shape.startswith('lookup.'): result=expression(plan['expression'],values)
+    if shape in DERIVED: result=derived_result(plan,evidence)
+    elif shape.startswith('lookup.'): result=expression(plan['expression'],values)
     elif shape=='compare.values':result=[{'entity':r['entity'],'measure':r['measure'],'period':e['period'],'value':e['value']} for r,e in zip(plan['reads'],evidence)]
     else:
         if any(type(v) not in (int,float) or not math.isfinite(v) for v in values):raise runtime.Refused('Ordering requires numeric scalars')
