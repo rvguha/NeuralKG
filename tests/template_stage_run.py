@@ -56,22 +56,37 @@ async def main():
     parser.add_argument('--run-id')
     parser.add_argument('--workers',type=int,default=6)
     parser.add_argument('--limit',type=int)
+    parser.add_argument('--model', choices=[MODEL, 'openai/gpt-oss-120b'], default=MODEL)
+    parser.add_argument('--empty-from', help='Saved run ID whose empty-response cases should be rerun')
     args=parser.parse_args()
     assert llm.provider()=='openrouter'
-    assert llm.chat_model()==MODEL, 'Configure the instance chat model as openai/gpt-oss-20b for this OSS evaluation'
+    assert llm.chat_model()==args.model, 'Configured model must match the requested OSS evaluation model'
     shapes, digest=query_understanding.load_catalog()
     run_id=args.run_id or datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')+'-production-three-round'
     folder=stage_reports.results_root()/run_id
-    rows=corpus()[:args.limit] if args.limit else corpus()
+    rows=corpus()
+    if args.empty_from:
+        source=(stage_reports.results_root()/args.empty_from).resolve()
+        assert source.parent==stage_reports.results_root().resolve(), 'Expected a run ID'
+        prior=json.loads((source/'results.json').read_text())
+        failed={r['id']:r for r in prior if r['understanding']['status']=='error' and 'EmptyCompletion' in r['understanding']['summary']}
+        rows=[r for r in rows if r['id'] in failed]
+        for row in rows:
+            assert row['question']==failed[row['id']]['question'], 'Fixture question changed'
+            row['baseline_understanding']=failed[row['id']]['understanding']
+    if args.limit: rows=rows[:args.limit]
     manifest=dict(run_id=run_id,instance=instance.identity()['name'],instance_config=str(Path(instance.path()).resolve()),
         model=llm.chat_model(),catalog_sha256=digest,
         prompt_sha256=hashlib.sha256((Path(query_understanding.__file__).read_text()+digest).encode()).hexdigest(),
         scope=f'{len(rows)} questions through harness.query_understanding_async. Coverage measures retained template selection, independently of extraction. Precision uses conditional, non-exhaustive expected sets; unknown candidates require review. Binding checks are separate and partial. Examples are included, not holdout.',
         reasoning='low',timeout_seconds=240,workers=args.workers,
         started=datetime.now(timezone.utc).isoformat(),completed=False)
+    manifest['source_run']=args.empty_from
     if (folder/'manifest.json').exists():
         previous=json.loads((folder/'manifest.json').read_text())
         assert previous['prompt_sha256']==manifest['prompt_sha256'],'Cannot resume a different prompt'
+        assert previous['model']==manifest['model'], 'Cannot resume a different model'
+        assert previous.get('source_run')==manifest['source_run'], 'Cannot resume a different cohort'
         manifest['started']=previous['started']
     for i,row in enumerate(rows):
         checkpoint=folder/'cases'/(row['id']+'.json')
