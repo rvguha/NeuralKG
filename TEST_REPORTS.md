@@ -19,8 +19,20 @@ access controls. Publish only appropriate test data, never credentials or raw
 environment dumps. HTML output is escaped and the serving route rejects paths
 and symlinks outside the report root. Reports are not committed to Git.
 
-Current implementation is the report infrastructure only. The 76-template live
-runner has not been installed or run: its external payload needs approval.
+Run the 76-template understanding evaluation with the approved OpenRouter
+credentials configured:
+
+    LLM_PROVIDER=openrouter .venv/bin/python tests/template_stage_run.py
+
+This uses only `openai/gpt-oss-20b`. It checkpoints every case and publishes
+HTML every ten completions. `--run-id <existing-id>` resumes a run with the same
+prompt; `--workers N` controls concurrency. Default corpus: 76 authored examples,
+308 common questions, 350 extended questions and 45 classification negatives.
+Conditional migrated labels and disputed negatives are marked review, not scored
+as exact gold. Entity/measure/parameter extraction is saved but not scored.
+
+Only query understanding runs live in this runner. Subsequent pages explicitly
+record blocked stages, not fabricated discovery/planning/execution results.
 The current ARD embedding configuration is not OSS, and the replacement catalog
 does not yet have a production compiler/executor. The report infrastructure does
 not bypass these gaps with the old eleven-shape pipeline.

@@ -32,8 +32,8 @@ def shell(title, body):
     return '''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>''' + html.escape(title) + '''</title><style>
 body{font:15px system-ui;margin:32px auto;padding:0 24px;max-width:1500px;color:#172638;background:#f5f7fb}
-a{color:#135ab1}nav{display:flex;gap:20px;flex-wrap:wrap;margin:24px 0}h1{font-size:28px}
-table{border-collapse:collapse;width:100%;background:white}td,th{text-align:left;border-bottom:1px solid #dde4ed;padding:12px;vertical-align:top}
+a{color:#135ab1}nav{display:flex;gap:20px;flex-wrap:wrap;margin:24px 0}h1{font-size:28px;overflow-wrap:anywhere}
+table{display:block;overflow-x:auto;border-collapse:collapse;width:100%;background:white}td,th{text-align:left;border-bottom:1px solid #dde4ed;padding:12px;vertical-align:top}
 th{position:sticky;top:0;background:#e9eff8}pre{white-space:pre-wrap;overflow-wrap:anywhere;max-width:950px;font-size:12px}
 .pass{color:#176a3b}.fail,.error{color:#b02727}.blocked,.review{color:#845300}summary{cursor:pointer}input{padding:10px;width:60%;margin:15px 0}
 </style><body>''' + body + '</body></html>'
@@ -60,6 +60,14 @@ def publish(run_dir, manifest, rows):
         body = f'<h1>{stage.title()} · {esc(manifest["run_id"])}</h1>{nav}'
         body += f'<p>Instance: {esc(manifest["instance"])} · Model: {esc(manifest["model"])}</p>'
         body += '<p>' + esc(manifest['scope']) + '</p><p>' + esc(str(counts)) + '</p>'
+        cohorts = {}
+        for row in rows:
+            tally = cohorts.setdefault(row.get('cohort', 'all'), {})
+            state = row.get(stage, {}).get('status', 'pending')
+            tally[state] = tally.get(state, 0) + 1
+        states = ('pass', 'fail', 'error', 'review', 'blocked', 'pending')
+        body += '<table><tr><th>Cohort</th>' + ''.join('<th>'+s.title()+'</th>' for s in states) + '</tr>'
+        body += ''.join('<tr><td>'+esc(name)+'</td>'+''.join('<td>'+str(tally.get(s,0))+'</td>' for s in states)+'</tr>' for name,tally in cohorts.items())+'</table>'
         body += '<p>Pass means agreement with a fixed template label, not a verified data answer. Review means conditional label migration or an unscored case. Blocked is not a test failure or a completed stage. Refresh to see saved progress.</p>'
         body += '<input id="filter" placeholder="Filter by question, status, or output" aria-label="Filter results">'
         body += '<table><thead><tr><th>Case</th><th>Question</th><th>Status</th><th>Saved output / explanation</th></tr></thead><tbody>' + ''.join(records) + '</tbody></table>'
