@@ -2554,6 +2554,9 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8">
      TURN_MESSAGES.push(ev);
      var t=ev.message_type, c=ev.content;
      if(t==='intermediate_message'){
+       if(typeof c==='string'&&c.charAt(0)==='{'){
+         try{var diagnostic=JSON.parse(c);if(diagnostic.usage&&diagnostic.plan)return;}catch(_){}
+       }
        if(c&&typeof c==='object'){
          if(c.trace_url)status('📋','<a href="'+esc(c.trace_url)+'" target="_blank">Saved query trace</a>');
          return;
