@@ -23,6 +23,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import harness                                                        # noqa: E402
+import query_understanding
 
 
 def _source_dirs():
@@ -32,8 +33,8 @@ def _source_dirs():
 
 class QueryUnderstandingIsolationTests(unittest.TestCase):
     def prompts(self):
-        return {"structure": harness._structure_understanding_system(),
-                "measure": harness._measure_understanding_system({"entity": "", "entities": []})}
+        return {"structure": query_understanding.SELECT,
+                "measure": query_understanding.EXTRACT}
 
     def test_no_prompt_names_a_source_directory(self):
         """The strongest form of the contract: not one of this ARD's directory names appears."""

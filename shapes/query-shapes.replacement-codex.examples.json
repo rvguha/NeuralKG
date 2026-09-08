@@ -1,0 +1,1267 @@
+{
+  "catalog_sha256": "d12463a3214f30f5f9825bb34ecf15ccd37e594520cb796bd78217898080d0ce",
+  "cases": [
+    {
+      "id": "replacement.lookup.scalar",
+      "question": "Is the Sierra Club classified as a 501(c)(3)?",
+      "input_contract": "A directly addressable status value, with requested freshness metadata if any.",
+      "expected": {
+        "shape": "lookup.scalar",
+        "output_grain": "one value or Boolean",
+        "operator_sequence": [
+          "ReadScalar",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.lookup.record",
+      "question": "Show Pfizer's company profile.",
+      "input_contract": "A publisher-provided record with the requested fields.",
+      "expected": {
+        "shape": "lookup.record",
+        "output_grain": "one entity record",
+        "operator_sequence": [
+          "ReadRecord",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.lookup.binary",
+      "question": "By what percentage did Tesla's revenue grow from 2021 to 2023?",
+      "input_contract": "Two reported revenue values, with common units and reporting basis.",
+      "expected": {
+        "shape": "lookup.binary",
+        "output_grain": "one computed value",
+        "operator_sequence": [
+          "ReadScalar",
+          "ReadScalar",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.lookup.version",
+      "question": "What did the original release report for June 2023 unemployment?",
+      "input_contract": "A release-addressable historical assertion, not today's revised value.",
+      "expected": {
+        "shape": "lookup.version",
+        "output_grain": "one versioned value",
+        "operator_sequence": [
+          "ReadVersionedScalar",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.lookup.event-bound",
+      "question": "What was GM's revenue in the year it filed for bankruptcy?",
+      "input_contract": "Event-date discovery followed by a revenue lookup whose year depends on the result.",
+      "expected": {
+        "shape": "lookup.event-bound",
+        "output_grain": "one event-bound value",
+        "operator_sequence": [
+          "ResolveDate",
+          "ReadScalar",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.records.select",
+      "question": "List Texas nonprofits with revenue above $5 million and at least 50 employees.",
+      "input_contract": "State, revenue and employee count present on the same enumerable record relation.",
+      "expected": {
+        "shape": "records.select",
+        "output_grain": "one row per qualifying record",
+        "operator_sequence": [
+          "ReadRows",
+          "Filter",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.series.values",
+      "question": "Show Ford and GM revenue for each year from 2015 through 2023.",
+      "input_contract": "Series input for each named company and an explicit calendar alignment policy.",
+      "expected": {
+        "shape": "series.values",
+        "output_grain": "one row per entity and period",
+        "operator_sequence": [
+          "MapReadSeries",
+          "AlignTime",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.compare.values",
+      "question": "Show Harvard and MIT NIH funding side by side.",
+      "input_contract": "Two reported values; no requested normalization or calculated difference.",
+      "expected": {
+        "shape": "compare.values",
+        "output_grain": "one supplied value per named operand",
+        "operator_sequence": [
+          "MapReadScalar",
+          "Assemble"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.compare.derived-values",
+      "question": "Show research funding per faculty member for Harvard and MIT.",
+      "input_contract": "Separate funding and faculty-count inputs for each named university.",
+      "expected": {
+        "shape": "compare.derived-values",
+        "output_grain": "one calculated value per named candidate",
+        "operator_sequence": [
+          "MapReadScalarPairs",
+          "MapScalar",
+          "Assemble"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.compare.winner",
+      "question": "Which of Harvard, MIT and Yale received the most NIH funding?",
+      "input_contract": "One directly supplied funding value per named candidate.",
+      "expected": {
+        "shape": "compare.winner",
+        "output_grain": "ordered selected named candidates",
+        "operator_sequence": [
+          "MapReadScalar",
+          "Order",
+          "Take",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.compare.derived-winner",
+      "question": "Which grew revenue faster from 2020 to 2024, Pfizer or Merck?",
+      "input_contract": "Two revenue endpoints per candidate, with percent growth specified or clarified.",
+      "expected": {
+        "shape": "compare.derived-winner",
+        "output_grain": "ordered selected named candidates with calculated scores",
+        "operator_sequence": [
+          "MapReadScalarPairs",
+          "MapScalar",
+          "Order",
+          "Take",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.compare.derived-difference",
+      "question": "What is the gap between Stanford and MIT research funding per faculty member?",
+      "input_contract": "Funding and faculty count acquired separately for each university before subtracting their ratios.",
+      "expected": {
+        "shape": "compare.derived-difference",
+        "output_grain": "one comparison of two derived values",
+        "operator_sequence": [
+          "MapReadScalarPairs",
+          "MapScalar",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.rank.population",
+      "question": "Which ten counties have the lowest diabetes rates?",
+      "input_contract": "Complete county scores or a certified global ordered endpoint, with ties specified.",
+      "expected": {
+        "shape": "rank.population",
+        "output_grain": "ordered selected population members",
+        "operator_sequence": [
+          "ReadRows",
+          "Order",
+          "Take",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.rank.named-position",
+      "question": "Which universities are immediately above and below Duke in NIH funding rank?",
+      "input_contract": "Population ordering plus location of Duke; the offset is not given in advance.",
+      "expected": {
+        "shape": "rank.named-position",
+        "output_grain": "one located rank or a relative rank slice",
+        "operator_sequence": [
+          "ReadRows",
+          "Rank",
+          "Locate",
+          "RelativeSlice",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.rank.reference-distance",
+      "question": "Which five counties have obesity rates closest to Travis County's rate?",
+      "input_contract": "The reference rate and comparable population rates; rank by absolute difference, not ordinal adjacency.",
+      "expected": {
+        "shape": "rank.reference-distance",
+        "output_grain": "members ordered by reference-value distance",
+        "operator_sequence": [
+          "ReadScalar",
+          "ReadRows",
+          "MapScalar",
+          "Order",
+          "Take",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.rank.change",
+      "question": "Which counties rose the most in obesity rank between 2015 and 2023?",
+      "input_contract": "Comparable population snapshots at both endpoints and entity alignment.",
+      "expected": {
+        "shape": "rank.change",
+        "output_grain": "members ordered by rank change",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "Rank",
+          "Rank",
+          "AlignEntity",
+          "MapScalar",
+          "Order",
+          "Take"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.rank.percentile",
+      "question": "What percentile is Rice University in for research spending?",
+      "input_contract": "Rice's reference value and a complete population for below/equal/total counts.",
+      "expected": {
+        "shape": "rank.percentile",
+        "output_grain": "one reference percentile",
+        "operator_sequence": [
+          "ReadScalar",
+          "ReadRows",
+          "ReferenceCounts",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.rank.grouped",
+      "question": "Which nonprofit has the largest revenue in each state?",
+      "input_contract": "State membership and comparable revenue for all candidates, with tie policy.",
+      "expected": {
+        "shape": "rank.grouped",
+        "output_grain": "selected members within each group",
+        "operator_sequence": [
+          "ReadRows",
+          "Group",
+          "GroupOrder",
+          "GroupTake",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.reduce.streaming",
+      "question": "What is the mean diabetes rate across US counties?",
+      "input_contract": "Complete comparable county observations; unweighted mean explicitly requested.",
+      "expected": {
+        "shape": "reduce.streaming",
+        "output_grain": "one fixed-state statistic",
+        "operator_sequence": [
+          "ReadRows",
+          "StreamReduce",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.reduce.quantiles",
+      "question": "What is the interquartile range of county obesity rates?",
+      "input_contract": "Complete observations, quantiles .25 and .75, and an interpolation convention.",
+      "expected": {
+        "shape": "reduce.quantiles",
+        "output_grain": "one or more exact order statistics or their scalar combination",
+        "operator_sequence": [
+          "ReadRows",
+          "OrderStatistics",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.reduce.distinct",
+      "question": "How many distinct parent organizations received grants, counting chapters once?",
+      "input_contract": "Grant recipient records with a resolved parent-organization key; no implicit crosswalk.",
+      "expected": {
+        "shape": "reduce.distinct",
+        "output_grain": "one distinct count",
+        "operator_sequence": [
+          "ReadRows",
+          "Distinct",
+          "Count"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.reduce.histogram",
+      "question": "How many nonprofits have revenue below $1 million, from $1 million to $5 million, and above $5 million?",
+      "input_contract": "Complete revenue observations and explicit edge-inclusion rules.",
+      "expected": {
+        "shape": "reduce.histogram",
+        "output_grain": "one count per supplied bin",
+        "operator_sequence": [
+          "ReadRows",
+          "Bin",
+          "Group",
+          "GroupCount"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.reduce.adaptive-histogram",
+      "question": "Divide nonprofit revenues into ten equal-width bands from the minimum to maximum and count each band.",
+      "input_contract": "Complete revenues; equal-width-from-min-max rule, ten bins and edge policy.",
+      "expected": {
+        "shape": "reduce.adaptive-histogram",
+        "output_grain": "one count per data-derived bin",
+        "operator_sequence": [
+          "ReadRows",
+          "DeriveBins",
+          "Bin",
+          "Group",
+          "GroupCount"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.reduce.grouped",
+      "question": "What is total NIH funding by state?",
+      "input_contract": "Raw contributions with co-delivered state keys and a unique contribution grain.",
+      "expected": {
+        "shape": "reduce.grouped",
+        "output_grain": "one fixed-state statistic per group",
+        "operator_sequence": [
+          "ReadRows",
+          "Group",
+          "GroupStreamReduce",
+          "Filter",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.join.related-count",
+      "question": "Which registered companies filed fewer than two patents last year, including companies with none?",
+      "input_contract": "Complete candidate registry and independently acquired patent relation; retain zero-match candidates.",
+      "expected": {
+        "shape": "join.related-count",
+        "output_grain": "qualifying candidates with related counts",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "Group",
+          "GroupCount",
+          "LeftJoin",
+          "FillUnmatchedCountZero",
+          "Filter",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.reduce.grouped-distinct",
+      "question": "How many distinct grant recipients are there in each state?",
+      "input_contract": "Co-delivered state and resolved recipient keys; deduplicate within group.",
+      "expected": {
+        "shape": "reduce.grouped-distinct",
+        "output_grain": "one distinct count per group",
+        "operator_sequence": [
+          "ReadRows",
+          "Distinct",
+          "Group",
+          "GroupCount",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.reduce.grouped-quantile",
+      "question": "What is median nonprofit revenue in each state?",
+      "input_contract": "Complete revenue observations and co-delivered state keys.",
+      "expected": {
+        "shape": "reduce.grouped-quantile",
+        "output_grain": "one exact quantile per group",
+        "operator_sequence": [
+          "ReadRows",
+          "Group",
+          "GroupOrderStatistics",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.reduce.allocated-groups",
+      "question": "What is total funding by research topic if each grant is divided equally among its assigned topics?",
+      "input_contract": "Grant contributions and separate topic membership bridge; explicit equal-fraction allocation.",
+      "expected": {
+        "shape": "reduce.allocated-groups",
+        "output_grain": "one allocated statistic per group",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadMembership",
+          "Join",
+          "Distinct",
+          "Allocate",
+          "Group",
+          "GroupStreamReduce"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.reduce.bridge-distinct",
+      "question": "How many distinct grants address each research topic, counting a multi-topic grant once in each topic?",
+      "input_contract": "Separate grant/topic bridge and stable grant identity; full membership in each topic.",
+      "expected": {
+        "shape": "reduce.bridge-distinct",
+        "output_grain": "one distinct contribution count per group",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadMembership",
+          "Join",
+          "Distinct",
+          "Group",
+          "GroupCount"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.reduce.bridge-quantile",
+      "question": "What is median grant size in each research topic, including multi-topic grants in every assigned topic?",
+      "input_contract": "Separate topic bridge, full-to-each membership and one contribution per grant per group.",
+      "expected": {
+        "shape": "reduce.bridge-quantile",
+        "output_grain": "one exact quantile per bridged group",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadMembership",
+          "Join",
+          "Distinct",
+          "Group",
+          "GroupOrderStatistics"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.reduce.group-shares",
+      "question": "What fraction of all federal grant dollars goes to each state?",
+      "input_contract": "Raw grants partitioned by state, no overlapping contributions; total from the same population.",
+      "expected": {
+        "shape": "reduce.group-shares",
+        "output_grain": "one share per partition group",
+        "operator_sequence": [
+          "ReadRows",
+          "Group",
+          "GroupStreamReduce",
+          "StreamReduce",
+          "MapScalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.reduce.top-share",
+      "question": "What share of NIH funding goes to the ten most-funded universities?",
+      "input_contract": "Complete contribution values or equivalent certified top-N and total operations.",
+      "expected": {
+        "shape": "reduce.top-share",
+        "output_grain": "one top-N contribution share",
+        "operator_sequence": [
+          "ReadRows",
+          "Order",
+          "Take",
+          "StreamReduce",
+          "StreamReduce",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.reduce.gini",
+      "question": "What is the Gini coefficient of federal contracting dollars across vendors?",
+      "input_contract": "Complete nonnegative vendor totals, with declared zero-population convention.",
+      "expected": {
+        "shape": "reduce.gini",
+        "output_grain": "one Gini value",
+        "operator_sequence": [
+          "ReadRows",
+          "Order",
+          "LorenzReduce"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.join.paired-reduce",
+      "question": "What is the population-weighted mean obesity rate across counties?",
+      "input_contract": "Rates and population weights from separate relations, aligned one-to-one by county.",
+      "expected": {
+        "shape": "join.paired-reduce",
+        "output_grain": "one aligned paired statistic",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "AlignEntity",
+          "StreamReduce",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.series.streaming",
+      "question": "For how many quarters was Boeing's cash flow negative?",
+      "input_contract": "Complete quarterly series and predicate value<0; counts observed quarters, not elapsed days.",
+      "expected": {
+        "shape": "series.streaming",
+        "output_grain": "one series statistic",
+        "operator_sequence": [
+          "ReadSeries",
+          "StreamReduce",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.series.event-bound-reduction",
+      "question": "How much federal funding has Puerto Rico received since Hurricane Maria?",
+      "input_contract": "First resolve the event date, then enumerate funding observations and sum the scoped contributions.",
+      "expected": {
+        "shape": "series.event-bound-reduction",
+        "output_grain": "one event-bounded series statistic",
+        "operator_sequence": [
+          "ResolveDate",
+          "ReadSeries",
+          "StreamReduce",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.series.quantiles",
+      "question": "What is the interquartile range of Kansas annual farm income since 2000?",
+      "input_contract": "Complete annual observations and exact quantile convention.",
+      "expected": {
+        "shape": "series.quantiles",
+        "output_grain": "one or more series quantiles or their difference",
+        "operator_sequence": [
+          "ReadSeries",
+          "OrderStatistics",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.series.growth-average",
+      "question": "What is the arithmetic mean of Texas Medicaid enrollment's annual percentage changes since 2015?",
+      "input_contract": "Annual observations, complete spacing, zero-baseline policy; not endpoint CAGR.",
+      "expected": {
+        "shape": "series.growth-average",
+        "output_grain": "one average of adjacent-period changes",
+        "operator_sequence": [
+          "ReadSeries",
+          "AdjacentPairs",
+          "MapScalar",
+          "StreamReduce"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.series.window-comparison",
+      "question": "How much did total spending in Q3 2024 exceed total spending in Q3 2023?",
+      "input_contract": "Raw daily spending, requiring independent reduction of each quarter before subtraction.",
+      "expected": {
+        "shape": "series.window-comparison",
+        "output_grain": "one comparison of reduced windows",
+        "operator_sequence": [
+          "ReadSeries",
+          "ReadSeries",
+          "StreamReduce",
+          "StreamReduce",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.series.acceleration",
+      "question": "Is the mean second difference of annual Medicare spending positive over the last ten years?",
+      "input_contract": "Regular annual observations; second differences and sign-of-mean summary explicitly requested.",
+      "expected": {
+        "shape": "series.acceleration",
+        "output_grain": "second-difference series or its declared summary",
+        "operator_sequence": [
+          "ReadSeries",
+          "Difference",
+          "Difference",
+          "SummarizeAcceleration"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.series.extreme-time",
+      "question": "In which year did Boeing's revenue peak?",
+      "input_contract": "Comparable historical series and tie policy.",
+      "expected": {
+        "shape": "series.extreme-time",
+        "output_grain": "selected observation times with values",
+        "operator_sequence": [
+          "ReadSeries",
+          "Order",
+          "Take",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.series.first-match",
+      "question": "In which year did Apple's revenue first exceed $100 billion?",
+      "input_contract": "Chronological observations covering all earlier candidate periods or a certified first-match endpoint.",
+      "expected": {
+        "shape": "series.first-match",
+        "output_grain": "earliest qualifying observation",
+        "operator_sequence": [
+          "ReadSeries",
+          "TimeOrder",
+          "Filter",
+          "Take",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.quantify.witness",
+      "question": "Does every state in this survey have an obesity rate below 40 percent?",
+      "input_contract": "Defined state universe and observed predicates; a counterexample proves false, otherwise full coverage is required for true.",
+      "expected": {
+        "shape": "quantify.witness",
+        "output_grain": "true, false or unknown with evidence scope",
+        "operator_sequence": [
+          "ReadRows",
+          "Test",
+          "Any",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.join.enrich",
+      "question": "List every county with its health spending where available, retaining counties without spending data.",
+      "input_contract": "County relation and spending relation, left join, null markers for missing spending.",
+      "expected": {
+        "shape": "join.enrich",
+        "output_grain": "joined rows at declared key multiplicity",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "Join",
+          "Filter",
+          "Project",
+          "DistinctIfRequested"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.join.membership",
+      "question": "Which SEC registrants have no matching record in the federal contractor registry?",
+      "input_contract": "Candidate and contractor registries aligned on identity; claim limited to the specified registry's records.",
+      "expected": {
+        "shape": "join.membership",
+        "output_grain": "candidate members with specified match polarity",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "BuildMembership",
+          "MembershipFilter",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.set.union",
+      "question": "List all organizations appearing in either the federal contractor registry or the SEC registry.",
+      "input_contract": "Two independently enumerable relations with common identity keys.",
+      "expected": {
+        "shape": "set.union",
+        "output_grain": "distinct members from the union",
+        "operator_sequence": [
+          "MapReadRows",
+          "Union",
+          "Distinct"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.set.symmetric-difference",
+      "question": "Which organizations appear in exactly one of the two registries?",
+      "input_contract": "Both complete membership relations and a common identity key; both unmatched directions required.",
+      "expected": {
+        "shape": "set.symmetric-difference",
+        "output_grain": "distinct members present on exactly one side",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "AntiJoin",
+          "AntiJoin",
+          "Union",
+          "Distinct"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.join.double-change",
+      "question": "Which companies' stock prices rose over 20 percent in 2025 while consumer complaints fell at least 15 percent?",
+      "input_contract": "Price endpoints and complaint endpoints, aligned by company; four acquisitions and explicit change formulas.",
+      "expected": {
+        "shape": "join.double-change",
+        "output_grain": "qualifying entities with two calculated changes",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "ReadRows",
+          "ReadRows",
+          "AlignEndpoints",
+          "MapChanges",
+          "Filter",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.join.change-and-level",
+      "question": "Which companies grew revenue over 20 percent last year and now have more than 10,000 employees?",
+      "input_contract": "Two revenue endpoints and one employee-count snapshot; employee history is not required.",
+      "expected": {
+        "shape": "join.change-and-level",
+        "output_grain": "qualifying entities with one change and one level",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "ReadRows",
+          "AlignEndpoints",
+          "MapChanges",
+          "Filter",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.join.filter-rank",
+      "question": "Among counties with poverty above 20 percent, which five have the highest life expectancy?",
+      "input_contract": "Separate poverty and life-expectancy inputs, identity alignment, filtering before ranking.",
+      "expected": {
+        "shape": "join.filter-rank",
+        "output_grain": "filtered entities ordered by the second measure",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "AlignEntity",
+          "Filter",
+          "Order",
+          "Take",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.join.derived-filter",
+      "question": "Which nonprofits spend more than 30 percent of revenue on overhead?",
+      "input_contract": "Separately acquired overhead and revenue, same reporting period and denominator policy.",
+      "expected": {
+        "shape": "join.derived-filter",
+        "output_grain": "qualifying entities with calculated two-input measures",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "AlignEntity",
+          "MapScalar",
+          "Filter",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.hierarchy.rollup",
+      "question": "What is total headcount across Alphabet and its subsidiaries, counting each employee contribution once?",
+      "input_contract": "Explicit hierarchy and non-overlapping reporting scopes; never sum consolidated and included subordinate totals twice.",
+      "expected": {
+        "shape": "hierarchy.rollup",
+        "output_grain": "one hierarchy-scoped aggregate",
+        "operator_sequence": [
+          "ReadHierarchy",
+          "ResolveScope",
+          "MapReadScalar",
+          "Distinct",
+          "StreamReduce"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.hierarchy.exclusive",
+      "question": "What is the national organization's revenue excluding its chapters, given a consolidated total?",
+      "input_contract": "Explicit chapter hierarchy and compatible chapter contributions needed to reconcile the consolidated total.",
+      "expected": {
+        "shape": "hierarchy.exclusive",
+        "output_grain": "one reconciled parent-only value",
+        "operator_sequence": [
+          "ReadHierarchy",
+          "ResolveScope",
+          "MapReadScalar",
+          "ReconcileScope",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.spatial.allocate",
+      "question": "Allocate this district's total population across overlapping service areas in proportion to overlap area.",
+      "input_contract": "District total and boundary geometries; uniform-density area allocation explicitly selected.",
+      "expected": {
+        "shape": "spatial.allocate",
+        "output_grain": "one allocated value per target geography",
+        "operator_sequence": [
+          "ReadScalar",
+          "ReadGeometries",
+          "SpatialIntersect",
+          "DeriveWeights",
+          "Allocate"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.reduce.entity-share",
+      "question": "What fraction of all NIH grant dollars goes to Johns Hopkins?",
+      "input_contract": "Reported entity numerator plus raw population contributions requiring a total reduction.",
+      "expected": {
+        "shape": "reduce.entity-share",
+        "output_grain": "one entity-to-population share",
+        "operator_sequence": [
+          "ReadScalar",
+          "ReadRows",
+          "StreamReduce",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.assoc.population-ranks",
+      "question": "What is the Spearman correlation between county income and diabetes rate?",
+      "input_contract": "Separately acquired measures aligned by county, average-rank ties and missing-value policy.",
+      "expected": {
+        "shape": "assoc.population-ranks",
+        "output_grain": "one rank-correlation coefficient",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "AlignEntity",
+          "RankColumns",
+          "StreamReduce",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.assoc.series",
+      "question": "What is the Pearson correlation between research funding this year and patent counts next year?",
+      "input_contract": "Two comparable annual series with specified one-year lag; no search over lags.",
+      "expected": {
+        "shape": "assoc.series",
+        "output_grain": "one time-aligned correlation coefficient",
+        "operator_sequence": [
+          "ReadSeries",
+          "ReadSeries",
+          "ShiftTime",
+          "AlignTime",
+          "StreamReduce",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.assoc.series-ranks",
+      "question": "What is the Spearman correlation between annual research funding and next-year patent counts?",
+      "input_contract": "Two annual series, specified lag, common paired domain, explicit rank transform.",
+      "expected": {
+        "shape": "assoc.series-ranks",
+        "output_grain": "one time-aligned rank correlation",
+        "operator_sequence": [
+          "ReadSeries",
+          "ReadSeries",
+          "ShiftTime",
+          "AlignTime",
+          "RankColumns",
+          "StreamReduce",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.assoc.group-statistic",
+      "question": "How much higher is mean obesity in rural counties than urban counties?",
+      "input_contract": "Two defined complete groups, means calculated independently then subtracted; no significance claim.",
+      "expected": {
+        "shape": "assoc.group-statistic",
+        "output_grain": "one comparison of group statistics",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "StreamReduce",
+          "StreamReduce",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.assoc.group-test",
+      "question": "Using Welch's two-sample t-test, do rural and urban counties differ in mean obesity?",
+      "input_contract": "Two observation groups with declared sampling assumptions and significance threshold.",
+      "expected": {
+        "shape": "assoc.group-test",
+        "output_grain": "test statistic, degrees of freedom and p-value",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "TwoSampleTest"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.assoc.fitted-outliers",
+      "question": "Fit an ordinary least-squares model of county outcomes on spending and return the ten largest positive residuals.",
+      "input_contract": "Aligned training observations, named predictor/outcome, intercept policy and residual selection rule.",
+      "expected": {
+        "shape": "assoc.fitted-outliers",
+        "output_grain": "members selected by fitted-model residuals",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "AlignEntity",
+          "FitModel",
+          "Residual",
+          "SelectResiduals"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.assoc.baseline-outliers",
+      "question": "Using the supplied linear prediction model, which counties exceed predicted outcomes by more than ten points?",
+      "input_contract": "Supplied coefficients and feature schema; no model fitting.",
+      "expected": {
+        "shape": "assoc.baseline-outliers",
+        "output_grain": "members selected by supplied-baseline residuals",
+        "operator_sequence": [
+          "ReadRows",
+          "EvaluateBaseline",
+          "Residual",
+          "SelectResiduals"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.meta.available",
+      "question": "Does this catalog contain a dataset with county obesity rates for 2024?",
+      "input_contract": "Searchable resource descriptors, scope and discovery completeness; not a publisher value query.",
+      "expected": {
+        "shape": "meta.available",
+        "output_grain": "catalog-scoped availability Boolean or unknown",
+        "operator_sequence": [
+          "DiscoverDescriptors",
+          "Filter",
+          "Any"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.meta.count",
+      "question": "How many datasets in this catalog cover air quality?",
+      "input_contract": "Complete matching resource descriptors, distinct resource identity and defined catalog scope.",
+      "expected": {
+        "shape": "meta.count",
+        "output_grain": "one catalog-scoped resource count",
+        "operator_sequence": [
+          "DiscoverDescriptors",
+          "Filter",
+          "Count"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.lookup.version-comparison",
+      "question": "Was this nonprofit's 2021 revenue restated between the original and amended filings?",
+      "input_contract": "Two release-addressable values and their reporting bases; not a single historical lookup.",
+      "expected": {
+        "shape": "lookup.version-comparison",
+        "output_grain": "one comparison of versioned assertions",
+        "operator_sequence": [
+          "ReadVersionedScalar",
+          "ReadVersionedScalar",
+          "Scalar"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.meta.definition",
+      "question": "How does this Census measure define household income?",
+      "input_contract": "Known measure descriptor with definition, units and basis fields.",
+      "expected": {
+        "shape": "meta.definition",
+        "output_grain": "one descriptor definition",
+        "operator_sequence": [
+          "ReadDescriptor",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.eligibility.evaluate",
+      "question": "Which mental-health grants is a rural nonprofit clinic eligible to apply for?",
+      "input_contract": "Candidate opportunities, separately retrieved rules, actor attributes and rule evaluation semantics.",
+      "expected": {
+        "shape": "eligibility.evaluate",
+        "output_grain": "candidate opportunities with eligibility verdicts",
+        "operator_sequence": [
+          "ReadRows",
+          "MapReadRules",
+          "EvaluateRules",
+          "Filter",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.join.division",
+      "question": "Which companies operate in every state in the required-state list?",
+      "input_contract": "Candidate relation, company-state relation and complete required-state set, including zero-match and empty-required-set policies.",
+      "expected": {
+        "shape": "join.division",
+        "output_grain": "candidates related to every required member",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "ReadRows",
+          "MatchRequired",
+          "Group",
+          "AllRequired",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.join.path",
+      "question": "In which states are the universities employing researchers who received NSF awards?",
+      "input_contract": "Award recipients as seeds, researcher-to-university and university-to-state edges; declared finite traversal sequence.",
+      "expected": {
+        "shape": "join.path",
+        "output_grain": "distinct terminal entities reached along a finite path",
+        "operator_sequence": [
+          "ReadSeeds",
+          "RepeatTraverse",
+          "DistinctIfRequested",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.join.grouped-measures",
+      "question": "Show total NIH funding per county beside total federal spending per county.",
+      "input_contract": "Separate raw NIH and spending contributions; aggregate each to county before joining.",
+      "expected": {
+        "shape": "join.grouped-measures",
+        "output_grain": "one aligned pair of independently computed group statistics",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "Group",
+          "Group",
+          "GroupStreamReduce",
+          "GroupStreamReduce",
+          "AlignEntity",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.temporal.match",
+      "question": "Match each grant to the exchange-rate observation most recently published at or before its award date.",
+      "input_contract": "Grant dates and versioned exchange-rate observations; backward direction, validity and tolerance guards.",
+      "expected": {
+        "shape": "temporal.match",
+        "output_grain": "one permitted temporal neighbor per reference record",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "TemporalNeighborMatch",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.temporal.overlap",
+      "question": "Which grants and contracts had overlapping funding periods?",
+      "input_contract": "Both interval relations and explicit endpoint-inclusion semantics.",
+      "expected": {
+        "shape": "temporal.overlap",
+        "output_grain": "qualifying pairs of interval records",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "IntervalJoin",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.temporal.sequence",
+      "question": "Which companies had a complaint spike before a recall?",
+      "input_contract": "Two acquired event relations aligned by company, with temporal ordering tested after alignment.",
+      "expected": {
+        "shape": "temporal.sequence",
+        "output_grain": "distinct entities with qualifying ordered event pairs",
+        "operator_sequence": [
+          "ReadRows",
+          "ReadRows",
+          "AlignEntity",
+          "Filter",
+          "Project",
+          "Distinct"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.spatial.contains",
+      "question": "Which federal facilities lie inside Oregon's boundary?",
+      "input_contract": "Resolved boundary geometry, facility geometries and coordinate-system compatibility.",
+      "expected": {
+        "shape": "spatial.contains",
+        "output_grain": "members satisfying a boundary predicate",
+        "operator_sequence": [
+          "ReadBoundary",
+          "ReadGeometries",
+          "SpatialPredicate",
+          "Filter",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.spatial.radius",
+      "question": "Which clinics lie within ten kilometers of this specified contaminated site?",
+      "input_contract": "Resolved reference point, clinic geometries and geodesic distance metric.",
+      "expected": {
+        "shape": "spatial.radius",
+        "output_grain": "members within a supplied distance threshold",
+        "operator_sequence": [
+          "ResolvePoint",
+          "ReadGeometries",
+          "Distance",
+          "Filter",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    },
+    {
+      "id": "replacement.spatial.nearest",
+      "question": "Which national laboratory is nearest to this Denver address?",
+      "input_contract": "Resolved address point, laboratory geometries, distance metric and tie policy.",
+      "expected": {
+        "shape": "spatial.nearest",
+        "output_grain": "distance-ranked selected neighbors",
+        "operator_sequence": [
+          "ResolvePoint",
+          "ReadGeometries",
+          "Distance",
+          "Order",
+          "Take",
+          "Project"
+        ]
+      },
+      "kind": "authored design example; not independent holdout"
+    }
+  ]
+}

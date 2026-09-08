@@ -21,7 +21,7 @@ def events(context):
 
 
 class ProgressReportingTests(unittest.IsolatedAsyncioTestCase):
-    async def test_discovery_reports_entity_property_plan_and_ard_summary_in_order(self):
+    async def test_legacy_discovery_progress_contract(self):
         context = QueryContext(usage_ledger=llm.Ledger(),
                                discovery_ledger=ard_client.DiscoveryUsage())
         classification = {
@@ -33,7 +33,8 @@ class ProgressReportingTests(unittest.IsolatedAsyncioTestCase):
         }
         hits = [{"identifier": "sources/census/income.md", "title": "Median income",
                  "publisher": "census", "score": 97}]
-        with mock.patch.object(llm, "chat_async", mock.AsyncMock(
+        with mock.patch.object(harness, "query_understanding_async", side_effect=harness._legacy_query_understanding_async), \
+             mock.patch.object(llm, "chat_async", mock.AsyncMock(
                 return_value=json.dumps(classification))), \
              mock.patch.object(ard_client, "search_many_async", mock.AsyncMock(return_value=hits)):
             await harness.discover_async("Median income in Detroit", context=context)

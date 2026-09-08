@@ -967,7 +967,7 @@ async def _asay(context, kind, **data):
     await context.emit(kind, **data)
 
 
-async def query_understanding_async(question, *, context):
+async def _legacy_query_understanding_async(question, *, context):
     """Question -> structure + entities in one call, then measure/period in a second.
 
     Shape and entity are ONE judgement, not two. Six of the eleven shapes are DEFINED by entity
@@ -1008,6 +1008,12 @@ async def query_understanding_async(question, *, context):
     return _normalize_shape(ctx)
 
 
+async def query_understanding_async(question, *, context):
+    """Canonical production/test entry: retain up to three independent template approaches."""
+    from query_understanding import understand
+    return await understand(question, context=context)
+
+
 # Compatibility for integrations that imported the old name. New code and reports use query
 # understanding terminology; remove this alias after downstream callers migrate.
 classify_async = query_understanding_async
@@ -1017,6 +1023,17 @@ async def discover_async(question, sites=None, assumptions=None, *, context):
     """Understand and discover without crossing a synchronous provider boundary."""
     await _asay(context, "status", icon="🔍", msg="Reading your question…")
     ctx = await query_understanding_async(question, context=context)
+    if 'candidates' in ctx:
+        if assumptions:
+            raise runtime.Refused('Legacy assumptions cannot overwrite independent template candidates')
+        queries = list(dict.fromkeys(q for c in ctx['candidates'] if c.get('status') == 'ok'
+                                     for q in c.get('acquisition_queries', [])))
+        await _asay(context, 'shape_candidates', candidates=ctx['candidates'])
+        if not queries:
+            return ctx, []
+        hits = await ard_client.search_many_async(queries, k=12, sources=sites,
+                                                  rerank_query=question, context=context)
+        return ctx, hits
     if isinstance(assumptions, dict):
         allowed = {"entity", "type", "attribute", "period", "shape", "concept", "entity_qid"}
         applied = {key: value for key, value in assumptions.items()
@@ -2136,6 +2153,8 @@ async def run(question, sites=None, assumptions=None, on_ambiguity="answer", *, 
             on_ambiguity = "answer"
         ctx, hits = await discover_async(
             question, sites=sites, assumptions=assumptions, context=context)
+        if 'candidates' in ctx:
+            raise runtime.Refused('Query understanding produced template candidates; candidate-aware planning is not implemented. No legacy shape fallback was used.')
         if not hits:
             raise runtime.Refused("agent finder returned no sources")
         candidates = ctx.get("entity_candidates") or []

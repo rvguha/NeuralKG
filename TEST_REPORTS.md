@@ -22,7 +22,7 @@ and symlinks outside the report root. Reports are not committed to Git.
 Run the 76-template understanding evaluation with the approved OpenRouter
 credentials configured:
 
-    LLM_PROVIDER=openrouter .venv/bin/python tests/template_stage_run.py
+    LLM_PROVIDER=openrouter OPENROUTER_MODEL=openai/gpt-oss-20b .venv/bin/python tests/template_stage_run.py
 
 This uses only `openai/gpt-oss-20b`. It checkpoints every case and publishes
 HTML every ten completions. `--run-id <existing-id>` resumes a run with the same
@@ -30,6 +30,20 @@ prompt; `--workers N` controls concurrency. Default corpus: 76 authored examples
 308 common questions, 350 extended questions and 45 classification negatives.
 Conditional migrated labels and disputed negatives are marked review, not scored
 as exact gold. Entity/measure/parameter extraction is saved but not scored.
+
+The runner calls `harness.query_understanding_async` directly. It has no separate
+prompt or direct SDK call. Production uses three rounds: parallel batches of at
+most 30 brief cards (description plus examples), one shortlist call selecting up
+to three, and parallel independent full-card extractions. All candidates remain
+separate for downstream planning. Reported agreement is expected-template recall
+among successfully extracted candidates, not top-1 accuracy. Authored catalog
+examples are in-prompt checks, not held-out generalization. Exact per-call prompts
+and outputs are saved in each result's `understanding_trace`.
+
+Configure `query_understanding.catalog` in instance YAML to select a catalog;
+relative paths resolve beside that YAML. Default is the 76-template replacement.
+The old eleven-shape helper is private and used only by historical regression
+tests. Production never falls back to it or coerces a new candidate to `point`.
 
 Only query understanding runs live in this runner. Subsequent pages explicitly
 record blocked stages, not fabricated discovery/planning/execution results.

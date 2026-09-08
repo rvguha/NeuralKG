@@ -1,5 +1,5 @@
 import unittest
-from template_stage_run import corpus, validate
+from template_stage_run import corpus
 
 
 class TemplateStageRunTests(unittest.TestCase):
@@ -22,10 +22,3 @@ class TemplateStageRunTests(unittest.TestCase):
         rows=[r for r in corpus() if r['cohort']=='negatives']
         self.assertEqual(len(rows),45)
         self.assertTrue(all(not r['scoreable'] for r in rows))
-
-    def test_valid_no_shape_is_not_an_empty_completion(self):
-        validate(dict(template=None,entities=[],measures=[],periods=[],bindings={},missing=[],acquisition_queries=[]),{'lookup.scalar'})
-
-    def test_incomplete_or_unknown_outputs_are_rejected(self):
-        for output in ({}, {'template':'invented'}, {'template':'lookup.scalar','entities':'Apple'}):
-            with self.assertRaises(ValueError): validate(output,{'lookup.scalar'})

@@ -12,14 +12,14 @@ def context():
     return QueryContext(usage_ledger=llm.Ledger(), discovery_ledger=ard_client.DiscoveryUsage())
 
 
-class QueryUnderstandingTests(unittest.IsolatedAsyncioTestCase):
+class LegacyQueryUnderstandingTests(unittest.IsolatedAsyncioTestCase):
     async def understand(self, shape, entity, measure):
         # Structure and entity are ONE call: six of eleven shapes are defined by entity count, and
         # splitting them measured 92.2% -> 82.1% on the 308-case corpus. The mock therefore returns
         # their union first, then measure/period.
         with mock.patch.object(llm, "chat_async", mock.AsyncMock(
                 side_effect=[json.dumps({**shape, **entity}), json.dumps(measure)])) as chat:
-            result = await harness.query_understanding_async("fixture question", context=context())
+            result = await harness._legacy_query_understanding_async("fixture question", context=context())
         return result, chat
 
     async def test_two_calls_merge_into_one_context(self):
@@ -49,7 +49,7 @@ class QueryUnderstandingTests(unittest.IsolatedAsyncioTestCase):
             started.append("measure")
             return '{"attribute":"national debt","period":"latest"}'
         with mock.patch.object(llm, "chat_async", side_effect=answer):
-            await harness.query_understanding_async("US national debt", context=context())
+            await harness._legacy_query_understanding_async("US national debt", context=context())
         self.assertEqual(started, ["structure", "measure"])
 
     async def test_measure_prompt_receives_entity_spans_but_no_source_vocabulary(self):

@@ -34,7 +34,7 @@ def context():
 
 
 class AsyncPointEngineTests(unittest.IsolatedAsyncioTestCase):
-    async def test_discovery_uses_query_understanding_and_unfiltered_ard(self):
+    async def test_legacy_discovery_adapter_uses_unfiltered_ard(self):
         ctx = context()
         # structure and entity are one call (see harness.query_understanding_async), measure a second
         answers = [
@@ -48,7 +48,8 @@ class AsyncPointEngineTests(unittest.IsolatedAsyncioTestCase):
         ]
         hit = {"identifier": "sources/census/dp02-0154pe.md", "title": "Broadband",
                "publisher": "census", "score": 100}
-        with mock.patch.object(llm, "chat_async",
+        with mock.patch.object(harness, "query_understanding_async", side_effect=harness._legacy_query_understanding_async), \
+             mock.patch.object(llm, "chat_async",
                                mock.AsyncMock(side_effect=[json.dumps(item) for item in answers])) as chat, \
              mock.patch.object(ard_client, "search_many_async",
                                mock.AsyncMock(return_value=[hit])) as search, \
