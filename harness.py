@@ -1516,7 +1516,7 @@ async def _search_async(question, ctx=None, hits=None, assumptions=None, *, cont
         ("hit", lambda state: hits),
         ("entity", lambda state: _link_entity_async(ctx, context=context)),
         ("key", lambda state: _key_options_async(state, ctx, context=context)),
-        ("period", lambda state: [period, "latest"] if period != "latest" else ["latest"]),
+        ("period", lambda state: [period] if ctx.get('strict_period') else [period, "latest"] if period != "latest" else ["latest"]),
     ]
     attempts, tried_tables, done = 0, set(), {}
 
@@ -2154,7 +2154,8 @@ async def run(question, sites=None, assumptions=None, on_ambiguity="answer", *, 
         ctx, hits = await discover_async(
             question, sites=sites, assumptions=assumptions, context=context)
         if 'candidates' in ctx:
-            raise runtime.Refused('Query understanding produced template candidates; candidate-aware planning is not implemented. No legacy shape fallback was used.')
+            import template_execution
+            return await template_execution.run(question, ctx, hits, context=context)
         if not hits:
             raise runtime.Refused("agent finder returned no sources")
         candidates = ctx.get("entity_candidates") or []
