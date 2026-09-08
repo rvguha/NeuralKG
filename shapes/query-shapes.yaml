@@ -1,0 +1,2070 @@
+# Query-shape authoring catalog. Not yet generated as OKF/ARD or used by the engine.
+# Definitions describe requested results and computations independently of source layout.
+# Common cases are first-class entries; no legacy labels or parent hierarchy are retained.
+# Direction, source identity and topic restrictions are slots where computation is unchanged.
+# Explicit change calculations, independent aggregate grain and absence claims remain visible.
+# Inferred facets were invalidated by consolidation; regenerate before facet experiments.
+# See shapes/CATALOG-REPAIR.md for decisions and validation limits.
+shapes:
+- id: point.value
+  title: One numeric value for one named entity
+  axes:
+    subject: named-entity
+    measure: level
+    time: unspecified
+    quantifier: none
+    result: number
+    join: none
+  asks: One named entity, one measure, one period; the answer is a single value. A published rate, percentage,
+    median, exchange rate or per-capita figure is a measure lookup unless the question explicitly requests
+    computing it from operands. Latest/current specifies the lookup period.
+  examples:
+  - How much NIH funding does MIT receive?
+  - What was Apple's total revenue in 2023?
+  tag: restored-common
+  not:
+    records.for-entity: The individual records about one named entity, not a statistic over them.
+- id: point.status
+  title: A classification or standing of one named entity
+  axes:
+    subject: named-entity
+    measure: boolean
+    time: unspecified
+    quantifier: none
+    result: boolean
+    join: none
+  asks: Whether a named entity holds a stated status or classification.
+  examples:
+  - Is the Sierra Club a 501(c)(3)?
+  - Is Tesla an SEC registrant?
+  tag: restored-common
+  not:
+    point.categorical: A named entity's value for an attribute whose range is a category or a name, not
+      a quantity.
+- id: records.for-entity
+  title: The records belonging to one named entity
+  axes:
+    subject: named-entity
+    measure: level
+    time: unspecified
+    quantifier: none
+    result: record-list
+    join: none
+  asks: Individual records belonging or related to one named entity, such as its awards, contracts, filings
+    or patents. A period restriction does not change this shape. No statistic over the records is requested.
+  examples:
+  - NSF research awards for MIT
+  - List the SEC filings by Ford in 2023
+  tag: restored-common
+  not:
+    point.value: One named entity, one measure, one period; the answer is a single value.
+- id: timeseries.single-entity
+  title: One entity's measure across several periods
+  axes:
+    subject: named-entity
+    measure: level
+    time: range
+    quantifier: none
+    result: series
+    join: none
+  asks: The value of one measure for one entity at each of several periods.
+  examples:
+  - Apple total revenue from 2019 to 2023
+  - How has NIH funding to Stanford changed since 2019?
+  tag: restored-common
+  not:
+    change.absolute: One entity, one measure, the difference between its values at two stated times, in
+      the measure's own units.
+- id: rank.top-n
+  title: Top or bottom N members ordered by a measure
+  axes:
+    subject: open-population
+    measure: level
+    time: unspecified
+    quantifier: none
+    result: ranked-list
+    join: none
+  asks: An ordered list of the extreme-scoring members of a population that the question does not enumerate,
+    at either end.
+  examples:
+  - Top 10 universities by NIH funding
+  - The 10 counties with the lowest diabetes rates
+  - Largest federal programmes for wildfire mitigation
+  - The biggest grants awarded for opioid treatment
+  - Which counties have the lowest life expectancy?
+  - The 10 states with the least federal research funding
+  tag: restored-common
+  slots:
+    direction:
+      enum:
+      - max
+      - min
+    limit:
+      type: positive-integer-or-unbounded
+  not:
+    rank.extremum-single: One entity — the maximum over an open population — where a list would not be
+      the answer.
+- id: aggregate.sum
+  title: Total of a measure across a population
+  axes:
+    subject: open-population
+    measure: level
+    time: unspecified
+    quantifier: none
+    result: number
+    join: none
+  asks: The sum of a measure across a specified population or the constituent parts of an area. Each contribution
+    counts once at the requested grain. A geography-defined population uses the same sum as any other
+    population.
+  examples:
+  - Total NIH funding to all universities
+  - Total population of all California counties
+  - Total federal grants to California, summed across its counties
+  - Population of the Chicago metro area from its constituent counties
+  tag: restored-common
+  disc:
+    statistic: sum
+  not:
+    aggregate.mean: The arithmetic mean of a measure across population members, each counted once.
+- id: comparison.values
+  title: Specified values shown alongside each other
+  axes:
+    subject: named-set
+    measure: level
+    time: unspecified
+    quantifier: none
+    result: record-list
+    join: none
+  asks: Values for explicitly specified entity/measure operands, displayed alongside each other. A requested
+    normalization or calendar alignment is part of the operand expression. No particular difference, winning
+    operand or order is requested.
+  examples:
+  - Show NIH funding for Harvard and MIT side by side
+  - Report Ford and GM revenue for 2023
+  - Show fiscal-year and calendar-year spending alongside each other with periods explicitly labeled
+  tag: restored-common
+  not:
+    comparison.difference: The signed or explicitly requested absolute gap between two values. Operands
+      may identify different entities, measures, or explicitly named publisher assertions; publisher roles
+      do not create another subtraction shape.
+  slots:
+    operandMeasure:
+      type: measure-expression
+    periodAlignment:
+      enum:
+      - as-stated
+      - common-calendar
+- id: point.ratio
+  title: The quotient of two measures for one entity
+  axes:
+    subject: named-entity
+    measure: ratio
+    time: unspecified
+    quantifier: none
+    result: number
+    join: same-entity-measures
+  asks: One entity, two explicitly specified measures, the first divided by the second. Includes per-unit
+    normalization. A share of a component or population total uses the corresponding share shape.
+  examples:
+  - Apple's debt divided by its equity
+  - NIH funding per faculty member at Johns Hopkins
+  - Federal spending per resident in Cook County
+  tag: restored-common
+  slots:
+    numerator:
+      type: measure
+    denominator:
+      type: measure
+    zeroDenominator:
+      enum:
+      - undefined
+      - error
+  not:
+    point.component-share: One named component of one entity's measure, expressed as a proportion of that
+      entity's total.
+- id: records.matching
+  title: Records matching stated search predicates
+  axes:
+    subject: no-entity
+    measure: level
+    time: unspecified
+    quantifier: none
+    result: record-list
+    join: none
+  asks: Individual records matching search predicates without a named owner/recipient entity. Topic or
+    category restrictions define the search. When a named entity owns or receives the requested records,
+    use records.for-entity.
+  examples:
+  - Grants for education
+  - Federal programmes on wildfire mitigation
+  tag: restored-common
+  not:
+    aggregate.count: The size of a population, where no measure other than membership is involved.
+- id: assoc.correlation-population
+  title: Association between two measures across a population
+  axes:
+    subject: open-population
+    measure: association
+    time: unspecified
+    quantifier: none
+    result: number
+    join: population-pair
+  asks: Whether two measures move together across the members of a population.
+  examples:
+  - Is county income correlated with diabetes rate?
+  - What is the correlation between university enrolment and research expenditure?
+  tag: restored-common
+  not:
+    assoc.correlation-over-time: Whether two of one entity's measures move together across periods.
+- id: point.record
+  title: The full profile of one entity
+  axes:
+    subject: named-entity
+    measure: level
+    time: unspecified
+    quantifier: none
+    result: record
+    join: none
+  operands: 1
+  asks: Every attribute a publisher holds for one named entity, with no measure singled out.
+  examples:
+  - Tell me about the American Red Cross
+  - Show me Pfizer's company profile
+  not:
+    point.categorical: one named attribute is wanted there; here no attribute is singled out
+    relation.hierarchy-rollup: one entity as the publisher holds it, with no subordinates gathered in
+  tag: synthetic
+- id: point.categorical
+  title: A non-numeric attribute of one entity
+  axes:
+    subject: named-entity
+    measure: categorical
+    time: unspecified
+    quantifier: none
+    result: category
+    join: none
+  operands: 1
+  asks: One named entity's non-quantitative attribute, including a category, name, mission, address, URL,
+    calendar date, or clock time. Asking which category applies differs from a yes/no status check.
+  examples:
+  - What sector is Moderna classified under?
+  - In which state is the Kresge Foundation registered?
+  not:
+    point.record: one named attribute, not the whole profile
+    point.threshold-check: the value is the answer, not a verdict about it
+  tag: synthetic
+- id: point.threshold-check
+  title: Whether one entity's measure crosses a stated cut-off
+  axes:
+    subject: named-entity
+    measure: boolean
+    time: unspecified
+    quantifier: threshold
+    result: boolean
+    join: none
+  operands: 1
+  asks: A yes/no answer about one named entity, decided by comparing one of its measures to a number in
+    the question.
+  examples:
+  - Did Netflix spend more than $10B on content in 2023?
+  - Is Boston's uninsured rate above 5%?
+  not:
+    filter.threshold: one named entity against a cut-off, not the members of a population that clear it
+    time.first-crossing: a verdict about the current value, not the date it was first met
+  tag: synthetic
+- id: point.breakdown
+  title: One entity's measure decomposed into its components
+  axes:
+    subject: named-entity
+    measure: level
+    time: unspecified
+    quantifier: none
+    result: grouped
+    join: none
+  operands: 1
+  asks: One entity, one measure, split across the categories that make it up, with every part reported.
+  examples:
+  - Amazon's revenue by segment
+  - How is the Ford Foundation's grantmaking distributed by programme area?
+  not:
+    aggregate.by-group: the groups partition ONE entity's measure, not a population
+  tag: synthetic
+- id: point.component-share
+  title: What fraction of one entity's total a component accounts for
+  axes:
+    subject: named-entity
+    measure: share
+    time: unspecified
+    quantifier: none
+    result: number
+    join: same-entity-measures
+  operands: 2
+  disc:
+    denominator: entity-total
+  asks: One named component of one entity's measure, expressed as a proportion of that entity's total.
+  requires:
+    denominator: entity-total
+  examples:
+  - What share of Apple's revenue comes from services?
+  - What percentage of Yale's budget is NIH funding?
+  not:
+    point.breakdown: one named component, not the full partition
+    relation.entity-to-population-share: the denominator is the entity's own total, not a population total
+  tag: synthetic
+- id: change.absolute
+  title: Signed difference between two endpoints
+  axes:
+    subject: named-entity
+    measure: change
+    time: two-endpoints
+    quantifier: none
+    result: number
+    join: none
+  operands: 1
+  disc:
+    units: native
+  asks: One entity, one measure, the difference between its values at two stated times, in the measure's
+    own units.
+  examples:
+  - How much did Apple's revenue grow between 2019 and 2023?
+  - By how many dollars did NIH funding to Stanford rise from FY2020 to FY2024?
+  not:
+    change.percent: the answer is a proportion, not an amount in the measure's units
+  tag: synthetic
+- id: change.percent
+  title: Proportional change between two endpoints
+  axes:
+    subject: named-entity
+    measure: change
+    time: two-endpoints
+    quantifier: none
+    result: number
+    join: none
+  operands: 1
+  disc:
+    units: proportion
+  asks: One entity, one measure, the change between two stated times expressed as a fraction of the earlier
+    value.
+  examples:
+  - By what percentage did Tesla's revenue grow from 2021 to 2023?
+  - What was the percent decline in Detroit's population between 2010 and 2020?
+  not:
+    change.absolute: the answer carries the measure's units rather than being unitless
+    change.rate-annualized: no per-period normalisation is applied across the interval
+  tag: synthetic
+- id: change.direction
+  title: Whether a measure rose or fell
+  axes:
+    subject: named-entity
+    measure: change
+    time: two-endpoints
+    quantifier: none
+    result: boolean
+    join: none
+  operands: 1
+  asks: The sign of a change for one entity, where the magnitude is not requested.
+  examples:
+  - Did Intel's revenue fall last year?
+  - Has obesity in Mississippi gone up since 2015?
+  not:
+    change.absolute: only the direction is asked for; a magnitude would over-answer
+    point.threshold-check: the comparison is against the entity's own earlier value, not a supplied number
+  tag: synthetic
+- id: change.rate-annualized
+  title: Growth rate normalised per period
+  axes:
+    subject: named-entity
+    measure: growth-rate
+    time: range
+    quantifier: none
+    result: number
+    join: none
+  operands: 1
+  disc:
+    units: rate
+  asks: One entity's average growth per period across an interval, so intervals of different length are
+    comparable.
+  examples:
+  - What is Nvidia's compound annual revenue growth rate over the last five years?
+  - Average yearly growth in Texas Medicaid enrolment since 2015
+  not:
+    change.percent: a per-period rate, not the total change across the interval
+  tag: synthetic
+- id: change.period-over-period
+  title: A period compared with the matching earlier period
+  axes:
+    subject: named-entity
+    measure: change
+    time: window-pair
+    quantifier: none
+    result: number
+    join: none
+  operands: 1
+  asks: One entity's measure in a period against the same position in an earlier cycle, so the two windows
+    are calendar-aligned rather than adjacent.
+  examples:
+  - How did Q3 2024 revenue compare with Q3 2023 for Starbucks?
+  - Year-over-year change in Florida unemployment for June
+  not:
+    change.absolute: the two endpoints are chosen to align on the calendar, which is what makes the comparison
+      meaningful
+  tag: synthetic
+- id: trend.acceleration
+  title: Whether the rate of change is itself changing
+  axes:
+    subject: named-entity
+    measure: growth-rate
+    time: range
+    quantifier: none
+    result: category
+    join: none
+  operands: 1
+  asks: Whether one entity's growth is speeding up, slowing or steady, which is a property of the series'
+    second difference.
+  examples:
+  - Is Medicare spending growth accelerating?
+  - Has the rise in California wildfire acreage slowed down?
+  not:
+    change.rate-annualized: a single rate would answer neither faster nor slower
+  tag: synthetic
+- id: time.extremum
+  title: When one entity's measure was highest or lowest
+  axes:
+    subject: named-entity
+    measure: extremum
+    time: range
+    quantifier: none
+    result: time
+    join: none
+  operands: 1
+  disc:
+    direction: either
+  asks: The period at which one entity's measure reached its maximum or minimum, where the answer is a
+    time rather than a value.
+  examples:
+  - In which year did Boeing's revenue peak?
+  - When was unemployment in Ohio lowest?
+  not:
+    rank.extremum-single: the extremum is over periods for one entity, not over entities
+  tag: synthetic
+- id: time.first-crossing
+  title: When a measure first crossed a threshold
+  axes:
+    subject: named-entity
+    measure: extremum
+    time: event-anchored
+    quantifier: threshold
+    result: time
+    join: none
+  operands: 1
+  asks: The earliest period at which one entity's measure passed a cut-off named in the question.
+  examples:
+  - When did Apple's revenue first exceed $100 billion?
+  - In what year did Arizona's population first pass 7 million?
+  not:
+    time.extremum: the cut-off comes from the question, not from the series itself
+    point.threshold-check: a date is wanted, not a verdict, and every period must be examined
+  tag: synthetic
+- id: time.duration-above
+  title: How long a measure stayed past a threshold
+  axes:
+    subject: named-entity
+    measure: count
+    time: duration
+    quantifier: threshold
+    result: number
+    join: none
+  operands: 1
+  asks: The number of periods in which one entity's measure satisfied a stated condition.
+  examples:
+  - How many years has Alaska run a budget deficit?
+  - For how many quarters was Boeing's cash flow negative?
+  not:
+    time.first-crossing: a count of qualifying periods, not the first of them
+  tag: synthetic
+- id: time.level-at-event
+  title: The value at the time of a named event
+  axes:
+    subject: named-entity
+    measure: level
+    time: event-anchored
+    quantifier: none
+    result: number
+    join: none
+  operands: 1
+  asks: One entity's measure at a period identified by an event rather than by a date the asker states.
+  examples:
+  - What was GM's revenue the year it filed for bankruptcy?
+  - What was New Orleans' population when Katrina hit?
+  not:
+    time.extremum: the period is fixed by a named event, not selected by the measure
+    time.first-crossing: the period is given, not sought
+  tag: synthetic
+- id: time.volatility
+  title: How much a measure varies over time
+  axes:
+    subject: named-entity
+    measure: distribution
+    time: range
+    quantifier: none
+    result: number
+    join: none
+  operands: 1
+  asks: The dispersion of one entity's measure across periods, as a property of the whole series.
+  examples:
+  - How volatile has Chesapeake Energy's quarterly revenue been?
+  - How much does Kansas farm income swing year to year?
+  not:
+    aggregate.spread: dispersion across periods for one entity, not across members of a population
+  tag: synthetic
+- id: time.latest-vintage
+  title: The most recent value and the date it refers to
+  axes:
+    subject: named-entity
+    measure: level
+    time: vintage
+    quantifier: none
+    result: record
+    join: none
+  operands: 1
+  asks: The newest available value AND the observation period or freshness information explicitly requested.
+    A question merely saying latest or current uses point.value with its period bound accordingly.
+  examples:
+  - What is the most recent unemployment figure for Detroit, and for what month?
+  - How current is the IRS 990 data for the Gates Foundation?
+  not:
+    source.vintage: no comparison against an earlier release is asked for
+  tag: synthetic
+- id: time.cumulative-to-date
+  title: A running total since a starting point
+  axes:
+    subject: named-entity
+    measure: level
+    time: range
+    quantifier: none
+    result: number
+    join: none
+  operands: 1
+  asks: One entity's measure summed from a stated start to the present, where the boundary is open at
+    one end.
+  examples:
+  - How much federal funding has Puerto Rico received since Maria?
+  - Total NSF awards to Caltech since 2010
+  not:
+    aggregate.sum: The sum of one measure over the members of a specified population, with each contribution
+      counted at the requested grain.
+    change.absolute: a running total from a start, not the difference between two endpoints
+  tag: synthetic
+- id: timeseries.multi-entity
+  title: Several entities' series over the same periods
+  axes:
+    subject: named-set
+    measure: level
+    time: range
+    quantifier: none
+    result: series
+    join: none
+  operands: 1
+  asks: A named set of entities, one measure, every period, so the trajectories can be set against each
+    other.
+  examples:
+  - Ford and GM revenue from 2015 to 2023
+  - Compare NIH funding trends at Harvard, Yale and Stanford since 2010
+  not:
+    comparison.growth: the series themselves are wanted, not a verdict about which grew faster
+  tag: synthetic
+- id: comparison.difference
+  title: Difference between two specified values
+  axes:
+    subject: named-set
+    measure: change
+    time: unspecified
+    quantifier: none
+    result: number
+    join: none
+  operands: 1
+  asks: The signed or explicitly requested absolute gap between two values. Operands may identify different
+    entities, measures, or explicitly named publisher assertions; publisher roles do not create another
+    subtraction shape.
+  examples:
+  - How much more NIH funding does Harvard get than MIT?
+  - What is the revenue gap between Ford and GM?
+  - How far apart are SEC and IRS figures for this foundation's assets?
+  - What is the gap between reported and audited federal spending?
+  not:
+    comparison.which: the identity of the larger entity would not answer this
+  tag: synthetic
+  slots:
+    difference:
+      enum:
+      - signed
+      - absolute
+    operandMeasure:
+      type: measure-expression
+    periodAlignment:
+      enum:
+      - as-stated
+      - common-calendar
+- id: comparison.which
+  title: Which of the named entities is larger
+  axes:
+    subject: named-set
+    measure: rank
+    time: unspecified
+    quantifier: none
+    result: entity
+    join: none
+  operands: 1
+  asks: Which of explicitly named candidates has the largest or smallest requested measure. The measure
+    may explicitly specify a ratio or normalization; preserve that expression when comparing.
+  examples:
+  - Does Caltech or Michigan get more NIH funding?
+  - Which is bigger by revenue, Target or Costco?
+  not:
+    comparison.difference: a magnitude would over-answer
+    rank.extremum-single: the candidates are enumerated in the question
+  tag: synthetic
+  slots:
+    operandMeasure:
+      type: measure-expression
+    periodAlignment:
+      enum:
+      - as-stated
+      - common-calendar
+- id: comparison.growth
+  title: Which named entity grew faster
+  axes:
+    subject: named-set
+    measure: growth-rate
+    time: two-endpoints
+    quantifier: none
+    result: number
+    join: none
+  operands: 1
+  asks: A named set of entities where the ordering is by change across a window rather than by level.
+  examples:
+  - Did Pfizer or Merck grow revenue faster since 2020?
+  - Which grew more since 2015, Austin or Nashville?
+  not:
+    timeseries.multi-entity: a verdict, not the trajectories
+  tag: synthetic
+- id: rank.of-named-entity
+  title: Where a named entity stands in a population
+  axes:
+    subject: entity-and-relations
+    measure: rank
+    time: unspecified
+    quantifier: none
+    result: ordinal
+    join: entity-to-population
+  operands: 1
+  asks: The ordinal position of one named entity within a population it is not compared against explicitly.
+  examples:
+  - Where does Emory rank among universities for NIH funding?
+  - What is Fresno's rank among California counties for obesity?
+  not:
+    rank.percentile-of-entity: an ordinal position, not a proportion of the population below it
+  tag: synthetic
+- id: rank.extremum-single
+  title: The single highest or lowest member of a population
+  axes:
+    subject: open-population
+    measure: extremum
+    time: unspecified
+    quantifier: none
+    result: entity
+    join: none
+  operands: 1
+  disc:
+    resultCardinality: one-entity
+  asks: One winning member at the maximum or minimum of a measure over a population not individually enumerated
+    in the question. Direction is a slot; no ordered list is requested.
+  examples:
+  - Which university has the largest endowment?
+  - What is the most funded NIH institute?
+  not:
+    comparison.which: the candidates are not named, so the whole population is in scope
+  tag: synthetic
+  slots:
+    direction:
+      enum:
+      - max
+      - min
+    ties:
+      enum:
+      - deterministic-tiebreak
+      - clarify
+- id: rank.change
+  title: Which members moved most in the ordering
+  axes:
+    subject: open-population
+    measure: rank
+    time: window-pair
+    quantifier: none
+    result: ranked-list
+    join: none
+  operands: 1
+  asks: The population ranked twice, at two times, with the answer being the largest movements between
+    the two orderings.
+  examples:
+  - Which counties rose most in the obesity rankings since 2015?
+  - Which universities climbed fastest in NIH funding rank?
+  not:
+    comparison.growth: movement in rank, which can differ in sign from movement in level
+  tag: synthetic
+- id: rank.neighbors
+  title: The entities adjacent to a named one
+  axes:
+    subject: entity-and-relations
+    measure: rank
+    time: unspecified
+    quantifier: none
+    result: list
+    join: entity-to-population
+  operands: 1
+  asks: The members of a population immediately above and below a named entity on a measure.
+  examples:
+  - Which universities are just ahead of Duke in NIH funding?
+  - Which counties have obesity rates closest to Travis County?
+  not:
+    rank.of-named-entity: the neighbours are the answer, not the position
+  tag: synthetic
+- id: rank.percentile-of-entity
+  title: What proportion of a population a named entity is above
+  axes:
+    subject: entity-and-relations
+    measure: share
+    time: unspecified
+    quantifier: none
+    result: number
+    join: entity-to-population
+  operands: 2
+  disc:
+    denominator: population-members
+  asks: One named entity located in the population's distribution as a proportion rather than an ordinal.
+  examples:
+  - What percentile is Rice University in for research spending?
+  - Is Denver in the top quartile of counties for uninsured rate?
+  not:
+    rank.of-named-entity: a proportion of the population, which stays meaningful as the population size
+      changes
+  tag: synthetic
+- id: rank.within-group
+  title: The leader in each group
+  axes:
+    subject: open-population
+    measure: extremum
+    time: unspecified
+    quantifier: none
+    result: grouped
+    join: none
+  operands: 1
+  asks: A population partitioned by an attribute, with the top member reported for every partition.
+  requires:
+    populationCoverage: complete-per-group
+  examples:
+  - The largest nonprofit in each state
+  - Which hospital has the highest readmission rate in each region?
+  not:
+    aggregate.by-group: a member per group, not a statistic per group
+  tag: synthetic
+- id: aggregate.count
+  title: How many members a population has
+  axes:
+    subject: open-population
+    measure: count
+    time: unspecified
+    quantifier: none
+    result: number
+    join: none
+  operands: 1
+  disc:
+    statistic: count-rows
+  asks: The size of a population, where no measure other than membership is involved.
+  examples:
+  - How many 501(c)(3) organisations are there?
+  - How many counties report obesity data?
+  - How many federal grant programmes address homelessness?
+  - How many datasets cover air quality?
+  not:
+    aggregate.count-distinct: no de-duplication of the same real entity is required
+  tag: synthetic
+- id: aggregate.mean
+  title: The average across a population
+  axes:
+    subject: open-population
+    measure: distribution
+    time: unspecified
+    quantifier: none
+    result: number
+    join: none
+  operands: 1
+  disc:
+    statistic: mean
+  asks: The arithmetic mean of a measure across population members, each counted once.
+  examples:
+  - What is the average diabetes rate across US counties?
+  - Average grant size awarded by NSF
+  not:
+    aggregate.median: the mean is determined by the tail and the median is not
+    aggregate.weighted-mean: members contribute equally regardless of their size
+  tag: synthetic
+- id: aggregate.median
+  title: The middle value of a population
+  axes:
+    subject: open-population
+    measure: distribution
+    time: unspecified
+    quantifier: none
+    result: number
+    join: none
+  operands: 1
+  disc:
+    statistic: median
+  asks: The value separating the population's upper and lower halves, which requires the whole distribution
+    rather than a running total.
+  requires:
+    distributionAccess: full
+    populationCoverage: complete
+  examples:
+  - What is the median nonprofit revenue?
+  - Median household income across California counties
+  not:
+    aggregate.mean: a partial or top-biased population yields a wrong median in a way it does not for
+      a sum
+  tag: synthetic
+- id: aggregate.percentile-value
+  title: The value at a stated position in the distribution
+  axes:
+    subject: open-population
+    measure: distribution
+    time: unspecified
+    quantifier: threshold
+    result: number
+    join: none
+  operands: 1
+  disc:
+    statistic: percentile
+  asks: The measure's value at a named percentile of the population.
+  requires:
+    distributionAccess: full
+    populationCoverage: complete
+  examples:
+  - What is the 90th percentile of county obesity rates?
+  - What revenue puts a nonprofit in the top 1%?
+  not:
+    aggregate.median: an arbitrary position rather than the midpoint
+    rank.percentile-of-entity: a value is wanted given a position, not a position given an entity
+  tag: synthetic
+- id: aggregate.spread
+  title: How dispersed a population is
+  axes:
+    subject: open-population
+    measure: distribution
+    time: unspecified
+    quantifier: none
+    result: number
+    join: none
+  operands: 1
+  disc:
+    statistic: dispersion
+  asks: The variation of a measure across a population, as a range, standard deviation or interquartile
+    distance.
+  requires:
+    distributionAccess: full
+    populationCoverage: complete
+  examples:
+  - How much do obesity rates vary between counties?
+  - What is the spread in university endowments?
+  not:
+    aggregate.mean: a centre would not answer a question about variation
+    time.volatility: variation across members, not across periods
+  tag: synthetic
+- id: aggregate.histogram
+  title: How many members fall in each band
+  axes:
+    subject: open-population
+    measure: count
+    time: unspecified
+    quantifier: none
+    result: grouped
+    join: none
+  operands: 1
+  disc:
+    statistic: bucket-counts
+  asks: The population's members counted into bands of a measure, so the shape of the distribution is
+    the answer.
+  examples:
+  - How many nonprofits fall in each revenue band?
+  - Distribution of counties by uninsured rate
+  not:
+    aggregate.spread: the whole shape, not one dispersion statistic
+    aggregate.by-group: bands are derived from the measure, not read from an attribute
+  tag: synthetic
+- id: aggregate.weighted-mean
+  title: An average in which members count according to size
+  axes:
+    subject: open-population
+    measure: distribution
+    time: unspecified
+    quantifier: none
+    result: number
+    join: same-entity-measures
+  operands: 2
+  disc:
+    statistic: weighted-mean
+  asks: A population average in which each member's contribution is scaled by a second measure, so large
+    members dominate.
+  requires:
+    operands: 2
+    alignment: per-member
+  examples:
+  - What is the population-weighted average obesity rate across counties?
+  - Average interest rate weighted by loan size
+  not:
+    aggregate.mean: an unweighted mean answers a different question and usually a different number
+  tag: synthetic
+- id: aggregate.by-group
+  title: A statistic computed for every group
+  axes:
+    subject: open-population
+    measure: level
+    time: unspecified
+    quantifier: none
+    result: grouped
+    join: none
+  operands: 1
+  asks: 'A specified aggregate statistic for each group. Groups can overlap: retain the requested contribution
+    grain and allocation rule rather than counting rows created by a bridge. The statistic and overlap
+    rule must be bound from the question or clarified.'
+  examples:
+  - Total NIH funding by state
+  - Average nonprofit revenue in each city
+  - Grant amounts by research topic where a grant carries several topics
+  - Company revenue by market segment where segments overlap
+  not:
+    point.breakdown: the groups partition a population, not one entity's measure
+  tag: synthetic
+  slots:
+    statistic:
+      enum:
+      - sum
+      - count
+      - count-distinct
+      - mean
+      - median
+    contributionGrain:
+      type: entity-or-record-key
+    overlapAllocation:
+      enum:
+      - full-to-each-group
+      - fractional
+      - exclusive
+- id: aggregate.share-by-group
+  title: Each group's proportion of the whole
+  axes:
+    subject: open-population
+    measure: share
+    time: unspecified
+    quantifier: none
+    result: grouped
+    join: none
+  operands: 2
+  asks: A partitioned population where each group is reported as a fraction of the total, so the parts
+    sum to one.
+  examples:
+  - What share of federal grants goes to each state?
+  - Percentage of nonprofits by sector
+  not:
+    aggregate.by-group: proportions, which require the total to be complete in a way group sums do not
+  tag: synthetic
+- id: aggregate.concentration
+  title: How concentrated a measure is among the top members
+  axes:
+    subject: open-population
+    measure: share
+    time: unspecified
+    quantifier: threshold
+    result: number
+    join: none
+  operands: 2
+  asks: The proportion of a population's total held by its largest members, or an equivalent concentration
+    index.
+  requires:
+    populationCoverage: complete
+    denominator: complete-total
+  examples:
+  - What share of NIH funding goes to the top 10 universities?
+  - How concentrated is federal contracting among the largest vendors?
+  not:
+    aggregate.share-by-group: the groups are defined by rank position, and both the numerator and the
+      whole total are required
+  tag: synthetic
+- id: aggregate.count-distinct
+  title: How many distinct entities, not records
+  axes:
+    subject: open-population
+    measure: count
+    time: unspecified
+    quantifier: none
+    result: number
+    join: none
+  operands: 1
+  disc:
+    statistic: count-entities
+  asks: A count in which several records naming the same real-world entity must be collapsed to one.
+  requires:
+    identityGrain: real-entity
+    populationCoverage: complete
+  examples:
+  - How many organisations received federal funding, counting chapters of the same charity once?
+  - How many distinct companies filed, across all their subsidiaries?
+  not:
+    aggregate.count: records and entities differ here, and counting records over-reports
+    relation.hierarchy-rollup: a count of entities rather than a sum of their measures
+  tag: synthetic
+- id: filter.threshold
+  title: Members past a single cut-off
+  axes:
+    subject: filtered-population
+    measure: level
+    time: unspecified
+    quantifier: threshold
+    result: list
+    join: none
+  operands: 1
+  disc:
+    bounds: one-sided
+  asks: The population members whose measure lies on one side of a value stated in the question.
+  examples:
+  - Nonprofits with revenue over $10M
+  - Counties where the uninsured rate exceeds 15%
+  not:
+    filter.range: one bound, so members are excluded from a single direction
+    multi.ratio-threshold: the predicate is on a recorded measure, not on a quantity derived from two
+  tag: synthetic
+- id: filter.range
+  title: Members between two bounds
+  axes:
+    subject: filtered-population
+    measure: level
+    time: unspecified
+    quantifier: threshold
+    result: list
+    join: none
+  operands: 1
+  disc:
+    bounds: two-sided
+  asks: The population members whose measure falls inside a stated interval, bounded at both ends.
+  examples:
+  - Nonprofits with revenue between $1M and $5M
+  - Counties with obesity between 25% and 30%
+  not:
+    filter.threshold: two bounds, so members are excluded from both directions
+  tag: synthetic
+- id: filter.conjunction-all
+  title: Members satisfying every condition
+  axes:
+    subject: filtered-population
+    measure: level
+    time: unspecified
+    quantifier: all
+    result: list
+    join: same-entity-measures
+  operands: 2
+  asks: Population members satisfying every stated predicate, including membership in separately named
+    sets. This entry tests level, category, or membership predicates; explicit change computations use
+    the corresponding multi-change shape.
+  examples:
+  - Nonprofits in Texas with revenue over $5M and more than 50 employees
+  - Counties that are both high-poverty and high-uninsured
+  - Which nonprofits receive both NIH and NSF funding?
+  - Companies that are both federal contractors and SEC registrants
+  not:
+    filter.disjunction-any: satisfying one predicate is not sufficient, and the result is usually far
+      smaller
+  tag: synthetic
+- id: filter.disjunction-any
+  title: Members satisfying at least one condition
+  axes:
+    subject: filtered-population
+    measure: level
+    time: unspecified
+    quantifier: any
+    result: list
+    join: same-entity-measures
+  operands: 2
+  asks: Population members satisfying at least one stated level, category, or set-membership predicate.
+    Return each entity once even when several predicates match. Explicit change computations use multi.change-disjunction-any.
+  examples:
+  - Counties that are either high-poverty or high-uninsured
+  - Nonprofits in health or education with revenue over $1M
+  - All organisations that are either federal contractors or SEC registrants
+  - Every county covered by either survey
+  not:
+    filter.conjunction-all: one quantifier apart, and the two return different sets from the same predicates
+  tag: synthetic
+- id: filter.negation-closed
+  title: Members lacking a property, where absence is recorded
+  axes:
+    subject: filtered-population
+    measure: boolean
+    time: unspecified
+    quantifier: not-closed
+    result: list
+    join: none
+  operands: 1
+  asks: Population members for which a property is known to be absent, because the source records both
+    presence and absence.
+  requires:
+    absenceSemantics: closed-world
+  examples:
+  - Nonprofits that reported zero government grants
+  - Companies explicitly recorded as not tax-exempt
+  not:
+    filter.negation-open: absence is asserted by the data, not inferred from a missing row
+  tag: synthetic
+- id: filter.negation-open
+  title: Members with no matching record
+  axes:
+    subject: filtered-population
+    measure: boolean
+    time: unspecified
+    quantifier: not-open
+    result: list
+    join: none
+  operands: 1
+  asks: Members of a specified candidate population for which no matching record is found in a specified
+    relation or collection. A second publisher or named population is an operand, not another shape. This
+    establishes record absence, not that the real-world fact is false.
+  requires:
+    absenceSemantics: record-absence
+    matchingScope: specified
+  examples:
+  - Companies with no reported lobbying spending
+  - NSF-funded universities with no matching NIH award record
+  - Which SEC registrants have no record in the federal contractor registry?
+  not:
+    filter.negation-closed: an unrecorded fact and a recorded zero are different claims, and only one
+      of them answers a universal question honestly
+    set.difference: Record absence does not establish authoritative non-membership.
+  tag: synthetic
+- id: filter.categorical
+  title: Members of a stated category
+  axes:
+    subject: filtered-population
+    measure: categorical
+    time: unspecified
+    quantifier: threshold
+    result: list
+    join: none
+  operands: 1
+  asks: Population members selected by an attribute whose values are labels rather than quantities.
+  examples:
+  - All 501(c)(4) organisations
+  - Federal contracts classified under NAICS 541511
+  not:
+    filter.threshold: no ordering exists on the attribute, so no cut-off can be applied to it
+  tag: synthetic
+- id: filter.temporal-active
+  title: Members active during a period
+  axes:
+    subject: filtered-population
+    measure: boolean
+    time: duration
+    quantifier: threshold
+    result: list
+    join: none
+  operands: 1
+  asks: Population members whose existence or activity overlaps a stated interval, which is an overlap
+    test rather than a date match.
+  examples:
+  - Grants that were open during 2022
+  - Nonprofits that operated at any point between 2015 and 2020
+  not:
+    filter.range: the interval is compared against each member's own interval, not against a scalar
+  tag: synthetic
+- id: filter.existence
+  title: Members that have any of something at all
+  axes:
+    subject: filtered-population
+    measure: boolean
+    time: unspecified
+    quantifier: existential
+    result: list
+    join: none
+  operands: 1
+  asks: Population members for which at least one related record exists, with no condition on how many
+    or how large.
+  examples:
+  - Universities that received any NIH funding
+  - Companies that have filed at least one 8-K
+  not:
+    filter.count-predicate: no count is required beyond one
+    filter.threshold: existence, not magnitude
+  tag: synthetic
+- id: filter.count-predicate
+  title: Members with at least N of something
+  axes:
+    subject: filtered-population
+    measure: count
+    time: unspecified
+    quantifier: count-predicate
+    result: list
+    join: none
+  operands: 1
+  asks: Population members whose count of related records meets a stated number.
+  examples:
+  - Nonprofits with more than three federal grants
+  - Companies that filed at least five patents last year
+  not:
+    filter.existence: a cardinality threshold, so the related records must be counted rather than detected
+  tag: synthetic
+- id: quantifier.universal
+  title: Whether every member satisfies a condition
+  axes:
+    subject: open-population
+    measure: boolean
+    time: unspecified
+    quantifier: universal
+    result: boolean
+    join: none
+  operands: 1
+  asks: A yes/no answer about a whole population, which is false if a single member fails and therefore
+    requires complete coverage.
+  examples:
+  - Do all states report obesity data?
+  - Is every 501(c)(3) required to file a 990?
+  not:
+    filter.conjunction-all: the quantifier is over members, not over predicates
+    quantifier.existential: one counterexample settles this, whereas one example settles the other
+  tag: synthetic
+- id: quantifier.existential
+  title: Whether any member satisfies a condition
+  axes:
+    subject: open-population
+    measure: boolean
+    time: unspecified
+    quantifier: existential
+    result: boolean
+    join: none
+  operands: 1
+  asks: Whether at least one member of a population meets a condition, where finding one is sufficient
+    and finding none requires complete coverage.
+  examples:
+  - Is there any county with an obesity rate above 50%?
+  - Has any university received more than $2B from NIH?
+  not:
+    quantifier.universal: a yes here is cheap and a no is expensive, and the reverse holds there
+    filter.threshold: a verdict, not the members
+  tag: synthetic
+- id: multi.change-conjunction-all
+  title: Two measures both moving past their thresholds
+  axes:
+    subject: filtered-population
+    measure: change
+    time: two-endpoints
+    quantifier: all
+    result: list
+    join: same-entity-measures
+  operands: 2
+  disc:
+    polarity: stated-each
+    operands: both-change
+  asks: Population members whose changes on two measures each satisfy their own stated threshold, both
+    conditions required.
+  examples:
+  - Which companies' stock price rose over 20% in 2025 while consumer complaints fell at least 15%?
+  - Counties where income grew over 10% and uninsured rates dropped over 5%
+  not:
+    multi.change-disjunction-any: one quantifier apart, returning a different and usually much larger
+      set
+    multi.direction-relation: Population members selected by whether the signs of two measure changes
+      agree or oppose each other; no magnitude thresholds are requested.
+  tag: synthetic
+- id: multi.change-disjunction-any
+  title: Two measures where either movement qualifies
+  axes:
+    subject: filtered-population
+    measure: change
+    time: two-endpoints
+    quantifier: any
+    result: list
+    join: same-entity-measures
+  operands: 2
+  asks: Population members whose change satisfies at least one of two stated thresholds.
+  examples:
+  - Companies whose revenue rose 20% or whose headcount rose 10%
+  - Counties where either poverty or uninsured rates improved by 5%
+  not:
+    multi.change-conjunction-all: members qualifying on one measure alone are included here and excluded
+      there
+  tag: synthetic
+- id: multi.change-plus-level
+  title: A change on one measure and a level on another
+  axes:
+    subject: filtered-population
+    measure: change
+    time: two-endpoints
+    quantifier: all
+    result: list
+    join: same-entity-measures
+  operands: 2
+  disc:
+    polarity: stated-each
+    operands: change-and-level
+  asks: Population members meeting a movement condition on one measure and a standing condition on another.
+  examples:
+  - Companies whose revenue grew 20% and that have over 10,000 employees
+  - Counties where obesity fell 3% and poverty is above 20%
+  not:
+    multi.change-conjunction-all: only one of the two predicates has a time dimension, so only one needs
+      two endpoints
+  tag: synthetic
+- id: multi.threshold-then-rank
+  title: Filtered by one measure, ordered by another
+  axes:
+    subject: filtered-population
+    measure: rank
+    time: unspecified
+    quantifier: threshold
+    result: ranked-list
+    join: same-entity-measures
+  operands: 2
+  asks: A population narrowed by a condition on one measure and then ordered by a different one.
+  examples:
+  - Among nonprofits with over $10M revenue, which spend the most on programmes?
+  - Of counties with high poverty, which have the best life expectancy?
+  not:
+    filter.conjunction-all: the second measure orders rather than excludes
+  tag: synthetic
+- id: multi.direction-relation
+  title: Two measures moving in the same or opposite directions
+  axes:
+    subject: filtered-population
+    measure: change
+    time: two-endpoints
+    quantifier: all
+    result: list
+    join: same-entity-measures
+  operands: 2
+  disc:
+    operands: both-change
+    comparison: change-sign-relation
+  asks: Population members selected by whether the signs of two measure changes agree or oppose each other;
+    no magnitude thresholds are requested.
+  examples:
+  - Companies whose revenue rose while headcount fell
+  - Counties where spending increased but outcomes worsened
+  - Counties where both poverty and uninsured rates rose
+  - Companies that grew revenue and headcount together
+  not:
+    multi.change-conjunction-all: Sign agreement or opposition is requested here; individual magnitude
+      thresholds are requested there.
+  tag: synthetic
+  slots:
+    polarity:
+      enum:
+      - same
+      - opposite
+    zeroChange:
+      enum:
+      - exclude
+      - include-both-zero
+- id: multi.independent-windows
+  title: Each measure over its own period
+  axes:
+    subject: filtered-population
+    measure: change
+    time: window-pair
+    quantifier: all
+    result: list
+    join: same-entity-measures
+  operands: 2
+  asks: Population members meeting conditions on two measures whose periods are stated separately and
+    need not coincide.
+  examples:
+  - Companies whose 2024 revenue rose 20% and whose 2022-2023 complaints fell 15%
+  - Counties where income grew since 2015 and obesity fell since 2020
+  not:
+    multi.change-conjunction-all: a shared window there, so aligning the periods is not part of the question
+  tag: synthetic
+- id: multi.ratio-threshold
+  title: Members whose ratio of two measures passes a cut-off
+  axes:
+    subject: filtered-population
+    measure: ratio
+    time: unspecified
+    quantifier: threshold
+    result: list
+    join: same-entity-measures
+  operands: 2
+  asks: Population members selected by a derived quantity formed from two of their own measures.
+  examples:
+  - Nonprofits spending more than 30% of revenue on overhead
+  - Companies with debt above twice their equity
+  not:
+    multi.change-plus-level: one derived predicate, not two separate ones
+  tag: synthetic
+- id: multi.constrained-optimum
+  title: Best on one measure subject to a condition on another
+  axes:
+    subject: filtered-population
+    measure: extremum
+    time: unspecified
+    quantifier: threshold
+    result: entity
+    join: same-entity-measures
+  operands: 2
+  asks: The single member maximising one measure among those satisfying a condition on another.
+  examples:
+  - Which university with under 5,000 students gets the most NIH funding?
+  - The cheapest county with life expectancy above 80
+  not:
+    multi.threshold-then-rank: one member is wanted, not the ordering
+    rank.extremum-single: the population is restricted first, so the unrestricted maximum is the wrong
+      answer
+  tag: synthetic
+- id: relation.hierarchy-rollup
+  title: An entity together with its subordinate entities
+  axes:
+    subject: entity-and-relations
+    measure: level
+    time: unspecified
+    quantifier: none
+    result: number
+    join: related-entity
+  operands: 1
+  disc:
+    scope: inclusive-of-subordinates
+  asks: One measure for a named entity combined with the same measure for the entities beneath it in a
+    hierarchy.
+  examples:
+  - Total revenue of the American Red Cross including all its chapters
+  - Alphabet's headcount across all subsidiaries
+  not:
+    relation.hierarchy-exclusive: the parent alone is a different and usually much smaller number
+    aggregate.count-distinct: measures are summed, not entities counted
+  tag: synthetic
+- id: relation.hierarchy-exclusive
+  title: An entity excluding its subordinates
+  axes:
+    subject: entity-and-relations
+    measure: level
+    time: unspecified
+    quantifier: none
+    result: number
+    join: related-entity
+  operands: 1
+  disc:
+    scope: exclusive-of-subordinates
+  asks: One measure for a named entity alone, where records for its subordinate entities must be excluded
+    rather than summed.
+  examples:
+  - Revenue of the national Red Cross organisation itself, not its chapters
+  - Harvard University proper, excluding its affiliated hospitals
+  not:
+    relation.hierarchy-rollup: silently summing the subordinates is the documented failure this exists
+      to name
+  tag: synthetic
+- id: relation.geographic-disaggregation
+  title: A value for a sub-area derived from the area containing it
+  axes:
+    subject: entity-and-relations
+    measure: level
+    time: unspecified
+    quantifier: none
+    result: number
+    join: related-entity
+  operands: 1
+  disc:
+    scope: finer-than-stated-grain
+  asks: A measure for a geography that the question asks to be derived from a coarser geography containing
+    it, where the derivation and its assumptions are part of what is requested.
+  examples:
+  - Estimate Palo Alto's uninsured rate from Santa Clara County's
+  - Apportion the state total across its counties by population
+  not:
+    aggregate.sum: The sum of one measure over the members of a specified population, with each contribution
+      counted at the requested grain.
+  tag: synthetic
+- id: relation.entity-to-population-share
+  title: One entity's share of a population total
+  axes:
+    subject: entity-and-relations
+    measure: share
+    time: unspecified
+    quantifier: none
+    result: number
+    join: entity-to-population
+  operands: 2
+  disc:
+    denominator: population-total
+  asks: A named entity's measure expressed as a fraction of the total across its whole population.
+  examples:
+  - What share of all NIH funding goes to Johns Hopkins?
+  - What percentage of US federal contracting does Lockheed hold?
+  not:
+    point.component-share: the denominator is a population total, so the population must be complete
+    rank.percentile-of-entity: a share of the measure, not a position in the distribution
+  tag: synthetic
+- id: relation.existence
+  title: Whether a stated relationship holds
+  axes:
+    subject: named-set
+    measure: boolean
+    time: unspecified
+    quantifier: none
+    result: boolean
+    join: related-entity
+  operands: 1
+  asks: Whether two named entities stand in a particular relation to each other.
+  examples:
+  - Is Instagram a subsidiary of Meta?
+  - Is Cook County inside the Chicago metro area?
+  not:
+    relation.hierarchy-rollup: whether the relation holds, not a measure gathered across it
+    point.threshold-check: a property of a pair, not of one entity against a number
+  tag: synthetic
+- id: assoc.correlation-over-time
+  title: Two series moving together for one entity
+  axes:
+    subject: named-entity
+    measure: association
+    time: range
+    quantifier: none
+    result: number
+    join: same-entity-measures
+  operands: 2
+  asks: Whether two of one entity's measures move together across periods.
+  examples:
+  - Do Apple's R&D spending and revenue track each other?
+  - Has Ohio's unemployment moved with its opioid deaths?
+  not:
+    multi.direction-relation: Population members selected by whether the signs of two measure changes
+      agree or oppose each other; no magnitude thresholds are requested.
+    timeseries.multi-entity: a verdict about how two series relate, not the series
+  tag: synthetic
+- id: assoc.group-difference
+  title: Whether two groups differ on a measure
+  axes:
+    subject: population-pair
+    measure: association
+    time: unspecified
+    quantifier: none
+    result: boolean
+    join: population-pair
+  operands: 2
+  asks: Whether the members of one group score differently on a measure than the members of another.
+  examples:
+  - Do rural counties have higher obesity than urban ones?
+  - Do larger nonprofits pay executives more?
+  not:
+    multi.change-plus-level: a contrast between two groups, not members satisfying predicates
+    assoc.outlier: a systematic difference between groups, not individual departures from a pattern
+  tag: synthetic
+- id: assoc.outlier
+  title: Members that depart from the pattern
+  axes:
+    subject: open-population
+    measure: association
+    time: unspecified
+    quantifier: none
+    result: list
+    join: same-entity-measures
+  operands: 2
+  asks: The population members whose measure deviates most from what the rest of the population would
+    predict.
+  examples:
+  - Which counties have far better outcomes than their spending suggests?
+  - Which nonprofits report unusually low overhead for their size?
+  not:
+    filter.threshold: deviation from what the population predicts, not from a number the asker supplies
+    assoc.group-difference: individual exceptions, not a contrast between defined groups
+  tag: synthetic
+- id: assoc.lagged
+  title: Whether one measure precedes movement in another
+  axes:
+    subject: open-population
+    measure: association
+    time: window-pair
+    quantifier: none
+    result: number
+    join: population-pair
+  operands: 2
+  asks: Whether a measure in one period is associated with a different measure in a later period.
+  requires:
+    temporalAlignment: lagged
+    operands: 2
+  examples:
+  - Does research funding in one year predict patents in the next?
+  - Do complaint spikes precede stock declines?
+  not:
+    assoc.correlation-over-time: the measures are taken from offset periods, and the offset is part of
+      the question
+    multi.independent-windows: an association, not membership of entities meeting predicates
+  tag: synthetic
+- id: assoc.conditional-rate
+  title: A rate computed within a qualifying subgroup
+  axes:
+    subject: filtered-population
+    measure: ratio
+    time: unspecified
+    quantifier: threshold
+    result: number
+    join: same-entity-measures
+  operands: 2
+  asks: 'The fraction of a qualifying subgroup that also satisfies a second predicate: count(A and B)
+    / count(A). A numeric mean or median within a filtered subgroup uses aggregate.mean or aggregate.median.'
+  examples:
+  - What share of high-poverty counties are also high-uninsured?
+  - Among federal contractors, what fraction are small businesses?
+  not:
+    aggregate.share-by-group: one conditional proportion, and the denominator is the filtered subgroup
+      rather than the whole
+  tag: synthetic
+  disc:
+    numerator: count-of-intersection
+    denominator: count-of-qualifying-subgroup
+- id: source.agreement
+  title: Whether two publishers report the same thing
+  axes:
+    subject: named-entity
+    measure: agreement
+    time: unspecified
+    quantifier: none
+    result: boolean
+    join: cross-publisher
+  operands: 2
+  asks: Whether two named publishers report consistent values for one entity, where agreement itself is
+    the measure and no single publisher can answer.
+  examples:
+  - Do the SEC and the IRS agree on the Gates Foundation's assets?
+  - Does USAspending match the agency's own grant totals?
+  not:
+    multi.change-conjunction-all: naming two publishers as a provenance constraint leaves the question's
+      answer unchanged; here the publishers are the subject
+  tag: synthetic
+- id: source.vintage
+  title: What a publisher reported as of an earlier release
+  axes:
+    subject: named-entity
+    measure: level
+    time: vintage
+    quantifier: none
+    result: number
+    join: none
+  operands: 1
+  asks: The value a source carried at a stated past release, as distinct from the value it carries now
+    for the same period.
+  examples:
+  - What did the BLS report for June 2023 before the revision?
+  - Has this nonprofit's 2021 revenue figure been restated?
+  not:
+    time.latest-vintage: an earlier release is requested, so the current value does not answer it
+  tag: synthetic
+- id: meta.availability
+  title: Whether data exists at all
+  axes:
+    subject: named-entity
+    measure: boolean
+    time: unspecified
+    quantifier: existential
+    result: boolean
+    join: none
+  operands: 1
+  asks: Whether any source carries a stated measure for a stated entity, where the answer may correctly
+    be no.
+  examples:
+  - Is there data on lobbying spending by private universities?
+  - Can I get county-level obesity rates for 2024?
+  not:
+    quantifier.existential: whether the data exists, not whether an entity satisfying a condition exists
+    point.threshold-check: no value is required to answer it
+  tag: synthetic
+- id: topical.eligibility
+  title: What a described actor qualifies for
+  axes:
+    subject: no-entity
+    measure: categorical
+    time: unspecified
+    quantifier: threshold
+    result: list
+    join: none
+  operands: 1
+  asks: Records matching a topic and open to an actor described by attributes rather than named.
+  examples:
+  - What grants can a small nonprofit apply for in mental health?
+  - Which federal programmes is a rural clinic eligible for?
+  not:
+    rank.top-n: An ordered list of the extreme-scoring members of a population that the question does
+      not enumerate, at either end.
+    aggregate.count: The size of a population, where no measure other than membership is involved.
+  tag: synthetic
+- id: meta.definition
+  title: How a publisher defines a measure
+  axes:
+    subject: no-entity
+    measure: categorical
+    time: unspecified
+    quantifier: none
+    result: record
+    join: none
+  operands: 1
+  asks: The definition, basis or units a publisher uses for a measure, where the answer is documentation
+    rather than data.
+  examples:
+  - What does the IRS count as programme expenses?
+  - How does the Census define household income?
+  not:
+    meta.availability: what the measure means, not whether it is populated
+  tag: synthetic
+- id: join.inner-enrichment
+  title: Matched entities with values from both inputs
+  axes:
+    subject: population-pair
+    measure: level
+    time: unspecified
+    quantifier: none
+    result: record-list
+    join: population-pair
+  operands: 2
+  disc:
+    joinOperation: inner
+    joinCardinality: one-to-one
+    alignment: exact
+    aggregationBoundary: none
+  requires:
+    unmatched: discard
+    entityAlignment: same-entity
+  asks: Entities with matches in both inputs, returned with requested values from each input. Unmatched
+    entities are excluded. Returning only common entity identities is filter.conjunction-all.
+  examples:
+  - For counties with both published figures, show obesity rate and health spending
+  - For nonprofits with both records, report revenue alongside federal grants
+  not:
+    join.outer-enrichment: unmatched members are dropped here and retained there, which changes the row
+      count and every statistic over it
+    filter.conjunction-all: Population members satisfying every stated predicate, including membership
+      in separately named sets. This entry tests level, category, or membership predicates; explicit change
+      computations use the corresponding multi-change shape.
+  tag: synthetic
+- id: join.outer-enrichment
+  title: Two populations matched, unmatched members retained
+  axes:
+    subject: population-pair
+    measure: level
+    time: unspecified
+    quantifier: none
+    result: record-list
+    join: population-pair
+  operands: 2
+  disc:
+    joinOperation: left-outer
+    joinCardinality: one-to-one
+    alignment: exact
+  requires:
+    unmatched: retain-with-null
+    entityAlignment: same-entity
+  asks: Every member of one population with the second population's measure where it exists, so an absent
+    match is reported rather than hidden.
+  examples:
+  - All nonprofits with federal grant totals where published, retaining missing values
+  - Every county with its spending figure where one is published
+  not:
+    join.inner-enrichment: dropping unmatched members silently biases any statistic computed afterwards
+    filter.negation-open: the unmatched members are retained rather than being the answer
+  tag: synthetic
+- id: join.division
+  title: Entities related to every member of a set
+  axes:
+    subject: population-pair
+    measure: boolean
+    time: unspecified
+    quantifier: universal
+    result: list
+    join: population-pair
+  operands: 2
+  disc:
+    joinOperation: division
+    joinCardinality: many-to-many
+    alignment: exact
+  requires:
+    populationCoverage: complete
+    absenceSemantics: closed-world
+  asks: The members of one population that are related to all members of a second, so a single missing
+    relation disqualifies a candidate.
+  examples:
+  - Companies that operate in all 50 states
+  - Nonprofits that received grants from every federal health agency
+  not:
+    filter.conjunction-all: Population members satisfying every stated predicate, including membership
+      in separately named sets. This entry tests level, category, or membership predicates; explicit change
+      computations use the corresponding multi-change shape.
+    filter.count-predicate: the required count is the whole of a named set, not a number
+  tag: synthetic
+- id: join.multi-hop
+  title: Entities reached through a chain of relations
+  axes:
+    subject: population-pair
+    measure: level
+    time: unspecified
+    quantifier: none
+    result: list
+    join: cross-type
+  operands: 2
+  disc:
+    joinOperation: inner
+    joinCardinality: many-to-many
+    alignment: exact
+  requires:
+    identityGrain: per-hop-key
+    hops: 2
+  asks: A population reached only by traversing two or more relations in sequence, where each hop can
+    lose or multiply members.
+  examples:
+  - Counties where companies that received NIH funding are headquartered
+  - The states of the universities whose researchers hold NSF awards
+  not:
+    join.inner-enrichment: a single hop, so no intermediate population mediates the match
+  tag: synthetic
+- id: join.aggregate-each-side
+  title: Independent grouped measures aligned by entity
+  axes:
+    subject: population-pair
+    measure: level
+    time: unspecified
+    quantifier: none
+    result: list
+    join: population-pair
+  operands: 2
+  disc:
+    resultGrain: one-row-per-group
+    measureScope: independent-contributions
+  requires:
+    aggregationGrain: per-measure-per-group
+  asks: For each matching group, return two independently aggregated measures, each computed over its
+    own contributing records at the specified grain. Each contribution counts once within its own measure.
+    Sources may supply precomputed totals or raw contributions.
+  examples:
+  - Total NIH funding per county against total federal spending per county
+  - Each nonprofit's grant total beside its reported revenue
+  not:
+    join.inner-enrichment: raw records are matched there; here each side is summarised first and the two
+      orders give different numbers
+    aggregate.by-group: two populations aggregated and then aligned, not one partitioned
+  tag: synthetic
+- id: set.difference
+  title: Members excluded by an authoritative second membership set
+  axes:
+    subject: population-pair
+    measure: boolean
+    time: unspecified
+    quantifier: not-closed
+    result: list
+    join: population-pair
+  operands: 2
+  disc:
+    joinOperation: difference
+    joinCardinality: one-to-one
+    alignment: exact
+  requires:
+    absenceSemantics: authoritative-nonmembership
+    rightMembershipCoverage: complete
+  asks: Members of a first set that are not members of an authoritative second set. The requested claim
+    is non-membership in that set, rather than merely no matching record in an incomplete collection.
+  examples:
+  - States covered by the survey but excluded from the complete official register
+  - Programmes on the 2023 list absent from the complete 2024 list
+  not:
+    filter.negation-open: A missing record alone cannot support authoritative non-membership.
+  tag: synthetic
+- id: set.symmetric-difference
+  title: Members of exactly one of two populations
+  axes:
+    subject: population-pair
+    measure: boolean
+    time: unspecified
+    quantifier: any
+    result: list
+    join: population-pair
+  operands: 2
+  disc:
+    joinOperation: difference
+    joinCardinality: one-to-one
+    alignment: exact
+  requires:
+    identityGrain: shared-key
+    absenceSemantics: closed-world
+  asks: The members appearing in one of two populations but not in both, in either direction.
+  examples:
+  - Entities the two registries disagree about including
+  - Counties covered by one survey but not the other, either way
+  not:
+    set.difference: symmetric, so members missing from the first population are returned too
+  tag: synthetic
+- id: temporal.as-of
+  title: The value in force at another record's date
+  axes:
+    subject: population-pair
+    measure: level
+    time: event-anchored
+    quantifier: none
+    result: list
+    join: population-pair
+  operands: 2
+  disc:
+    alignment: as-of
+    joinCardinality: many-to-one
+  requires:
+    temporalAlignment: as-of
+  asks: Each record matched to the version of a second measure that was current at that record's own date,
+    rather than to the latest one.
+  examples:
+  - Each grant valued at the exchange rate on its award date
+  - Each filing beside the population estimate current that year
+  not:
+    temporal.nearest: the value in force at or before the date, not the closest one in either direction
+    join.inner-enrichment: matching is on time as well as key, and using the latest value gives a different
+      answer
+  tag: synthetic
+- id: temporal.nearest
+  title: Matched to the closest observation in time
+  axes:
+    subject: population-pair
+    measure: level
+    time: event-anchored
+    quantifier: none
+    result: list
+    join: population-pair
+  operands: 2
+  disc:
+    alignment: nearest
+    joinCardinality: many-to-one
+  requires:
+    temporalAlignment: nearest
+  asks: Each record matched to the temporally nearest observation of another measure, which may fall after
+    it.
+  examples:
+  - Each award matched to the nearest census estimate
+  - Complaints matched to the closest quarterly filing
+  not:
+    temporal.as-of: a later observation is admissible here and would be a look-ahead there
+  tag: synthetic
+- id: temporal.interval-overlap
+  title: Records whose periods overlap
+  axes:
+    subject: population-pair
+    measure: boolean
+    time: duration
+    quantifier: none
+    result: list
+    join: population-pair
+  operands: 2
+  disc:
+    alignment: interval-overlap
+    joinCardinality: many-to-many
+  requires:
+    temporalAlignment: interval-overlap
+  asks: Pairs of records from two populations whose time ranges intersect, where both sides carry an interval
+    rather than an instant.
+  examples:
+  - Grants whose funding periods overlapped a given contract
+  - Officers whose terms overlapped at the same organisation
+  not:
+    filter.temporal-active: overlap between two populations' intervals, not between one population's interval
+      and a stated one
+  tag: synthetic
+- id: temporal.event-sequence
+  title: One event preceding another
+  axes:
+    subject: population-pair
+    measure: boolean
+    time: event-anchored
+    quantifier: existential
+    result: list
+    join: population-pair
+  operands: 2
+  disc:
+    alignment: event-sequence
+    joinCardinality: one-to-many
+  requires:
+    temporalAlignment: strict-order
+  asks: Members where a record of one kind occurs before a record of another, with the ordering itself
+    being the condition.
+  examples:
+  - Companies whose complaint spike preceded a recall
+  - Nonprofits that lost status after a late filing
+  not:
+    assoc.lagged: individual members satisfying an ordering, not a population-level association
+    temporal.interval-overlap: strict precedence rather than intersection
+  tag: synthetic
+- id: spatial.containment
+  title: Members inside a boundary
+  axes:
+    subject: filtered-population
+    measure: categorical
+    time: unspecified
+    quantifier: threshold
+    result: list
+    join: related-entity
+  operands: 1
+  disc:
+    joinRelation: spatial
+    alignment: containment
+  requires:
+    geometry: boundary
+  asks: Population members whose location falls inside a named administrative or geographic boundary.
+  examples:
+  - Nonprofits located in Cook County
+  - Federal facilities within the state of Oregon
+  not:
+    spatial.proximity: a boundary, so membership does not depend on a distance the asker chooses
+    filter.categorical: containment must be resolved between geometries rather than matched as a label
+  tag: synthetic
+- id: spatial.proximity
+  title: Members within a distance
+  axes:
+    subject: filtered-population
+    measure: categorical
+    time: unspecified
+    quantifier: threshold
+    result: list
+    join: related-entity
+  operands: 1
+  disc:
+    joinRelation: spatial
+    alignment: radius
+  requires:
+    geometry: point-coordinates
+  asks: Population members lying within a stated distance of a point, where the qualifying set changes
+    with the radius.
+  examples:
+  - Grants awarded within 50 miles of Atlanta
+  - Clinics within 10 km of a superfund site
+  not:
+    spatial.containment: a radius crosses administrative boundaries, so neither answer contains the other
+  tag: synthetic
+- id: spatial.nearest
+  title: The closest member to a location
+  axes:
+    subject: filtered-population
+    measure: extremum
+    time: unspecified
+    quantifier: none
+    result: entity
+    join: related-entity
+  operands: 1
+  disc:
+    joinRelation: spatial
+    alignment: nearest
+  requires:
+    geometry: point-coordinates
+  asks: The member of a population nearest to a stated location, where exactly one is wanted and no distance
+    is given.
+  examples:
+  - The nearest federally qualified health centre to this address
+  - Which national laboratory is closest to Denver?
+  not:
+    spatial.proximity: no radius is stated, so the answer exists however far away it lies
+  tag: synthetic

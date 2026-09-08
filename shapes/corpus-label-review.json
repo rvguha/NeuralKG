@@ -1,0 +1,384 @@
+[
+  {
+    "index": 57,
+    "q": "What is the difference between Pfizer's FY2022 R&D spending and the NIH's calendar-year 2022 grant awards?",
+    "old": "time.calendar-alignment",
+    "accepted": [
+      "comparison.values"
+    ],
+    "reason": "Catalog merger: time.calendar-alignment has no independent structure; retain the operand requirements."
+  },
+  {
+    "index": 58,
+    "q": "How does Cook County's FY2023 public safety budget compare to Ohio's 2023 calendar-year education funding?",
+    "old": "time.calendar-alignment",
+    "accepted": [
+      "comparison.values"
+    ],
+    "reason": "Catalog merger: time.calendar-alignment has no independent structure; retain the operand requirements."
+  },
+  {
+    "index": 59,
+    "q": "Compare the SEC's FY2021 enforcement actions count with the Census Bureau's 2021 calendar-year population estimate.",
+    "old": "time.calendar-alignment",
+    "accepted": [
+      "comparison.values"
+    ],
+    "reason": "Catalog merger: time.calendar-alignment has no independent structure; retain the operand requirements."
+  },
+  {
+    "index": 69,
+    "q": "Which university generates more research funding per faculty member, Stanford or MIT?",
+    "old": "comparison.normalized",
+    "accepted": [
+      "comparison.values"
+    ],
+    "reason": "Catalog merger: comparison.normalized has no independent structure; retain the operand requirements."
+  },
+  {
+    "index": 70,
+    "q": "Which state has the highest CDC-reported obesity cases per 10,000 residents, Ohio or Florida?",
+    "old": "comparison.normalized",
+    "accepted": [
+      "comparison.values"
+    ],
+    "reason": "Catalog merger: comparison.normalized has no independent structure; retain the operand requirements."
+  },
+  {
+    "index": 71,
+    "q": "Which city receives higher IRS tax refunds per household, Chicago or Los Angeles?",
+    "old": "comparison.normalized",
+    "accepted": [
+      "comparison.values"
+    ],
+    "reason": "Catalog merger: comparison.normalized has no independent structure; retain the operand requirements."
+  },
+  {
+    "index": 198,
+    "q": "What is the total NIH funding to Ohio, summed across its counties?",
+    "old": "relation.geographic-rollup",
+    "accepted": [
+      "aggregate.sum"
+    ],
+    "reason": "Catalog merger: relation.geographic-rollup has no independent structure; retain the operand requirements."
+  },
+  {
+    "index": 199,
+    "q": "Total revenue of Apple stores in Texas, aggregated across its cities.",
+    "old": "relation.geographic-rollup",
+    "accepted": [
+      "aggregate.sum"
+    ],
+    "reason": "Catalog merger: relation.geographic-rollup has no independent structure; retain the operand requirements."
+  },
+  {
+    "index": 200,
+    "q": "How many COVID-19 cases were reported in Florida, summed over its counties?",
+    "old": "relation.geographic-rollup",
+    "accepted": [
+      "aggregate.sum"
+    ],
+    "reason": "Catalog merger: relation.geographic-rollup has no independent structure; retain the operand requirements."
+  },
+  {
+    "index": 270,
+    "q": "Count of patients served by the CDC in each state, where patients may be enrolled in multiple health programs.",
+    "old": "join.many-to-many-bridge",
+    "accepted": [
+      "aggregate.by-group"
+    ],
+    "reason": "Catalog merger: join.many-to-many-bridge has no independent structure; retain the operand requirements."
+  },
+  {
+    "index": 271,
+    "q": "Number of SEC complaints per industry, where each complaint can involve several companies spanning multiple industries.",
+    "old": "join.many-to-many-bridge",
+    "accepted": [
+      "aggregate.by-group"
+    ],
+    "reason": "Catalog merger: join.many-to-many-bridge has no independent structure; retain the operand requirements."
+  },
+  {
+    "index": 272,
+    "q": "Total NIH researchers per state, where researchers hold multiple grants that are associated with different states.",
+    "old": "join.many-to-many-bridge",
+    "accepted": [
+      "aggregate.by-group"
+    ],
+    "reason": "Catalog merger: join.many-to-many-bridge has no independent structure; retain the operand requirements."
+  },
+  {
+    "index": 70,
+    "q": "Which state has the highest CDC-reported obesity cases per 10,000 residents, Ohio or Florida?",
+    "old": "comparison.values",
+    "accepted": [
+      "comparison.which"
+    ],
+    "reason": "Named candidates and a requested winner; normalization is the explicit measure expression."
+  },
+  {
+    "index": 71,
+    "q": "Which city receives higher IRS tax refunds per household, Chicago or Los Angeles?",
+    "old": "comparison.values",
+    "accepted": [
+      "comparison.which"
+    ],
+    "reason": "Named candidates and a requested winner; normalization is the explicit measure expression."
+  },
+  {
+    "index": 57,
+    "q": "What is the difference between Pfizer's FY2022 R&D spending and the NIH's calendar-year 2022 grant awards?",
+    "old": "comparison.values",
+    "accepted": [
+      "comparison.difference"
+    ],
+    "reason": "Explicit difference between calendar-bound operands."
+  },
+  {
+    "index": 96,
+    "q": "How many employees does Apple have?",
+    "old": "aggregate.count",
+    "accepted": [
+      "point.value"
+    ],
+    "reason": "Employee count is an attribute of one named company, with no population of companies to aggregate."
+  },
+  {
+    "index": 225,
+    "q": "What is the average obesity rate among Ohio counties with median household income below $45,000?",
+    "old": "assoc.conditional-rate",
+    "accepted": [
+      "aggregate.mean"
+    ],
+    "reason": "Question explicitly requests this statistic, not a count-based conditional proportion."
+  },
+  {
+    "index": 226,
+    "q": "What is the median number of NIH grants awarded to universities with research expenditures over $500 million?",
+    "old": "assoc.conditional-rate",
+    "accepted": [
+      "aggregate.median"
+    ],
+    "reason": "Question explicitly requests this statistic, not a count-based conditional proportion."
+  },
+  {
+    "index": 227,
+    "q": "What is the average revenue growth percentage for SEC-registered companies with market cap exceeding $20 billion?",
+    "old": "assoc.conditional-rate",
+    "accepted": [
+      "aggregate.mean"
+    ],
+    "reason": "Question explicitly requests this statistic, not a count-based conditional proportion."
+  },
+  {
+    "index": 217,
+    "q": "Is the uninsured rate in Ohio lower than in Texas?",
+    "old": "assoc.group-difference",
+    "accepted": [
+      "comparison.which"
+    ],
+    "reason": "Named states with a requested lower/higher comparison, not two distributions."
+  },
+  {
+    "index": 218,
+    "q": "Do Stanford graduates receive more NIH funding per researcher than MIT graduates?",
+    "old": "assoc.group-difference",
+    "accepted": [
+      "comparison.which",
+      "assoc.group-difference"
+    ],
+    "reason": "Ambiguous comparison of normalized group statistics versus distributions of graduate outcomes."
+  },
+  {
+    "index": 255,
+    "q": "List California universities with both NSF funding and total enrollment numbers.",
+    "old": "join.inner-enrichment",
+    "accepted": [
+      "join.inner-enrichment",
+      "filter.conjunction-all"
+    ],
+    "reason": "Wording does not clearly distinguish displaying the values from listing entities that have both."
+  },
+  {
+    "index": 256,
+    "q": "Show Fortune 500 companies that have both 2023 revenue and patents filed.",
+    "old": "join.inner-enrichment",
+    "accepted": [
+      "join.inner-enrichment",
+      "filter.conjunction-all"
+    ],
+    "reason": "Wording does not clearly distinguish displaying the values from listing entities that have both."
+  },
+  {
+    "index": 257,
+    "q": "Which US counties have both CDC COVID-19 case rates and IRS median household income?",
+    "old": "join.inner-enrichment",
+    "accepted": [
+      "join.inner-enrichment",
+      "filter.conjunction-all"
+    ],
+    "reason": "Wording does not clearly distinguish displaying the values from listing entities that have both."
+  },
+  {
+    "index": 261,
+    "q": "Which U.S. cities have no CDC-reported COVID-19 cases?",
+    "old": "filter.negation-open",
+    "accepted": [
+      "filter.negation-open",
+      "filter.negation-closed"
+    ],
+    "reason": "No/none leaves recorded absence versus known zero unspecified; classification cannot infer source completeness."
+  },
+  {
+    "index": 262,
+    "q": "Which Fortune 500 companies have no IRS tax liens?",
+    "old": "filter.negation-open",
+    "accepted": [
+      "filter.negation-open",
+      "filter.negation-closed"
+    ],
+    "reason": "No/none leaves recorded absence versus known zero unspecified; classification cannot infer source completeness."
+  },
+  {
+    "index": 263,
+    "q": "Which public schools in Texas have no state education funding?",
+    "old": "filter.negation-open",
+    "accepted": [
+      "filter.negation-open",
+      "filter.negation-closed"
+    ],
+    "reason": "No/none leaves recorded absence versus known zero unspecified; classification cannot infer source completeness."
+  },
+  {
+    "index": 279,
+    "q": "Which states had a COVID‑19 vaccination rate above 70% in 2022 but not in 2023?",
+    "old": "set.difference",
+    "accepted": [
+      "filter.conjunction-all"
+    ],
+    "reason": "Two level predicates at different dates; no authoritative membership sets or change magnitudes requested."
+  },
+  {
+    "index": 306,
+    "q": "What is the capital of France?",
+    "old": [],
+    "accepted": [
+      "point.categorical"
+    ],
+    "reason": "Factual non-numeric attribute lookup; topic availability cannot make a query out of catalog."
+  },
+  {
+    "index": 307,
+    "q": "Who wrote Moby Dick?",
+    "old": [],
+    "accepted": [
+      "point.categorical"
+    ],
+    "reason": "Factual non-numeric attribute lookup; topic availability cannot make a query out of catalog."
+  },
+  {
+    "index": 309,
+    "q": "What time does the IRS office in Denver close?",
+    "old": [],
+    "accepted": [
+      "point.categorical"
+    ],
+    "reason": "Factual non-numeric attribute lookup; topic availability cannot make a query out of catalog."
+  },
+  {
+    "index": 317,
+    "q": "What does EIN stand for?",
+    "old": [],
+    "accepted": [
+      "point.categorical"
+    ],
+    "reason": "Factual non-numeric attribute lookup; topic availability cannot make a query out of catalog."
+  },
+  {
+    "index": 318,
+    "q": "Give me the phone number for Feeding America.",
+    "old": [],
+    "accepted": [
+      "point.categorical"
+    ],
+    "reason": "Factual non-numeric attribute lookup; topic availability cannot make a query out of catalog."
+  },
+  {
+    "index": 323,
+    "q": "Who is the president of the United States?",
+    "old": [],
+    "accepted": [
+      "point.categorical"
+    ],
+    "reason": "Factual non-numeric attribute lookup; topic availability cannot make a query out of catalog."
+  },
+  {
+    "index": 324,
+    "q": "What are the office hours for the SEC?",
+    "old": [],
+    "accepted": [
+      "point.categorical"
+    ],
+    "reason": "Factual non-numeric attribute lookup; topic availability cannot make a query out of catalog."
+  },
+  {
+    "index": 312,
+    "q": "Is the stock market open on Juneteenth?",
+    "old": [],
+    "accepted": [
+      "point.status"
+    ],
+    "reason": "Yes/no question about the market being open."
+  },
+  {
+    "index": 313,
+    "q": "What's the weather in Chicago?",
+    "old": [],
+    "accepted": [
+      "point.value",
+      "point.categorical",
+      "point.record"
+    ],
+    "reason": "Weather is an underspecified metric or weather profile, but is a factual data query."
+  },
+  {
+    "index": 50,
+    "q": "How much does the unemployment rate in Ohio change each year?",
+    "old": "time.volatility",
+    "accepted": [
+      "time.volatility",
+      "change.absolute",
+      "change.percent",
+      "timeseries.single-entity"
+    ],
+    "reason": "Change each year leaves dispersion versus individual changes/trajectory unspecified."
+  },
+  {
+    "index": 55,
+    "q": "How many NIH grants has Stanford received since 2005?",
+    "old": "time.cumulative-to-date",
+    "accepted": [
+      "aggregate.count",
+      "time.cumulative-to-date"
+    ],
+    "reason": "Count over a historical window is also a cumulative count; current catalog definitions overlap."
+  },
+  {
+    "index": 288,
+    "q": "For each year, what was the closest subsequent CDC obesity rate for the United States?",
+    "old": "temporal.nearest",
+    "accepted": [
+      "temporal.nearest"
+    ],
+    "reason": "Nearest subsequent observation is a directional temporal match, not a plain year lookup."
+  },
+  {
+    "index": 69,
+    "q": "Which university generates more research funding per faculty member, Stanford or MIT?",
+    "old": "comparison.values",
+    "accepted": [
+      "comparison.which"
+    ],
+    "reason": "Post-run correction of a mechanical merger-label error: the explicit which/more question requests the winning named candidate, not side-by-side values. Raw score preserves this mismatch; target was already met without this correction."
+  }
+]
