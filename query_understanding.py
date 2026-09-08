@@ -21,6 +21,8 @@ Use only their descriptions and examples. Negative examples show close but diffe
 Return JSON {"shapes": ["id", ...]} in preference order, with distinct supplied IDs only. Return [] for a non-data request or no suitable approach. Do not pad the list.'''
 EXTRACT = '''Analyze the QUESTION independently for this one full shape entry. Extract all bindings and details needed by its declared slots and plan, without executing anything or assuming source capabilities.
 Return JSON with "bindings" (object keyed only by declared slot names), "entities" (list of objects with string mention, description, type and a potential_matches list), "measures" (list), "periods" (list), "missing" (list of {"slot": "declared slot name", "reason": "what is unknown"}), "acquisition_queries" (list of natural-language request strings for the required inputs), "applicability" ("plausible" or "inapplicable"), and "reason" (string).
+Distinguish missing parameters from missing data. "missing" records unknown slot bindings or clarification needs; "acquisition_queries" requests the external data required by the plan, even when every parameter is known. Knowing an entity, measure and period does NOT supply its value. For example, "What was AMD's total revenue in 2023?" still requires an acquisition request for AMD total revenue in 2023 even if missing is [].
+For a plausible plan containing external reads or discovery, acquisition_queries must be nonempty and describe every required input in natural language. Do not use this list to ask the user for internal slot names, arithmetic expressions, dataset identifiers, or already-specified parameters. Unknown parameters can remain explicitly unspecified in the data requests; do not invent them. Do not assume data has already been fetched. Inapplicable approaches may have an empty list.
 Retain entity descriptions and possible identities for later crosswalk. Do not resolve identifiers from memory. Leave unspecified periods unspecified; 'all dollars' does not mean 'all time'. Do not invent statistics or slot bindings. An unknown source capability is a requirement for later planning, not grounds to declare the shape inapplicable. Do not choose between this approach and other shapes.'''
 
 
@@ -119,6 +121,10 @@ async def understand(question, *, context):
                 raise ValueError('Acquisition queries must be nonempty strings')
             if result.get('applicability') not in ('plausible','inapplicable') or not isinstance(result.get('reason'),str):
                 raise ValueError('Invalid applicability/reason')
+            needs_data = any('Read' in n.get('operator', '') or n.get('operator', '').startswith(('Resolve', 'Discover'))
+                             for n in shape['plan']['nodes'])
+            if result['applicability'] == 'plausible' and needs_data and not result['acquisition_queries']:
+                raise ValueError('Plan requires external data: acquisition_queries must describe required inputs even when all parameters are bound')
         try:
             output = await call(EXTRACT, {'shape':shape}, 'understand-extract', validate)
             fields = ('bindings','entities','measures','periods','missing','acquisition_queries','applicability','reason')

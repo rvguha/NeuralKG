@@ -25,6 +25,36 @@ def extracted(**overrides):
 
 
 class ThreeRoundTests(unittest.IsolatedAsyncioTestCase):
+    async def test_external_read_cannot_succeed_without_acquisition(self):
+        shapes=catalog(1)
+        shapes[0]['plan']={'nodes':[{'id':'a','operator':'ReadScalar','inputs':[]}]}
+        calls=0
+        async def reply(system,user,**kw):
+            nonlocal calls
+            if kw['stage']!='understand-extract': return json.dumps({'shapes':['s0']})
+            calls+=1
+            value=extracted()
+            value['acquisition_queries']=[]
+            return json.dumps(value)
+        with mock.patch.object(qu,'load_catalog',return_value=(shapes,'hash')),mock.patch.object(llm,'chat_async',side_effect=reply):
+            result=await qu.understand('fixed question',context=QueryContext())
+        self.assertEqual(calls,2)
+        self.assertEqual(result['candidates'][0]['status'],'error')
+        self.assertIn('requires external data',result['candidates'][0]['error'])
+
+    async def test_missing_parameters_empty_still_acquires_data(self):
+        shapes=catalog(1)
+        shapes[0]['plan']={'nodes':[{'id':'a','operator':'ReadScalar','inputs':[]}]}
+        async def reply(system,user,**kw):
+            if kw['stage']!='understand-extract': return json.dumps({'shapes':['s0']})
+            self.assertIn('Knowing an entity, measure and period does NOT supply its value',system)
+            return json.dumps(extracted())
+        with mock.patch.object(qu,'load_catalog',return_value=(shapes,'hash')),mock.patch.object(llm,'chat_async',side_effect=reply):
+            result=await qu.understand('fixed question',context=QueryContext())
+        self.assertEqual(result['candidates'][0]['status'],'ok')
+        self.assertEqual(result['candidates'][0]['missing'],[])
+        self.assertTrue(result['candidates'][0]['acquisition_queries'])
+
     async def test_exact_rounds_parallelism_and_payloads(self):
         shapes=catalog(); seen=[]; batch_started=0; extract_started=0
         batches_ready=asyncio.Event(); extracts_ready=asyncio.Event()
