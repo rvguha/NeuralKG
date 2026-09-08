@@ -157,9 +157,10 @@ async def run(question, understanding, hits, *, context):
         check_period(read['period'],ev.to_dict())
         rich = ev.kind == 'complex' or any(data.get(k) for k in ('results','entity_groups','interpretations','ranking','series','coverage','ambiguity')) if isinstance(data,dict) else ev.kind == 'complex'
         identity = plan.get('expression') in ({'read':0},{'op':'identity','args':[{'read':0}]})
-        if rich:
+        if rich or (plan['candidate']=='lookup.scalar' and len(plan['reads'])==1 and identity):
             if plan['candidate']=='lookup.scalar' and len(plan['reads'])==1 and identity:
-                answer,renderer=await harness._present_async(question,ev,context=context)
+                answer,renderer=await harness._present_async(question,ev,context=context,
+                    plan=plan,computed_result=ev.value)
                 actual=harness._cite_concept_actually_used(hit,data)
                 await harness._asay(context,'input_completed',index=index,evidence=ev.to_dict())
                 await harness._asay(context,'synthesis_started',shape=plan['candidate'])
@@ -189,13 +190,10 @@ async def run(question, understanding, hits, *, context):
         best=(max if plan['direction']=='max' else min)(values)
         result=[{'entity':r['entity'],'value':v} for r,v in zip(plan['reads'],values) if v==best]
     data={'result':result,'inputs':evidence,'template':shape}
-    # Rendering cannot change the deterministic computed result.
-    answer=json.dumps(result,ensure_ascii=False)
-    if shape=='lookup.scalar' and type(result) in (int,float):
-        unit=evidence[0].get('unit') or ''
-        period=evidence[0].get('period') or ''
-        answer=f"{plan['reads'][0]['entity']} — {plan['reads'][0]['measure']}: {result:,} {unit} ({period})."
-    return {'question':question,'shape':shape,'answer':answer,'answer_renderer':'template-json',
+    answer=await harness.TK.synthesize_async(question,{
+        'execution_plan':plan,'computed_result':result,'inputs':evidence,
+        'retrieved_data':[e['payload'] for e in evidence]},context=context)
+    return {'question':question,'shape':shape,'answer':answer,'answer_renderer':'template-llm',
             'plan':plan,'data':data,'evidence':{'kind':'template','inputs':evidence},'attempts':attempts,
             'source':{'title':' + '.join(dict.fromkeys(e['source'] for e in evidence))},
             'candidates':hits,'template_candidates':understanding['candidates'],

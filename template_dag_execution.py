@@ -121,7 +121,7 @@ async def read(node,p,dependencies,*,hits,context):
     if contract.get('complete_path'):complete=synth.get(raw,contract['complete_path']) is True
     elif contract.get('total_path') and isinstance(data,list):complete=len(data)==synth.get(raw,contract['total_path'])
     elif contract.get('unpaginated') is True and (cap.get('population') or {}).get('complete') is True:complete=True
-    return synth.Input(data,complete,{'source':source,'operation':operation,'params':params,'crs':contract.get('crs')},
+    return synth.Input(data,complete,{'source':source,'operation':operation,'params':params,'crs':contract.get('crs'),'payload':raw},
                        cap.get('grain',''),contract.get('key_domains',{}),contract.get('units',{}),contract.get('period_basis'))
 
 
@@ -149,9 +149,18 @@ Expressions use {field:"column"}, {input:0}, {input:0,field:"path"}, bare consta
                 if node['operator'] in synth.READS|{'RepeatTraverse'} and parameters[node['id']].get('source') not in {h['identifier'] for h in hits}:raise runtime.Refused('Source not supplied by ARD')
             context.memo['template_plan']=plan
             await context.emit('plan_ready',plan=plan)
-            async def reader(node,p,deps,*,context):return await read(node,p,deps,hits=hits,context=context)
+            acquired=[]
+            async def reader(node,p,deps,*,context):
+                from dataclasses import asdict
+                value=await read(node,p,deps,hits=hits,context=context)
+                acquired.append({'node':node['id'],'input':asdict(value)})
+                return value
             output=await synth.execute(shape,parameters,reader,context=context)
-            return {'question':question,'shape':shape,'answer':json.dumps(output['result'],ensure_ascii=False),'answer_renderer':'template-json',
+            import harness
+            output['inputs']=acquired
+            answer=await harness.TK.synthesize_async(question,{'execution_plan':plan,
+                'computed_result':output['result'],'retrieved_data':acquired,'execution':output},context=context)
+            return {'question':question,'shape':shape,'answer':answer,'answer_renderer':'template-llm',
                     'plan':plan,'data':output,'evidence':output['evidence'],'candidates':hits,'template_candidates':understanding['candidates'],
                     'attempts':trace,'usage':context.usage_ledger.snapshot(),'discovery_usage':context.discovery_ledger.snapshot()}
         except (ValueError,KeyError,TypeError,runtime.Refused) as exc:

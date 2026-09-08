@@ -10,6 +10,21 @@ import template_execution
 
 
 class PreservationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_renderer_receives_full_json_plan_and_result(self):
+        payload={'value':'Active tax-exempt organization','is_501c3':False,
+                 'nested':{'records':[{'detail':'not truncated'}]},'source':'IRS'}
+        ev=Evidence(kind='point',source='IRS',identifier='s',value=payload['value'],payload=payload)
+        plan={'candidate':'lookup.scalar','expression':{'read':0}}
+        with patch.object(harness.llm,'chat_async',AsyncMock(return_value='No.')) as chat:
+            answer,_=await harness._present_async('Is it a 501(c)(3)?',ev,context=QueryContext(),plan=plan,computed_result=ev.value)
+        sent=json.loads(chat.await_args.args[1])
+        self.assertEqual(sent['question'],'Is it a 501(c)(3)?')
+        self.assertFalse(sent['data']['retrieved_data']['is_501c3'])
+        self.assertEqual(sent['data']['inputs'][0]['payload'],payload)
+        self.assertEqual(sent['data']['execution_plan'],plan)
+        self.assertEqual(sent['data']['computed_result'],ev.value)
+        self.assertEqual(answer,'No.')
+
     async def test_discovery_keeps_ambiguous_measures_visible_to_ard(self):
         understood={'shape':'point','entity':'Microsoft','entity_status':'resolved','attribute':'size','interpretations':['revenue','employees'],'period':'latest'}
         with patch.object(harness.ard_client,'search_many_async',AsyncMock(return_value=[])) as search:

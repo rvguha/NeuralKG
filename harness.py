@@ -1583,7 +1583,7 @@ async def _search_async(question, ctx=None, hits=None, assumptions=None, *, cont
     return ctx, hits, state["hit"], hits.index(state["hit"]) + 1, state["_data"], state
 
 
-async def _present_async(question, evidence, *, context):
+async def _present_async(question, evidence, *, context, plan=None, computed_result=None):
     data = dict(evidence.payload)
     metadata = {
         "evidence_kind": evidence.kind, "source": evidence.source,
@@ -1594,6 +1594,9 @@ async def _present_async(question, evidence, *, context):
     for key, value in metadata.items():
         if value not in (None, "", []):
             data.setdefault(key, value)
+    if plan is not None:
+        data = {'retrieved_data': data, 'execution_plan': plan,
+                'computed_result': computed_result, 'inputs': [evidence.to_dict()]}
     answer = await TK.synthesize_async(question, data, context=context)
     return answer.strip(), "llm-synthesis"
 
@@ -2643,7 +2646,7 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8">
         d.data.series.filter(function(s){return s.value!=null}).map(function(s){
           return {label:s.label,value:s.value}}),' ');
      if(d.data&&Array.isArray(d.data.results)&&d.data.results.length)h+=renderRecords(d.data.results);
-     var it=d.answer_renderer==='template-json'?null:(d.items||[])[0];
+     var it=(d.answer_renderer==='template-json'||d.answer_renderer==='template-llm')?null:(d.items||[])[0];
      if(it)h+='<div class="src">\u{1F4DA} <a href="'+esc(it.url)+'">'+esc(it.name)
        +'</a> <span class="pub">['+esc(it.site||'')+']</span></div>';
      if((d.items||[]).length>1){h+='<details><summary>ARD candidates</summary><ul>';
@@ -2653,7 +2656,7 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8">
        if(d.intent)h+='<p><b>Interpretation:</b> '+esc(d.intent.operation||'')+' · '
           +esc(d.intent.entity||'no named entity')+' · '+esc(d.intent.measure||'')+' · '
           +esc(d.intent.period||'latest')+'</p>';
-       if(d.answer_renderer==='template-json'){
+       if(d.answer_renderer==='template-json'||d.answer_renderer==='template-llm'){
          h+='<p><b>Template:</b> '+esc(d.shape||'')+'</p>';
          h+='<details><summary>Template candidates and bindings</summary><pre>'+esc(JSON.stringify(d.template_candidates||[],null,2))+'</pre></details>';
          h+='<details><summary>Execution plan</summary><pre>'+esc(JSON.stringify(d.plan,null,2))+'</pre></details>';
