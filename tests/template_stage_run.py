@@ -18,6 +18,7 @@ import stage_reports
 import harness
 import query_understanding
 from query_context import QueryContext
+import template_expectations
 
 MODEL = 'openai/gpt-oss-20b'
 
@@ -42,14 +43,12 @@ def corpus():
 
 async def evaluate_case(row, context):
     output = await harness.query_understanding_async(row['question'], context=context)
-    selected = [c['shape'] for c in output['candidates'] if c.get('status') == 'ok']
-    agreement = bool(set(selected) & set(row['expected']))
-    status = ('pass' if agreement else 'fail') if row['scoreable'] else 'review'
-    if output['candidates'] and not selected:
-        status = 'error'
-    return dict(status=status, summary=', '.join(selected) or 'No usable candidates',
-                output=output, expected=row['expected'], label_agreement=agreement,
-                extraction_scored=False, usage=context.usage_ledger.snapshot())
+    wrapper={**row,'understanding':dict(status='review', summary='Pending scoring',
+                output=output, extraction_scored=False, usage=context.usage_ledger.snapshot())}
+    expected=template_expectations.expectation(row)
+    template_expectations.apply(wrapper,expected)
+    row['expectations']=expected
+    return wrapper['understanding']
 
 
 async def main():
@@ -67,7 +66,7 @@ async def main():
     manifest=dict(run_id=run_id,instance=instance.identity()['name'],instance_config=str(Path(instance.path()).resolve()),
         model=llm.chat_model(),catalog_sha256=digest,
         prompt_sha256=hashlib.sha256((Path(query_understanding.__file__).read_text()+digest).encode()).hexdigest(),
-        scope=f'{len(rows)} questions through harness.query_understanding_async. Score is expected-template recall among up to three extracted candidates, NOT top-1 accuracy. Examples are included; authored examples are in-prompt checks, not holdout. Conditional migrations require review. Extraction is unscored.',
+        scope=f'{len(rows)} questions through harness.query_understanding_async. Coverage measures retained template selection, independently of extraction. Precision uses conditional, non-exhaustive expected sets; unknown candidates require review. Binding checks are separate and partial. Examples are included, not holdout.',
         reasoning='low',timeout_seconds=240,workers=args.workers,
         started=datetime.now(timezone.utc).isoformat(),completed=False)
     if (folder/'manifest.json').exists():

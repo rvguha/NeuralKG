@@ -55,3 +55,24 @@ Offline checks:
 
     .venv/bin/python -m unittest discover -s tests -p 'test_stage_reports.py' -v
     .venv/bin/python -m unittest discover -s tests -p 'test_serving_architecture.py' -v
+# Conditional expected templates
+
+`tests/template_expectations.py` defines acceptable approaches with input/API
+conditions, explicit rejections, and independent partial binding checks.
+These sets are non-exhaustive: an unlisted candidate is unreviewed, not wrong.
+Inherited labels remain distinguished from reviewed alternatives and provisional
+migrations. Coverage checks selection even when subsequent extraction fails;
+candidate precision is a range when any candidate is unreviewed. Neither metric
+means a correct executable plan or answer.
+
+Rescore a saved production run without model calls:
+
+```
+ARD_STORE=json .venv/bin/python tests/rescore_template_run.py RUN_ID
+```
+
+This creates a new `RUN_ID-multi-expected` report, preserving the original run,
+raw outputs, original scores, and an expectation snapshot/hash. Current manual
+alternative review covers eight authored examples; inherited/provisional corpus
+labels are not a fully adjudicated gold set. Binding validation is currently only
+a narrow NIH-question period check, not comprehensive extraction validation.

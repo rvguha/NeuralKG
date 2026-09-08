@@ -54,9 +54,19 @@ def publish(run_dir, manifest, rows):
             status = result.get('status', 'pending')
             counts[status] = counts.get(status, 0) + 1
             detail = esc(json.dumps(result, ensure_ascii=False, indent=2))
+            assessment = result.get('evaluation')
+            extra = ''
+            if stage == 'understanding' and assessment:
+                bounds = assessment.get('precision_bounds')
+                precision = assessment.get('candidate_precision')
+                ptext = f'{precision:.0%}' if precision is not None else (f'{bounds[0]:.0%}–{bounds[1]:.0%} (unreviewed candidates)' if bounds else 'not scored')
+                coverage = assessment.get('coverage')
+                ctext = 'covered' if coverage is True else 'missed' if coverage is False else 'unknown'
+                expectation_text = esc(json.dumps(row.get('expectations', {}),ensure_ascii=False,indent=2))
+                extra = f'<p>Coverage: {ctext} · Candidate precision: {esc(ptext)}</p><p>Extraction errors: {assessment.get("extraction_errors", "—")} · Known binding failures: {assessment.get("binding_failures", "—")} (not full binding validation)</p><details><summary>Expected approaches and conditions</summary><pre>{expectation_text}</pre></details>'
             records.append(f'<tr><td>{esc(row["id"])}</td><td>{esc(row["question"])}</td>'
                            f'<td class="{esc(status)}">{esc(status)}</td>'
-                           f'<td><details><summary>{esc(result.get("summary", status))}</summary><pre>{detail}</pre></details></td></tr>')
+                           f'<td>{extra}<details><summary>{esc(result.get("summary", status))}</summary><pre>{detail}</pre></details></td></tr>')
         body = f'<h1>{stage.title()} · {esc(manifest["run_id"])}</h1>{nav}'
         body += f'<p>Instance: {esc(manifest["instance"])} · Model: {esc(manifest["model"])}</p>'
         body += '<p>' + esc(manifest['scope']) + '</p><p>' + esc(str(counts)) + '</p>'
@@ -68,7 +78,7 @@ def publish(run_dir, manifest, rows):
         states = ('pass', 'fail', 'error', 'review', 'blocked', 'pending')
         body += '<table><tr><th>Cohort</th>' + ''.join('<th>'+s.title()+'</th>' for s in states) + '</tr>'
         body += ''.join('<tr><td>'+esc(name)+'</td>'+''.join('<td>'+str(tally.get(s,0))+'</td>' for s in states)+'</tr>' for name,tally in cohorts.items())+'</table>'
-        body += '<p>Pass means agreement with a fixed template label, not a verified data answer. Review means conditional label migration or an unscored case. Blocked is not a test failure or a completed stage. Refresh to see saved progress.</p>'
+        body += '<p>Pass describes template selection only, not verified bindings or a data answer. For multi-expected runs, an unlisted candidate remains unreviewed; precision bounds expose incomplete labels. Extraction and binding checks are separate. Blocked is not a completed stage. Refresh to see saved progress.</p>'
         body += '<input id="filter" placeholder="Filter by question, status, or output" aria-label="Filter results">'
         body += '<table><thead><tr><th>Case</th><th>Question</th><th>Status</th><th>Saved output / explanation</th></tr></thead><tbody>' + ''.join(records) + '</tbody></table>'
         body += '<script>document.getElementById("filter").oninput=function(){for(const r of document.querySelectorAll("tbody tr"))r.hidden=!r.textContent.toLowerCase().includes(this.value.toLowerCase())}</script>'
