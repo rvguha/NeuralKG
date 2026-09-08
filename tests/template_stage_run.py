@@ -59,6 +59,7 @@ async def main():
     parser.add_argument('--model', choices=[MODEL, 'openai/gpt-oss-120b'], default=MODEL)
     parser.add_argument('--empty-from', help='Saved run ID whose empty-response cases should be rerun')
     args=parser.parse_args()
+    os.environ['QUERY_SELECTION_MODEL']=args.model
     assert llm.provider()=='openrouter'
     assert llm.chat_model()==args.model, 'Configured model must match the requested OSS evaluation model'
     shapes, digest=query_understanding.load_catalog()

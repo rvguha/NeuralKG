@@ -29,6 +29,8 @@
 
 ard:
   finder_url: http://127.0.0.1:8088
+query_understanding:
+  selection_model: openai/gpt-oss-120b
 identity:
   name: Neural KG
   tagline: OKF + ARD

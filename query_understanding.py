@@ -2,6 +2,7 @@
 import asyncio
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import yaml
@@ -67,6 +68,7 @@ async def understand(question, *, context):
         for attempt in range(2):
             try:
                 raw = await llm.chat_async(system, user, context=context, json_mode=True,
+                                          model=(os.getenv('QUERY_SELECTION_MODEL') or instance.config().get('query_understanding', {}).get('selection_model')) if stage in ('understand-batch','understand-shortlist') else None,
                                           stage=stage, max_tokens=4096 if stage=='understand-extract' else 1200,
                                           reasoning_effort='low')
             except (runtime.QueryCancelled, runtime.QueryBudgetExceeded):
