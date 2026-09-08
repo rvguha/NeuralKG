@@ -39,7 +39,7 @@ AZURE_MONITOR_ENABLED = configure_azure_monitor()
 from starlette.applications import Starlette
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
+from starlette.responses import HTMLResponse, JSONResponse, Response, StreamingResponse, RedirectResponse
 from starlette.routing import Route
 
 import ard_client
@@ -162,6 +162,8 @@ def _result_messages(stream, request, result):
             "discovery_usage": result.get("discovery_usage"), "intent": result.get("intent"),
             "attempts": result.get("attempts") or [], "evidence": result.get("evidence"),
             "answer_renderer": result.get("answer_renderer")}
+        if result.get('template_candidates'):
+            content['template_candidates'] = result['template_candidates']
         if clarification:
             content.update({"question": clarification.get("question"),
                             "original_query": result.get("question"),
@@ -186,6 +188,26 @@ async def run_nlweb_async(spec, *, clients, engine=harness.run, disconnect=None,
     context = clients.bind(QueryContext.with_timeout(
         float(os.getenv("QUERY_TIMEOUT_SECONDS", "180")),
         progress=asyncio.Queue(maxsize=progress_size)))
+    context.memo['flow_started'] = time.time()
+    events = []
+    result = None
+    terminal_error = None
+
+    async def save_trace(answer=None, error=None):
+        import flow_runs
+        try:
+            return await asyncio.to_thread(flow_runs.save, context, spec['query'], events, answer, error)
+        except (OSError, ValueError, TypeError):
+            logging.getLogger(__name__).warning('Could not archive local query trace', exc_info=True)
+            return None
+
+    def progress_messages(event):
+        events.append(event)
+        line = harness._nlweb_text(event)
+        if line:
+            yield stream.message(nlweb.INTERMEDIATE, line, 'system')
+        if spec.get('debug'):
+            yield stream.message(nlweb.INTERMEDIATE, {'event': event}, 'system')
     async def invoke_engine():
         return await engine(
             spec["query"], sites=spec.get("sites") or None,
@@ -204,10 +226,9 @@ async def run_nlweb_async(spec, *, clients, engine=harness.run, disconnect=None,
             done, _ = await asyncio.wait({task, progress}, timeout=min(.25, heartbeat_seconds),
                                          return_when=asyncio.FIRST_COMPLETED)
             if progress in done:
-                line = harness._nlweb_text(progress.result())
-                if line:
+                for message in progress_messages(progress.result()):
                     last_frame = time.monotonic()
-                    yield stream.message(nlweb.INTERMEDIATE, line, "system")
+                    yield message
             else:
                 progress.cancel()
                 await asyncio.gather(progress, return_exceptions=True)
@@ -216,12 +237,20 @@ async def run_nlweb_async(spec, *, clients, engine=harness.run, disconnect=None,
                 yield None
         result = await task
         while not context.progress.empty():
-            line = harness._nlweb_text(context.progress.get_nowait())
-            if line:
-                yield stream.message(nlweb.INTERMEDIATE, line, "system")
+            for message in progress_messages(context.progress.get_nowait()):
+                yield message
+        if spec.get('debug'):
+            url = await save_trace(result)
+            if url:yield stream.message(nlweb.INTERMEDIATE, {'trace_url': url}, 'system')
         for message in _result_messages(stream, spec, result):
             yield message
     except (runtime.Refused, driver.SourceRateLimitError, runtime.QueryCancelled) as exc:
+        terminal_error = str(exc)
+        if spec.get('debug'):
+            while not context.progress.empty():
+                for message in progress_messages(context.progress.get_nowait()):yield message
+            url = await save_trace(error=terminal_error)
+            if url:yield stream.message(nlweb.INTERMEDIATE, {'trace_url': url}, 'system')
         yield stream.message(nlweb.ERROR, str(exc), "system")
         yield stream.message(nlweb.END, "", "system")
     except asyncio.CancelledError:
@@ -229,6 +258,12 @@ async def run_nlweb_async(spec, *, clients, engine=harness.run, disconnect=None,
         await asyncio.gather(task, return_exceptions=True)
         raise
     except Exception as exc:
+        terminal_error = f'{type(exc).__name__}: {exc}'
+        if spec.get('debug'):
+            while not context.progress.empty():
+                for message in progress_messages(context.progress.get_nowait()):yield message
+            url = await save_trace(error=terminal_error)
+            if url:yield stream.message(nlweb.INTERMEDIATE, {'trace_url': url}, 'system')
         yield stream.message(nlweb.ERROR, f"{type(exc).__name__}: {exc}", "system")
         yield stream.message(nlweb.END, "", "system")
     finally:
@@ -422,6 +457,8 @@ def create_app(engine=harness.run, clients_factory=AsyncSourceClients):
     async def static(request):
         path = request.path_params.get("path", "")
         if path == "": return HTMLResponse(harness.PAGE)
+        if path == 'flow':
+            return RedirectResponse('/')
         if path == "chat-history.js":
             with open(os.path.join(os.path.dirname(__file__), "chat_history.js"), encoding="utf-8") as stream:
                 return Response(stream.read(), media_type="text/javascript",

@@ -59,6 +59,18 @@ class TemplateExecutionTests(unittest.TestCase):
 
 
 class WiringTests(unittest.IsolatedAsyncioTestCase):
+    async def test_planner_repair_includes_failed_output_and_reason(self):
+        good={'candidate':'lookup.scalar','reads':[{'source':'s','entity':'A','type':'company','measure':'revenue','period':'2023','question':'A revenue'}],'expression':{'read':0}}
+        import json
+        context=QueryContext()
+        with patch.object(te.llm,'chat_async',AsyncMock(side_effect=['{"candidate":"lookup.scalar","reads":[]}',json.dumps(good),'{"valid":true,"issues":[]}'])) as chat:
+            result=await te.compile_plan({'question':'q'},[{'shape':'lookup.scalar'}],[{'identifier':'s'}],context=context)
+        self.assertEqual(result,good)
+        repaired=json.loads(chat.call_args_list[1].args[1])['repair']
+        self.assertIn('no required reads',repaired['error'])
+        self.assertIn('"reads":[]',repaired['previous_output'])
+        self.assertEqual(len(context.memo['planning_attempts']),2)
+
     async def test_candidates_dispatch_to_new_executor(self):
         with patch.object(harness,'discover_async',AsyncMock(return_value=({'candidates':[]},[]))), patch.object(te,'run',AsyncMock(return_value={'answer':'fixed'})) as execute:
             answer=await harness.run('q',context=QueryContext())

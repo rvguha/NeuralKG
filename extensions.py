@@ -43,6 +43,7 @@ class Registry:
 
     def __init__(self):
         self.executors = {}
+        self.template_readers = {}
         self.candidate_filters = []
         self.coidentify_strategies = {}
         self._principal = None
@@ -58,6 +59,20 @@ class Registry:
             if name in self.executors:
                 raise ValueError(f"executor {name!r} is already registered")
             self.executors[name] = fn
+            return fn
+        return register
+
+    def template_reader(self, name):
+        """Register async fn(node, parameters, dependencies, *, source, context).
+
+        Return answer_synthesizer.Input with actual coverage, identity, units and
+        provenance. Selected by the descriptor's template_reader, never by the LLM.
+        Dependent reads must use dependency data (resolved dates, scopes, actors).
+        """
+        def register(fn):
+            if name in self.template_readers:
+                raise ValueError(f'template reader {name!r} is already registered')
+            self.template_readers[name] = fn
             return fn
         return register
 

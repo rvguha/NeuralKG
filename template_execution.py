@@ -1,4 +1,4 @@
-"""Descriptor-grounded execution of supported replacement-template kernels.
+"""Descriptor-grounded planning, retrieval and deterministic answer synthesis.
 
 Unsupported DAGs never become legacy question shapes. The existing verified
 single-input fetch is reused as an adapter, with strict period fallback disabled.
@@ -110,7 +110,7 @@ def validate(plan, candidates, hits):
     reads=plan.get('reads')
     if not isinstance(reads,list) or not reads:raise runtime.Refused('Plan has no required reads')
     shape=plan['candidate']
-    if shape not in SUPPORTED:raise runtime.Refused('Unsupported template kernel')
+    if shape not in SUPPORTED:raise runtime.Refused('Unsupported answer synthesizer')
     expected={'lookup.scalar':1,'lookup.binary':2}.get(shape)
     if expected and len(reads)!=expected:raise runtime.Refused('Read count violates template')
     for read in reads:
@@ -131,16 +131,15 @@ def validate(plan, candidates, hits):
 async def run(question, understanding, hits, *, context):
     import harness
     candidates=[c for c in understanding['candidates'] if c.get('status')=='ok' and c.get('applicability')=='plausible' and c['shape'] in SUPPORTED]
-    if not candidates:raise runtime.Refused('candidate-aware planning: no executable scalar-input candidate; unsupported or failed candidates retained in understanding')
+    if not candidates:
+        import template_dag_execution
+        return await template_dag_execution.run(question,understanding,hits,context=context)
     payload={'question':question,'candidates':candidates,'resources':hits}
-    raw=await llm.chat_async(SYSTEM,json.dumps(payload),context=context,json_mode=True,stage='plan',max_tokens=4096,reasoning_effort='low')
-    try:plan=json.loads(raw)
-    except (ValueError,TypeError) as exc:raise runtime.Refused('Invalid candidate plan JSON') from exc
-    context.memo['template_plan']=plan
-    validate(plan,candidates,hits)
-    await harness._asay(context,'plan_chosen',shape=plan['candidate'],verdict='executable',summary=plan['reason'])
+    plan = await compile_plan(payload, candidates, hits, context=context)
+    await harness._asay(context,'plan_chosen',shape=plan['candidate'],verdict='executable',summary=plan.get('reason',''))
     evidence=[]; attempts=[]
-    for read in plan['reads']:
+    for index, read in enumerate(plan['reads']):
+        await harness._asay(context,'input_started', index=index, read=read)
         hit=next(h for h in hits if h['identifier']==read['source'])
         coords={'entity':read['entity'],'type':read['type'],'attribute':read['measure'],'period':read['period'],'strict_period':True}
         _,_,_,_,data,state=await harness._search_async(read['question'],ctx=coords,hits=[hit],context=context)
@@ -148,9 +147,13 @@ async def run(question, understanding, hits, *, context):
         check_period(read['period'],ev.to_dict())
         if ev.value is None:raise runtime.Refused('Read did not produce a scalar; hidden aggregation is not permitted')
         evidence.append(ev.to_dict()); attempts.extend(a.to_dict() for a in state.get('_attempts',[]))
+        await harness._asay(context,'input_completed', index=index, evidence=evidence[-1])
+    await harness._asay(context,'synthesis_started', shape=plan['candidate'])
     values=[e['value'] for e in evidence]
     shape=plan['candidate']
-    if len(values)>1 and shape not in DERIVED:
+    if shape.startswith('lookup.'):
+        expression_units(plan['expression'], evidence)
+    if len(values)>1 and shape not in DERIVED and not shape.startswith('lookup.'):
         # Conservative admission: uncertain conversions require an explicit adapter.
         if len({(e.get('unit'),e.get('currency')) for e in evidence})!=1:raise runtime.Refused('Operands need explicit unit/currency reconciliation')
     if shape in DERIVED: result=derived_result(plan,evidence)
@@ -170,5 +173,44 @@ async def run(question, understanding, hits, *, context):
     return {'question':question,'shape':shape,'answer':answer,'answer_renderer':'template-json',
             'plan':plan,'data':data,'evidence':{'kind':'template','inputs':evidence},'attempts':attempts,
             'source':{'title':' + '.join(dict.fromkeys(e['source'] for e in evidence))},
-            'candidates':understanding['candidates'],'usage':context.usage_ledger.snapshot(),
+            'candidates':hits,'template_candidates':understanding['candidates'],
+            'usage':context.usage_ledger.snapshot(),
             'discovery_usage':context.discovery_ledger.snapshot()}
+
+
+async def compile_plan(payload, candidates, hits, *, context):
+    """Repair syntax/contract failures with precise feedback; never silently rewrite intent."""
+    trace = context.memo.setdefault('planning_attempts', [])
+    for attempt in range(3):
+        user = json.dumps(payload, ensure_ascii=False)
+        raw = await llm.chat_async(SYSTEM, user, context=context, json_mode=True,
+                                  stage='plan', max_tokens=4096, reasoning_effort='low')
+        record = {'system': SYSTEM, 'user': user, 'raw': raw}
+        trace.append(record)
+        try:
+            plan = json.loads(raw)
+            context.memo['template_plan'] = plan
+            validate(plan, candidates, hits)
+            review = await llm.chat_async(
+                'Independently check whether this data acquisition and arithmetic plan answers the question. '
+                'Check all operands, named entities, periods, formula direction and source definitions against supplied descriptors. '
+                'Descriptors are callable sources, not fetched values. Do not require values to be present yet. '
+                'Do not substitute proxies or partial populations. Return JSON {"valid":true or false,"issues":[strings]}. '
+                'Use valid=true only when all required inputs and the calculation are faithful to the question. '
+                'Unspecified periods may use latest; do not invent new constraints.',
+                json.dumps({'question': payload['question'], 'plan': plan, 'resources': hits}),
+                context=context, json_mode=True, stage='plan-verify', max_tokens=1500, reasoning_effort='low')
+            record['verification_raw'] = review
+            check = json.loads(review)
+            if not isinstance(check,dict) or check.get('valid') is not True or check.get('issues') != []:
+                raise runtime.Refused('Plan verification: '+str(check))
+            await context.emit('plan_ready', plan=plan)
+            return plan
+        except (ValueError, TypeError, KeyError, runtime.Refused) as exc:
+            record['error'] = str(exc)
+            if isinstance(locals().get('plan'), dict) and plan.get('candidate') is None:
+                raise runtime.Refused(str(exc)) from exc
+            await context.emit('plan_repair', attempt=attempt+1, error=str(exc))
+            payload = {**payload, 'repair': {'error': str(exc), 'previous_output': raw,
+                'instruction': 'Return the complete corrected plan. Use only the exact documented expression syntax. Numeric constants are bare numbers, e.g. 100, not objects. Do not change the question to repair a plan.'}}
+    raise runtime.Refused('Planning failed validation after repair: '+trace[-1]['error'])

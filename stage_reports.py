@@ -78,7 +78,10 @@ def publish(run_dir, manifest, rows):
         states = ('pass', 'fail', 'error', 'review', 'blocked', 'pending')
         body += '<table><tr><th>Cohort</th>' + ''.join('<th>'+s.title()+'</th>' for s in states) + '</tr>'
         body += ''.join('<tr><td>'+esc(name)+'</td>'+''.join('<td>'+str(tally.get(s,0))+'</td>' for s in states)+'</tr>' for name,tally in cohorts.items())+'</table>'
-        body += '<p>Pass describes template selection only, not verified bindings or a data answer. For multi-expected runs, an unlisted candidate remains unreviewed; precision bounds expose incomplete labels. Extraction and binding checks are separate. Blocked is not a completed stage. Refresh to see saved progress.</p>'
+        if manifest.get('kind') == 'fixed-input operator tests':
+            body += '<p>Pass means the fixed catalog DAG produced the expected result from synthetic, complete inputs. No LLM, ARD or live publisher was used. This is not a live end-to-end score.</p>'
+        else:
+            body += '<p>Pass describes template selection only, not verified bindings or a data answer. For multi-expected runs, an unlisted candidate remains unreviewed; precision bounds expose incomplete labels. Extraction and binding checks are separate. Blocked is not a completed stage. Refresh to see saved progress.</p>'
         body += '<input id="filter" placeholder="Filter by question, status, or output" aria-label="Filter results">'
         body += '<table><thead><tr><th>Case</th><th>Question</th><th>Status</th><th>Saved output / explanation</th></tr></thead><tbody>' + ''.join(records) + '</tbody></table>'
         body += '<script>document.getElementById("filter").oninput=function(){for(const r of document.querySelectorAll("tbody tr"))r.hidden=!r.textContent.toLowerCase().includes(this.value.toLowerCase())}</script>'

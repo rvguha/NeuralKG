@@ -32,7 +32,7 @@ def load_catalog():
     if not path.is_absolute():
         path = Path(instance.path()).resolve().parent / path
     raw = path.read_bytes()
-    shapes = yaml.safe_load(raw)['shapes']
+    shapes = _parse_catalog(raw)
     ids = [s['id'] for s in shapes]
     if not ids or len(set(ids)) != len(ids):
         raise ValueError('Catalog must contain distinct shape IDs')
@@ -40,6 +40,13 @@ def load_catalog():
         if not isinstance(s.get('asks'), str) or not isinstance(s.get('examples'), list) or not s['examples']:
             raise ValueError('Every shape needs a description and examples')
     return shapes, hashlib.sha256(raw).hexdigest()
+
+
+from functools import lru_cache
+
+@lru_cache(maxsize=4)
+def _parse_catalog(raw):
+    return yaml.safe_load(raw)['shapes']
 
 
 def brief(shape):
@@ -86,6 +93,10 @@ async def understand(question, *, context):
             except (ValueError, TypeError, KeyError) as exc:
                 if attempt:
                     raise UnderstandingError(f'{stage} returned invalid structured output: {exc}', trace) from exc
+                user = json.dumps({'question': question, **payload, 'repair': {
+                    'error': str(exc), 'previous_output': raw,
+                    'instruction': 'Return a corrected complete JSON response; preserve valid information.'}}, ensure_ascii=False)
+                record.setdefault('repair_prompts', []).append(user)
 
     async def select(entries, stage):
         allowed = {s['id'] for s in entries}
@@ -115,8 +126,9 @@ async def understand(question, *, context):
                 if not isinstance(entity,dict) or not all(isinstance(entity.get(k),str) for k in ('mention','description','type')) or not isinstance(entity.get('potential_matches'),list):
                     raise ValueError('Invalid entity description')
             for missing in result['missing']:
-                if not isinstance(missing,dict) or missing.get('slot') not in shape['slots'] or not isinstance(missing.get('reason'),str):
-                    raise ValueError('Missing bindings must name a declared slot and reason')
+                slot = missing.get('slot') if isinstance(missing,dict) else None
+                if not isinstance(slot,str) or slot.split('.')[0] not in shape['slots'] or not all(slot.split('.')) or not isinstance(missing.get('reason'),str):
+                    raise ValueError('Missing bindings must name a declared slot (optionally a dotted subfield) and reason')
             if not all(isinstance(q,str) and q.strip() for q in result['acquisition_queries']):
                 raise ValueError('Acquisition queries must be nonempty strings')
             if result.get('applicability') not in ('plausible','inapplicable') or not isinstance(result.get('reason'),str):

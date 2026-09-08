@@ -25,6 +25,16 @@ def extracted(**overrides):
 
 
 class ThreeRoundTests(unittest.IsolatedAsyncioTestCase):
+    async def test_nested_missing_slot_is_preserved(self):
+        async def reply(system,user,**kw):
+            if kw['stage']!='understand-extract':return json.dumps({'shapes':['s0']})
+            value=extracted();value['missing']=[{'slot':'x.period','reason':'Period unspecified'}]
+            return json.dumps(value)
+        with mock.patch.object(qu,'load_catalog',return_value=(catalog(1),'hash')),mock.patch.object(llm,'chat_async',side_effect=reply):
+            result=await qu.understand('fixed question',context=QueryContext())
+        self.assertEqual(result['candidates'][0]['status'],'ok')
+        self.assertEqual(result['candidates'][0]['missing'][0]['slot'],'x.period')
+
     async def test_external_read_cannot_succeed_without_acquisition(self):
         shapes=catalog(1)
         shapes[0]['plan']={'nodes':[{'id':'a','operator':'ReadScalar','inputs':[]}]}

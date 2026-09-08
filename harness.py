@@ -1024,15 +1024,19 @@ async def discover_async(question, sites=None, assumptions=None, *, context):
     await _asay(context, "status", icon="🔍", msg="Reading your question…")
     ctx = await query_understanding_async(question, context=context)
     if 'candidates' in ctx:
+        context.memo['understanding'] = ctx
         if assumptions:
             raise runtime.Refused('Legacy assumptions cannot overwrite independent template candidates')
-        queries = list(dict.fromkeys(q for c in ctx['candidates'] if c.get('status') == 'ok'
+        queries = list(dict.fromkeys(q for c in ctx['candidates'] if c.get('status') == 'ok' and c.get('applicability') != 'inapplicable'
                                      for q in c.get('acquisition_queries', [])))
         await _asay(context, 'shape_candidates', candidates=ctx['candidates'])
         if not queries:
             return ctx, []
+        await _asay(context, 'discovery_started', queries=queries)
         hits = await ard_client.search_many_async(queries, k=12, sources=sites,
                                                   rerank_query=question, context=context)
+        context.memo['resources'] = hits
+        await _asay(context, 'discovery_completed', resources=hits)
         return ctx, hits
     if isinstance(assumptions, dict):
         allowed = {"entity", "type", "attribute", "period", "shape", "concept", "entity_qid"}
@@ -2520,7 +2524,7 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8">
      TURN_ERROR='The server stopped sending updates.';finishStoredTurn('interrupted');
      status('⚠️','The server stopped sending updates. It may still be working — check the terminal, or ask again.','back');fin();},120000);}
    beat();
-   var askUrl='ask?sse_format=named&max_results=8&on_ambiguity=ask&query='+encodeURIComponent(question);
+   var askUrl='ask?sse_format=named&debug=true&max_results=8&on_ambiguity=ask&query='+encodeURIComponent(question);
    if(CONVERSATION_ID)askUrl+='&conversation_id='+encodeURIComponent(CONVERSATION_ID);
    if(ASSUMPTIONS){Object.keys(ASSUMPTIONS).forEach(function(k){
      askUrl+='&assumption_'+k+'='+encodeURIComponent(ASSUMPTIONS[k]||'');});ASSUMPTIONS=null;}
@@ -2550,6 +2554,10 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8">
      TURN_MESSAGES.push(ev);
      var t=ev.message_type, c=ev.content;
      if(t==='intermediate_message'){
+       if(c&&typeof c==='object'){
+         if(c.trace_url)status('📋','<a href="'+esc(c.trace_url)+'" target="_blank">Saved query trace</a>');
+         return;
+       }
        // the engine prefixes its narration with an emoji; split it back out so the icon column
        // lines up the way it always has
        var s0=String(c||'').trim(), m=s0.match(/^(\p{Extended_Pictographic}\uFE0F?)\s*([\s\S]*)$/u);
@@ -2593,7 +2601,7 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8">
         d.data.series.filter(function(s){return s.value!=null}).map(function(s){
           return {label:s.label,value:s.value}}),' ');
      if(d.data&&Array.isArray(d.data.results)&&d.data.results.length)h+=renderRecords(d.data.results);
-     var it=(d.items||[])[0];
+     var it=d.answer_renderer==='template-json'?null:(d.items||[])[0];
      if(it)h+='<div class="src">\u{1F4DA} <a href="'+esc(it.url)+'">'+esc(it.name)
        +'</a> <span class="pub">['+esc(it.site||'')+']</span></div>';
      if((d.items||[]).length>1){h+='<details><summary>ARD candidates</summary><ul>';
@@ -2603,6 +2611,12 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8">
        if(d.intent)h+='<p><b>Interpretation:</b> '+esc(d.intent.operation||'')+' · '
           +esc(d.intent.entity||'no named entity')+' · '+esc(d.intent.measure||'')+' · '
           +esc(d.intent.period||'latest')+'</p>';
+       if(d.answer_renderer==='template-json'){
+         h+='<p><b>Template:</b> '+esc(d.shape||'')+'</p>';
+         h+='<details><summary>Template candidates and bindings</summary><pre>'+esc(JSON.stringify(d.template_candidates||[],null,2))+'</pre></details>';
+         h+='<details><summary>Execution plan</summary><pre>'+esc(JSON.stringify(d.plan,null,2))+'</pre></details>';
+         h+='<details><summary>Computed result and input evidence</summary><pre>'+esc(JSON.stringify(d.data,null,2))+'</pre></details>';
+       }
        if(d.attempts&&d.attempts.length){h+='<ol>';
          d.attempts.forEach(function(a){h+='<li><code>'+esc(a.identifier||a.source||'candidate')+'</code> — '
            +esc(a.outcome||'')+(a.reason?' · '+esc(a.reason):'');
@@ -2618,8 +2632,10 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8">
    function usd(c){return c>=0.01?'$'+c.toFixed(3):(c>0?'$'+c.toFixed(5):'$0');}
    // Steps in PIPELINE order, not sorted by cost — the point of the report is to show where a
    // question's spend goes as it moves through the engine, and ordering by size hides that shape.
-   var STEP_ORDER = ['understand-shape','understand-entity','understand-measure','plan','resolve-entity','resolve-concept','check','synthesize','other'];
+   var STEP_ORDER = ['understand-batch','understand-shortlist','understand-extract','understand-shape','understand-entity','understand-measure','plan','plan-verify','resolve-entity','resolve-concept','check','synthesize','other'];
    var STEP_LABEL = {
+     'understand-batch':'shortlist templates', 'understand-shortlist':'select finalists',
+     'understand-extract':'bind template parameters', 'plan-verify':'verify plan',
      'understand-shape':'understand shape', 'understand-entity':'extract entities',
      'understand-measure':'extract measure & period', 'plan':'plan the query',
      'resolve-entity':'crosswalk the entity',
@@ -2637,7 +2653,7 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8">
      var st=u.by_stage||{}, keys=Object.keys(st);
      STEP_ORDER.forEach(function(k){if(keys.indexOf(k)<0)keys.push(k)});
      var rows='', tot=0, toks=0;
-     STEP_ORDER.forEach(function(k){
+     STEP_ORDER.concat(Object.keys(st).filter(function(k){return STEP_ORDER.indexOf(k)<0})).forEach(function(k){
        var v=st[k]; if(!v) return;
        tot+=v.cost_usd; toks+=v.tokens;
        rows+='<tr><td>'+esc(STEP_LABEL[k]||k)+'</td><td class="n">'+v.calls+'</td><td class="n">'
@@ -2848,6 +2864,23 @@ enumerates the registry over the same API an agent would.
 def _nlweb_text(ev):
     """One engine progress event as a line of NLWeb intermediate_message prose."""
     k = ev.get("kind")
+    if k == 'shape_candidates':
+        return '🏷️ Query understanding: ' + ', '.join(c.get('shape','?')+' ('+c.get('status','?')+')' for c in ev.get('candidates',[]))
+    if k == 'discovery_started':
+        return f"📚 Asking ARD for {len(ev.get('queries',[]))} required data inputs…"
+    if k == 'discovery_completed':
+        return f"📚 ARD returned {len(ev.get('resources',[]))} candidate resources; checking input coverage."
+    if k == 'plan_ready':
+        return '🧭 Execution plan: '+str((ev.get('plan') or {}).get('candidate',''))
+    if k == 'plan_repair':
+        return '↩️ Revising the plan: '+str(ev.get('error',''))
+    if k == 'input_started':
+        return '📥 Fetching input: '+str((ev.get('read') or {}).get('question',''))
+    if k == 'input_completed':
+        evidence=ev.get('evidence') or {}
+        return '✓ Input retrieved and checked'+(': '+str(evidence.get('value')) if evidence.get('value') is not None else '')
+    if k == 'synthesis_started':
+        return '🧮 Answer synthesizer: '+str(ev.get('operator') or ev.get('shape') or '')
     if k == "status":
         return f"{ev.get('icon','')} {ev.get('msg','')}".strip()
     if k == "structure_understood":

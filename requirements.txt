@@ -1,4 +1,7 @@
 numpy>=1.24
+scipy>=1.11          # Welch tests, explicit statistical estimators
+shapely>=2.0         # geometric predicates and intersections
+pyproj>=3.6          # explicit CRS transforms and geodesic distances
 pyyaml>=6.0
 openai>=1.40          # the one SDK for Azure OpenAI, OpenAI, Gemini (OpenAI-compat), and local (Ollama)
 starlette>=0.40       # async Agent Finder and Neural KG ASGI applications
