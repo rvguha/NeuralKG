@@ -45,6 +45,22 @@ class AsyncAgentFinderTests(unittest.IsolatedAsyncioTestCase):
         self.addAsyncCleanup(client.aclose)
         return client
 
+    async def test_many_query_texts_reach_retrieval_without_truncation(self):
+        received = []
+        async def search(texts, *args, **kwargs):
+            received.append(texts)
+            return []
+        client = await self._client(search)
+        for size in (5, 32, 100):
+            texts = [f'input {i}' for i in range(size)]
+            response = await client.post('/search', json={'query': {'text': 'question', 'texts': texts}})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(received[-1], texts)
+        for texts in (["valid", " "], ["valid", 7], "not a list"):
+            response = await client.post('/search', json={'query': {'text': 'question', 'texts': texts}})
+            self.assertEqual(response.status_code, 400)
+        self.assertEqual(len(received), 3)
+
     async def test_documented_http_contracts_keep_their_shapes(self):
         client = await self._client()
         with mock.patch.object(index, "_store", return_value=(np.zeros((2, 3)), [{}, {}])), \

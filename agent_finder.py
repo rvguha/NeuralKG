@@ -541,9 +541,9 @@ async def search_endpoint(request):
         return _json({"error": "query.text must be a non-empty string"}, 400)
     text = query["text"].strip()
     texts = query.get("texts") or [text]
-    if (not isinstance(texts, list) or len(texts) > 4
+    if (not isinstance(texts, list)
             or not all(isinstance(item, str) and item.strip() for item in texts)):
-        return _json({"error": "query.texts must be a list of 1-4 non-empty strings"}, 400)
+        return _json({"error": "query.texts must be a list of non-empty strings"}, 400)
     texts = [item.strip() for item in texts]
     try:
         k = int(payload.get("pageSize", 10))
