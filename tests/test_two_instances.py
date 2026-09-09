@@ -34,17 +34,31 @@ class TwoInstanceTests(unittest.TestCase):
         self.addCleanup(setattr, index, 'DESCRIPTOR_ROOTS', old)
         self.addCleanup(setattr, index, 'CUSTOM_DESCRIPTOR_ROOTS', old_custom)
         docs, texts = index._collect_docs('test-embedding-model')
-        self.assertEqual(len(docs), 10)
-        self.assertEqual(len(texts), 10)
+        manifest = __import__('json').loads(
+            (ROOT / 'instances/atlas/catalog/atlas-source.json').read_text())
+        self.assertEqual(manifest['commit'], '833b29eb952dde311f17a33fa5bfa2923998aab4')
+        self.assertEqual(len(manifest['public_targets']), 14)
+        self.assertGreaterEqual(len(docs), len(manifest['static_documents']))
+        self.assertEqual(len(docs), len(texts))
         self.assertTrue(any(d['identifier'].endswith('dc_indicator_for_place.md') for d in docs))
+        if len(docs) > len(manifest['static_documents']):
+            self.assertEqual(len(docs), manifest['total_documents'])
+            self.assertTrue(any('/fec/' in d['identifier'] for d in docs))
+
+    def test_atlas_catalog_manifest_matches_the_importer(self):
+        from scripts import sync_atlas_catalog
+        manifest = __import__('json').loads(
+            (ROOT / 'instances/atlas/catalog/atlas-source.json').read_text())
+        targets = tuple((item['project'], item['dataset']) for item in manifest['public_targets'])
+        self.assertEqual(targets, sync_atlas_catalog.PUBLIC_TARGETS)
+        self.assertEqual(manifest['commit'], sync_atlas_catalog.UPSTREAM_COMMIT)
 
     def test_atlas_selects_its_frontend_without_forking_the_client(self):
         code = ("import json, instance_frontend; p=instance_frontend.page(); "
                 "j=instance_frontend.asset('javascript'); print(json.dumps({"
                 "'title': 'Atlas — ask large-scale data a question' in p,"
-                "'landing': 'Built on ARD + OKF, answered by Gemini' in p,"
-                "'copy': 'Why it&amp;#39;s not just a chatbot' in p or "
-                          "\"Why it's not just a chatbot\" in p,"
+                "'no_signin': 'Sign in' not in p and 'data-enter-atlas' not in p,"
+                "'direct': '<main id=\"atlas-app\" class=\"container app-main\">' in p,"
                 "'ask': 'Ask a question your data can answer…' in p,"
                 "'trace': 'Life of this query' in p,"
                 "'walkthrough': 'Walkthrough — what Atlas did' in p,"

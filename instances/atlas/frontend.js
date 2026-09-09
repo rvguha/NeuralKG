@@ -1,8 +1,6 @@
 (function () {
   "use strict";
 
-  var landing = document.getElementById("landing");
-  var app = document.getElementById("atlas-app");
   var form = document.getElementById("ask-form");
   var question = document.getElementById("question");
   var askButton = document.getElementById("ask-button");
@@ -44,19 +42,6 @@
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch];
     });
   }
-
-  function enterAtlas() {
-    landing.hidden = true;
-    app.hidden = false;
-    document.getElementById("how-link").hidden = true;
-    history.replaceState(null, "", "/?app=1");
-    question.focus();
-  }
-
-  Array.prototype.forEach.call(document.querySelectorAll("[data-enter-atlas]"), function (button) {
-    button.addEventListener("click", enterAtlas);
-  });
-  if (new URLSearchParams(location.search).get("app") === "1") enterAtlas();
 
   try {
     chatStore = new NeuralKGChatHistory.ChatTurnStore();

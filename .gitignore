@@ -64,6 +64,10 @@ catalog/
 # launcher is reproducible from one checkout.
 !instances/atlas/catalog/
 !instances/atlas/catalog/**
+# Atlas's checked-in crawler allowlist is materialized locally at launch. Keep the upstream
+# hand-authored worked example, but do not version ~100k lines of reproducible schema output.
+instances/atlas/catalog/bigquery/*/*.md
+!instances/atlas/catalog/bigquery/covid19_open_data/table.md
 instances/.local/
 tools/descriptions_cache.json
 tools/repr_queries_cache.json

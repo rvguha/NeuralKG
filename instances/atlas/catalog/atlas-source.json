@@ -1,0 +1,91 @@
+{
+  "upstream": "https://github.com/srikanthbelwadi/atlas",
+  "commit": "833b29eb952dde311f17a33fa5bfa2923998aab4",
+  "static_documents": [
+    "covid19_case_rate_by_county_year.md",
+    "dc_indicator_across_places.md",
+    "dc_indicator_for_place.md",
+    "ee_era5_climate_by_county.md",
+    "ee_flood_hazard_by_county.md",
+    "ee_forest_cover_by_county.md",
+    "ee_wildfire_risk_by_county.md",
+    "sec_edgar_company_metric_by_year.md",
+    "usa_top_baby_names.md",
+    "bigquery/covid19_open_data/table.md"
+  ],
+  "public_targets": [
+    {
+      "project": "bigquery-public-data",
+      "dataset": "covid19_open_data"
+    },
+    {
+      "project": "bigquery-public-data",
+      "dataset": "census_bureau_acs"
+    },
+    {
+      "project": "bigquery-public-data",
+      "dataset": "world_bank_health_population"
+    },
+    {
+      "project": "bigquery-public-data",
+      "dataset": "world_bank_wdi"
+    },
+    {
+      "project": "bigquery-public-data",
+      "dataset": "epa_historical_air_quality"
+    },
+    {
+      "project": "bigquery-public-data",
+      "dataset": "noaa_gsod"
+    },
+    {
+      "project": "bigquery-public-data",
+      "dataset": "google_trends"
+    },
+    {
+      "project": "bigquery-public-data",
+      "dataset": "bls"
+    },
+    {
+      "project": "bigquery-public-data",
+      "dataset": "chicago_crime"
+    },
+    {
+      "project": "bigquery-public-data",
+      "dataset": "san_francisco"
+    },
+    {
+      "project": "bigquery-public-data",
+      "dataset": "new_york"
+    },
+    {
+      "project": "bigquery-public-data",
+      "dataset": "openaq"
+    },
+    {
+      "project": "bigquery-public-data",
+      "dataset": "usa_names"
+    },
+    {
+      "project": "bigquery-public-data",
+      "dataset": "fec"
+    }
+  ],
+  "table_descriptor_counts": {
+    "covid19_open_data": 2,
+    "census_bureau_acs": 278,
+    "world_bank_health_population": 5,
+    "world_bank_wdi": 6,
+    "epa_historical_air_quality": 32,
+    "noaa_gsod": 98,
+    "google_trends": 4,
+    "bls": 9,
+    "chicago_crime": 1,
+    "san_francisco": 8,
+    "new_york": 22,
+    "openaq": 1,
+    "usa_names": 2,
+    "fec": 146
+  },
+  "total_documents": 623
+}

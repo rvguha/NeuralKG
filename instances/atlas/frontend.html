@@ -12,7 +12,6 @@
     <div class="container header-inner">
       <a href="/" class="wordmark"><span class="atlas-logo logo-26" aria-hidden="true"></span><h1>Atlas</h1></a>
       <nav>
-        <a href="/#how-it-works" class="nav-link" id="how-link">How it works</a>
         <a href="/finance" class="nav-link">Finance</a>
         <a href="/implementation" class="nav-link">Implementation</a>
         <a href="https://github.com/srikanthbelwadi/atlas" target="_blank" rel="noopener noreferrer" class="nav-link">GitHub</a>
@@ -20,51 +19,7 @@
     </div>
   </header>
 
-  <div id="landing">
-    <section class="container landing-hero">
-      <div class="hero-logo"><span class="atlas-logo logo-48" aria-hidden="true"></span></div>
-      <div class="eyebrow">Built on ARD + OKF, answered by Gemini</div>
-      <h2>Ask large-scale data a question.</h2>
-      <p>Atlas turns a plain-English question into a cited, budgeted answer from any data source described in OKF —
-        a warehouse, an operational store, or an API — discovered, planned, and verified in real time.</p>
-      <button type="button" class="cta-button" data-enter-atlas>Sign in with Google</button>
-      <p class="approval-note">New accounts need a quick admin approval before their first query.</p>
-    </section>
-
-    <section id="how-it-works" class="container landing-section">
-      <h3 class="section-heading">How it works</h3>
-      <ol class="step-list">
-        <li class="step-item"><div class="step-number">1</div><div><div class="step-title">Discover</div><p class="step-body">Every data source — a warehouse table, an operational store, an API — is described once in the Open Knowledge Format (OKF) and indexed for Agentic Resource Discovery (ARD), then searched by meaning at question time instead of wired up one integration at a time.</p></div></li>
-        <li class="step-item"><div class="step-number">2</div><div><div class="step-title">Plan</div><p class="step-body">Gemini reads the matched dataset's real, crawled schema and drafts a query against it — it can't invent a column that isn't there, because it never sees the dataset without seeing its schema first. For a reviewed template it only binds parameters; for an API source like Data Commons it passes the question's own words, and the source's own resolver turns them into identifiers.</p></div></li>
-        <li class="step-item"><div class="step-number">3</div><div><div class="step-title">Fetch &amp; verify</div><p class="step-body">The query runs under a per-request byte cap and a per-user monthly budget ceiling, checked before it runs. A failed attempt is redrafted against the schema it actually hit — not the one it guessed.</p></div></li>
-        <li class="step-item"><div class="step-number">4</div><div><div class="step-title">Answer, cited</div><p class="step-body">The result becomes a plain-language answer, cited back to its exact source and trust tier: unverified, machine-confirmed, or human-reviewed.</p></div></li>
-      </ol>
-    </section>
-
-    <section class="container feature-section">
-      <h3 class="section-heading">Why it's not just a chatbot on top of a database</h3>
-      <div class="feature-grid">
-        <div class="feature-card"><div class="feature-title">Described once, not wired by hand</div><p class="feature-body">Adding a source — private or public, table or API — means writing an OKF description, not a new integration. The discovery step searches those descriptions by meaning, so the catalog grows without per-source glue code.</p></div>
-        <div class="feature-card"><div class="feature-title">Every figure, never invented</div><p class="feature-body">The model never answers from what it already knows. Every number comes from a real, guarded query — BigQuery today, any OKF-described store or API by the same path — and is cited back to its exact source and trust tier: unverified, machine-confirmed, or human-reviewed.</p></div>
-        <div class="feature-card"><div class="feature-title">Refuses rather than guesses</div><p class="feature-body">When no source can answer a question well enough to cite, Atlas says so plainly instead of approximating — a clear "I couldn't find a good source for this" beats a confident-sounding guess.</p></div>
-        <div class="feature-card"><div class="feature-title">Reasoning you can watch</div><p class="feature-body">A live trace shows every candidate source considered and why one was ranked above the rest — not just a spinner — including what changed when a first attempt had to backtrack.</p></div>
-      </div>
-    </section>
-
-    <section class="container catalog-section">
-      <div class="catalog-note">In the demo catalog today — hundreds of millions of rows across BigQuery datasets, plus the SEC EDGAR and Data Commons APIs</div>
-      <div class="pill-list">
-        <span class="pill">SEC filings (API)</span><span class="pill">Data Commons — any place, 250k statistics (API)</span><span class="pill">Labor &amp; economics</span><span class="pill">Census &amp; demographics</span><span class="pill">Air quality &amp; climate</span><span class="pill">Public health</span><span class="pill">City operations</span><span class="pill">Campaign finance</span>
-      </div>
-    </section>
-
-    <section class="container closing-section">
-      <button type="button" class="cta-button" data-enter-atlas>Sign in with Google</button>
-      <p><a href="/implementation" class="nav-link">Read the full engineering writeup</a> · <a href="https://agenticresourcediscovery.org/spec/" target="_blank" rel="noopener noreferrer" class="nav-link">ARD spec</a> · <a href="https://okf.md/spec/" target="_blank" rel="noopener noreferrer" class="nav-link">OKF spec</a> · <a href="https://github.com/rvguha/Neuralkg" target="_blank" rel="noopener noreferrer" class="nav-link">NeuralKG</a> (forked &amp; extended)</p>
-    </section>
-  </div>
-
-  <main id="atlas-app" class="container app-main" hidden>
+  <main id="atlas-app" class="container app-main">
     <div id="empty-hint" class="empty-hint">Ask a question, get a cited answer from large-scale data.</div>
     <div>
       <form id="ask-form" class="ask-form">

@@ -53,8 +53,12 @@ for port in "$OUR_APP_PORT" "$OUR_ARD_PORT" "$ATLAS_APP_PORT" "$ATLAS_ARD_PORT";
   stop_repo_listener "$port"
 done
 
-# The checked-in primary registry is a release artifact. Atlas has a small, independent index
-# over the imported public Atlas OKF bundle. Rebuild only when its corpus no longer verifies.
+# The checked-in primary registry is a release artifact. Atlas has an independent index over its
+# imported public OKF documents and mechanically crawled table schemas. Rebuild only when that
+# corpus no longer verifies.
+if ! "$PYTHON" scripts/sync_atlas_catalog.py --verify >/dev/null 2>&1; then
+  "$PYTHON" scripts/sync_atlas_catalog.py
+fi
 if ! ARD_DESCRIPTOR_ROOTS="instances/atlas/catalog/attested-computations:instances/atlas/catalog/bigquery" \
      ARD_INDEX_DIR="$PWD/instances/atlas/registry" \
      "$PYTHON" registry/index.py verify >/dev/null 2>&1; then
