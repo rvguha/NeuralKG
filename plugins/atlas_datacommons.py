@@ -38,11 +38,31 @@ def setup(registry):
 
 def config(): return instance.config().get('plugin_config',{}).get('atlas_datacommons',{})
 def norm(value): return re.sub(r'\s+',' ',str(value or '').strip().casefold())
+def reported_unit(indicator, facet):
+    raw=(facet or {}).get('raw') or {}
+    unit=raw.get('unit')
+    if not unit and (str(indicator.get('dcid') or '').startswith('Percent_') or
+                     re.search(r'\bpercent(?:age)?\b',str(indicator.get('name') or ''),re.I)):
+        return 'percent'
+    if not unit and str(indicator.get('dcid') or '').startswith('Count_'):
+        return 'count'
+    return unit
 def params(read):
     value=read.parameters.get('params',read.parameters)
     if not isinstance(value,dict):return {}
-    value=dict(value);value.setdefault('place',value.get('entity'));value.setdefault('indicator',value.get('measure'))
+    value=dict(value);value.setdefault('place',value.get('entity'))
+    # The fixed-template path names this coordinate ``measure``; the established
+    # point-retrieval frame names the same coordinate ``attribute``. Both invoke
+    # this one accessor, so normalize the two interface spellings here.
+    value.setdefault('indicator',value.get('measure') or value.get('attribute'))
     return value
+
+
+def requested_year(value):
+    raw=value.get('year')
+    if raw in (None,'') and re.fullmatch(r'\d{4}',str(value.get('period') or '')):
+        raw=value['period']
+    return int(raw) if raw not in (None,'') else None
 
 
 class Client:
@@ -131,8 +151,12 @@ class Client:
         merged=merge(pages);available=(merged.get('byVariable') or {})
         chosen=next((c for c in candidates[:8] if (available.get(c['dcid']) or {}).get('byEntity')),None)
         if not chosen:raise runtime.Refused('Data Commons has no matching observation for the requested places')
-        chosen['name']=(await self.names([chosen['dcid']]))[chosen['dcid']];chosen['considered']=candidates[:8]
-        return chosen
+        # ``chosen`` is one of ``candidates``. Mutating it with the candidates list made the
+        # returned object contain itself (chosen -> considered -> chosen), which blew up evidence
+        # serialization after an otherwise successful provider call.
+        result=dict(chosen);result['name']=(await self.names([chosen['dcid']]))[chosen['dcid']]
+        result['considered']=[dict(candidate) for candidate in candidates[:8]]
+        return result
 
     async def observations(self,variable,entities,year=None,year_from=None,year_to=None,latest=False):
         if len(entities)>self.max_entities:raise runtime.Refused('Data Commons entity cap exceeded')
@@ -187,17 +211,20 @@ async def place(read,*,context):
     if not names:raise runtime.Refused('Data Commons place is required')
     places=[await client.resolve_place(name,p.get('place_type')) for name in names]
     indicator=await client.resolve_indicator(p.get('indicator'),[x['dcid'] for x in places])
-    year=int(p['year']) if p.get('year') not in (None,'') else None
+    year=requested_year(p)
     start=int(p['year_from']) if p.get('year_from') not in (None,'') else None
     end=int(p['year_to']) if p.get('year_to') not in (None,'') else None
     observed=await client.observations(indicator['dcid'],places,year,start,end,
                                       latest=norm(p.get('period'))=='latest' and not (year or start or end))
+    unit=reported_unit(indicator,observed['facet'])
+    for row in observed['rows']:
+        if row.get('unit') is None:row['unit']=unit
     data={'rows':[{'variable':indicator['name'],**r} for r in observed['rows']],
           'params':{'indicator':p.get('indicator'),'variable_dcid':indicator['dcid'],'place_dcids':[x['dcid'] for x in places]},
           'considered':indicator['considered'],'facet':observed['facet'],'facets_available':observed['facets_available']}
     return synth.Input(data['rows'],True,{'source':read.source,'provider':'Data Commons v2','resolved':data['params'],
                        'facet':data['facet'],'payload':data},
-                       'place-observation',units={'value':(data['facet'] or {}).get('raw',{}).get('unit')},period_basis='source-reported')
+                       'place-observation',units={'value':unit},period_basis='source-reported')
 
 
 async def children(read,*,context):
@@ -213,12 +240,15 @@ async def children(read,*,context):
     places=[{'dcid':k,'name':v} for k,v in unique.items()]
     if not places:return synth.Input({'rows':[],'map_rows':[],'parent':parent},True,{'source':read.source},'place-ranking')
     indicator=await client.resolve_indicator(p.get('indicator'),list(unique))
-    year=int(p['year']) if p.get('year') not in (None,'') else None
+    year=requested_year(p)
     observed=await client.observations(indicator['dcid'],places,year=year,latest=True)
+    unit=reported_unit(indicator,observed['facet'])
+    for row in observed['rows']:
+        if row.get('unit') is None:row['unit']=unit
     rows=[{'variable':indicator['name'],**r} for r in observed['rows'] if isinstance(r.get('value'),(int,float))]
     rows.sort(key=lambda x:x['value'],reverse=norm(p.get('order','desc'))!='asc')
     for i,row in enumerate(rows,1):row['rank']=i
     top=min(int(p.get('top_n') or 25),500);data={'rows':rows[:top],'map_rows':rows,'parent':parent,'facet':observed['facet'],
         'params':{'variable_dcid':indicator['dcid'],'child_type':child_type,'places_in_parent':len(places),'top_n':top}}
     return synth.Input(data['rows'],True,{'source':read.source,'provider':'Data Commons v2','facet':data['facet'],'payload':data},
-                       'place-ranking',units={'value':(data['facet'] or {}).get('raw',{}).get('unit')},period_basis='source-reported')
+                       'place-ranking',units={'value':unit},period_basis='source-reported')

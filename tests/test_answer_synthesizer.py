@@ -1,11 +1,16 @@
 import copy
 import unittest
 import answer_synthesizer as a
+import core
 from runtime import Refused
 from template_operator_cases import cases, F, E, supplied, JOIN, R, S
 
 
 class AllTemplateTests(unittest.TestCase):
+    def test_computed_answer_contract_cannot_be_replaced_by_an_operand(self):
+        self.assertIn('operands and provenance only',core._SYNTHESIS_SYSTEM)
+        self.assertIn('answer_contract value',core._SYNTHESIS_SYSTEM)
+
     def assertDeep(self,actual,expected):
         if type(expected) is float:self.assertAlmostEqual(actual,expected,places=8)
         elif isinstance(expected,list):

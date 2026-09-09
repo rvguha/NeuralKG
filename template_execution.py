@@ -56,6 +56,8 @@ def expression_units(node, evidence):
     if type(node) in (int,float):return {}
     if 'read' in node:
         e=evidence[node['read']]
+        if str(e.get('unit') or '').casefold() in ('%','percent','percentage'):
+            return {}
         return {(e['unit'],e.get('currency')):1}
     args=[expression_units(a,evidence) for a in node['args']]
     op=node['op']
@@ -74,6 +76,31 @@ def check_period(requested, evidence):
     actual=str(evidence.get('period') or '')
     if not re.fullmatch(r'(?:FY)?'+re.escape(requested),actual,re.I):
         raise runtime.Refused(f'Requested {requested}, source returned {actual or "no period"}; refusing period substitution')
+
+
+def requires_structured_path(data, evidence):
+    """Whether a read is relational rather than an accessor-projected scalar.
+
+    Scalar accessors deliberately retain their complete provider JSON under ``results`` for the
+    final renderer. That receipt does not turn an unambiguous top-level scalar back into a relation.
+    """
+    if evidence.value is not None:
+        return False
+    if evidence.kind == 'complex':
+        return True
+    return isinstance(data,dict) and any(data.get(k) for k in (
+        'results','entity_groups','interpretations','ranking','series','coverage','ambiguity'))
+
+
+def latest_common_year(reads,evidence):
+    """Return a safe rebind year for independent latest reads, or refuse ambiguity."""
+    periods=[str(item.get('period') or '') for item in evidence]
+    if len(set(periods))<=1:return None
+    if not all(read.get('period')=='latest' for read in reads):
+        raise runtime.Refused('Derived operands returned different reporting periods')
+    if not all(re.fullmatch(r'\d{4}',period) for period in periods):
+        raise runtime.Refused('Latest derived operands need comparable explicit reporting years')
+    return str(min(map(int,periods)))
 
 
 def expression(node, values):
@@ -155,7 +182,7 @@ async def run(question, understanding, hits, *, context):
         if isinstance(data,dict) and (data.get('_ambiguity') or data.get('ambiguity')):
             raise runtime.Refused('The source returned ambiguity; preserve the clarification flow')
         check_period(read['period'],ev.to_dict())
-        rich = ev.kind == 'complex' or any(data.get(k) for k in ('results','entity_groups','interpretations','ranking','series','coverage','ambiguity')) if isinstance(data,dict) else ev.kind == 'complex'
+        rich = requires_structured_path(data,ev)
         identity = plan.get('expression') in ({'read':0},{'op':'identity','args':[{'read':0}]})
         if rich or (plan['candidate']=='lookup.scalar' and len(plan['reads'])==1 and identity):
             if plan['candidate']=='lookup.scalar' and len(plan['reads'])==1 and identity:
@@ -174,11 +201,35 @@ async def run(question, understanding, hits, *, context):
         if ev.value is None:raise runtime.Refused('Read did not produce a scalar; hidden aggregation is not permitted')
         evidence.append(ev.to_dict()); attempts.extend(a.to_dict() for a in state.get('_attempts',[]))
         await harness._asay(context,'input_completed', index=index, evidence=evidence[-1])
+    aligned_period=None
+    if plan['candidate']=='lookup.binary':
+        aligned_period=latest_common_year(plan['reads'],evidence)
+        if aligned_period:
+            await harness._asay(context,'status',icon='🗓️',
+                msg=f'Aligning derived inputs to their latest common reporting year, {aligned_period}…')
+            for index,(read,current) in enumerate(zip(plan['reads'],list(evidence))):
+                if str(current.get('period') or '')==aligned_period:continue
+                hit=next(h for h in hits if h['identifier']==read['source'])
+                read_question=f"{read['measure']} for {read['entity']} in {aligned_period}"
+                coords={'entity':read['entity'],'type':read['type'],'attribute':read['measure'],
+                        'period':aligned_period,'strict_period':True}
+                await harness._asay(context,'input_started',index=index,read={**read,'period':aligned_period,
+                                      'question':read_question},rebind='latest-common-year')
+                _,_,_,_,data,state=await harness._search_async(read_question,ctx=coords,hits=[hit],context=context)
+                ev=state['_evidence'];check_period(aligned_period,ev.to_dict())
+                if requires_structured_path(data,ev) or ev.value is None:
+                    raise runtime.Refused('Aligned read did not produce a scalar')
+                evidence[index]=ev.to_dict();attempts.extend(a.to_dict() for a in state.get('_attempts',[]))
+                await harness._asay(context,'input_completed',index=index,evidence=evidence[index],
+                                    rebind='latest-common-year')
+            if len({str(item.get('period') or '') for item in evidence})!=1:
+                raise runtime.Refused('Derived operands could not be aligned to one reporting year')
     await harness._asay(context,'synthesis_started', shape=plan['candidate'])
     values=[e['value'] for e in evidence]
     shape=plan['candidate']
+    calculated_units={}
     if shape.startswith('lookup.'):
-        expression_units(plan['expression'], evidence)
+        calculated_units=expression_units(plan['expression'], evidence)
     if len(values)>1 and shape not in DERIVED and not shape.startswith('lookup.'):
         # Conservative admission: uncertain conversions require an explicit adapter.
         if len({(e.get('unit'),e.get('currency')) for e in evidence})!=1:raise runtime.Refused('Operands need explicit unit/currency reconciliation')
@@ -190,10 +241,24 @@ async def run(question, understanding, hits, *, context):
         best=(max if plan['direction']=='max' else min)(values)
         result=[{'entity':r['entity'],'value':v} for r,v in zip(plan['reads'],values) if v==best]
     data={'result':result,'inputs':evidence,'template':shape}
+    if aligned_period:data['aligned_period']=aligned_period
+    result_unit=None
+    if len(calculated_units)==1:
+        (unit_currency,power),=calculated_units.items()
+        if power==1:result_unit=unit_currency[0]
+    result_period=aligned_period
+    if not result_period:
+        periods={str(item.get('period') or '') for item in evidence}
+        if len(periods)==1:result_period=next(iter(periods)) or None
+    answer_contract={'value':result,'unit':result_unit,'period':result_period,
+                     'derived':len(evidence)>1,'formula':plan.get('expression'),
+                     'operand_count':len(evidence),'operands_are_not_the_answer':True}
+    data['answer_contract']=answer_contract
     answer=await harness.TK.synthesize_async(question,{
-        'execution_plan':plan,'computed_result':result,'inputs':evidence,
+        'answer_contract':answer_contract,'execution_plan':plan,'computed_result':result,'inputs':evidence,
         'retrieved_data':[e['payload'] for e in evidence]},context=context)
-    return {'question':question,'shape':shape,'answer':answer,'answer_renderer':'template-llm',
+    renderer='template-llm'
+    return {'question':question,'shape':shape,'answer':answer,'answer_renderer':renderer,
             'plan':plan,'data':data,'evidence':{'kind':'template','inputs':evidence},'attempts':attempts,
             'source':{'title':' + '.join(dict.fromkeys(e['source'] for e in evidence))},
             'candidates':hits,'template_candidates':understanding['candidates'],

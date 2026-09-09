@@ -11,6 +11,15 @@ from domain import Attempt, QueryIntent
 
 
 class PlanToEvidenceIntegrationTests(unittest.TestCase):
+    def test_unit_map_is_normalized_to_scalar_unit(self):
+        intent=QueryIntent('Population of Texas',measure='population')
+        hit={'identifier':'source','title':'Population'}
+        attempt=Attempt('source','source')
+        with mock.patch('driver.frontmatter',return_value={}):
+            evidence=connectors.GENERIC.execute(
+                intent,attempt,hit,lambda:{'value':31_000_000,'units':{'value':'count'}})
+        self.assertEqual(evidence.unit,'count')
+
     def test_selected_plan_flows_through_normalization_validation_and_evidence(self):
         intent = QueryIntent("What percentage lives below poverty?", measure="poverty rate")
         hit = {"identifier": "sources/census/poverty.md", "title": "Poverty rate"}
@@ -129,3 +138,13 @@ class DescriptorDrivenFetchTests(unittest.TestCase):
             fm={'source': {'kind': 'datacommons', 'api': 'observation'}},
             ident='instances/atlas/catalog/attested-computations/dc_indicator_for_place.md')
         self.assertIsNone(harness._fetch_spec(fetch))
+
+    def test_accessor_adjudication_is_compact_but_keeps_semantic_coordinates(self):
+        data={'value':13.4,'period':'2022','place':'Texas','measure':'Percentage of Adults With Diabetes',
+              'results':[{'value':13.4,'date':'2022','place':'Texas',
+                          'variable':'Percentage of Adult Population With Diabetes','source':'CDC'}],
+              '_accessor_evidence':{'provenance':{'payload':{'large':'provider JSON'}}}}
+        view=harness._adjudication_view(data)
+        self.assertEqual(view['value'],13.4)
+        self.assertEqual(view['provider_record']['variable'],'Percentage of Adult Population With Diabetes')
+        self.assertNotIn('_accessor_evidence',view)

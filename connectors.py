@@ -50,7 +50,11 @@ def _evidence(intent, hit, data, attempt):
     except Exception:
         fm, cap = {}, {}
     entity = data.get("entity") if isinstance(data.get("entity"), dict) else attempt.entity
-    unit = data.get("unit") or data.get("units") or fm.get("unit")
+    unit = data.get("unit")
+    if unit is None:
+        units = data.get("units")
+        unit = units.get("value") if isinstance(units, dict) else units
+    unit = unit or fm.get("unit")
     currency = data.get("currency")
     if not currency and isinstance(unit, str) and len(unit) == 3 and unit.isalpha():
         currency = unit.upper()

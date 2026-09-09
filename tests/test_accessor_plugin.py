@@ -134,6 +134,16 @@ class BothDispatchPathsTests(unittest.IsolatedAsyncioTestCase):
             with self.assertRaises(harness.Backtrack):
                 await harness._fetch_async({'hit': HITS[0]}, {}, context=QueryContext())
 
+    def test_scalar_payload_projects_one_accessor_row_without_discarding_json(self):
+        rows=[{'place':'Texas','variable':'Population','date':'2024','value':31_290_831}]
+        result=extensions.scalar_payload(synth.Input(
+            rows,True,{'provider':'Data Commons','payload':{'rows':rows}},
+            'place-observation',units={'value':'count'},period_basis='source-reported'))
+        self.assertIs(result['results'],rows)
+        self.assertEqual(result['value'],31_290_831)
+        self.assertEqual(result['period'],'2024')
+        self.assertEqual(result['measure'],'Population')
+
     async def test_resource_operation_not_logical_operator(self):
         descriptor = {**DESCRIPTOR, 'access': {'operations': {'lookup': {}, 'history': {}}}}
         with patch('driver.frontmatter', return_value=descriptor):

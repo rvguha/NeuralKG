@@ -28,6 +28,22 @@ class HTTP:
 
 class DCTests(unittest.IsolatedAsyncioTestCase):
     def context(self):return QueryContext(http_client=HTTP())
+    def test_established_attribute_coordinate_maps_to_indicator(self):
+        read=extensions.Read({},'dc',parameters={'entity':'Texas','attribute':'population'})
+        self.assertEqual(dc.params(read)['place'],'Texas')
+        self.assertEqual(dc.params(read)['indicator'],'population')
+        self.assertEqual(dc.requested_year({'period':'2022'}),2022)
+        self.assertIsNone(dc.requested_year({'period':'latest'}))
+    def test_percent_statvar_supplies_semantic_unit_when_facet_omits_it(self):
+        indicator={'dcid':'Percent_Person_WithDiabetes','name':'Percentage of Adults With Diabetes'}
+        self.assertEqual(dc.reported_unit(indicator,{'raw':{}}),'percent')
+        self.assertEqual(dc.reported_unit(indicator,{'raw':{'unit':'custom'}}),'custom')
+        self.assertEqual(dc.reported_unit({'dcid':'Count_Person','name':'Population'},{'raw':{}}),'count')
+    async def test_indicator_receipt_is_json_serializable_not_self_referential(self):
+        with unittest.mock.patch.object(dc,'config',return_value={'api_key':'key'}):
+            result=await dc.Client(self.context()).resolve_indicator('population',['geoId/48'])
+        json.dumps(result)
+        self.assertNotIn('considered',result['considered'][0])
     async def test_place_resolves_ids_variable_and_one_facet(self):
         with unittest.mock.patch.object(dc,'config',return_value={'api_key':'key'}):
             result=await dc.place(extensions.Read({},'dc',parameters={'params':{

@@ -1495,6 +1495,20 @@ async def _fetch_async(state, ctx, *, context):
     raise Backtrack("no structured retrieval for this source")
 
 
+def _adjudication_view(data):
+    """Small semantic-check view; the renderer and evidence retain the complete provider JSON."""
+    if not isinstance(data,dict) or '_accessor_evidence' not in data:
+        return data
+    fields=('value','status','unit','currency','period','year','source','place','measure','metric','variable')
+    view={key:data[key] for key in fields if data.get(key) is not None}
+    rows=data.get('results')
+    if isinstance(rows,list) and len(rows)==1 and isinstance(rows[0],dict):
+        view['provider_record']={key:rows[0][key] for key in (
+            'value','unit','date','year','source','place','variable','measure','metric',
+            'measurement_method','observation_period','provenance_url') if rows[0].get(key) is not None}
+    return view
+
+
 async def _answers_async(question, data, structural=None, *, context):
     """Does this data answer THIS question — the whole question, not its parts.
 
@@ -1518,7 +1532,7 @@ async def _answers_async(question, data, structural=None, *, context):
     try:
         raw = await llm.chat_async(
             _ADJUDICATION_SYSTEM,
-            json.dumps({"question": question, "data": data}), context=context,
+            json.dumps({"question": question, "data": _adjudication_view(data)}), context=context,
             json_mode=True, stage="check")
         verdict = json.loads(raw)
         ok, why = bool(verdict.get("ok", True)), verdict.get("why", "")

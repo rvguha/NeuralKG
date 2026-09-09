@@ -357,6 +357,18 @@ def scalar_payload(result):
     """Retain the full source payload AND its independently reported evidence envelope."""
     from dataclasses import asdict
     payload = dict(result.data) if isinstance(result.data, dict) else {'results': result.data}
+    projected = scalar_input(result)
+    if isinstance(projected.data, (str, int, float, bool)):
+        payload.setdefault('value', projected.data)
+        row = projected.provenance.get('scalar_row') or {}
+        for target, sources in {
+            'period': ('period', 'date', 'year'),
+            'source': ('source',),
+            'place': ('place',),
+            'measure': ('variable', 'measure'),
+        }.items():
+            value = next((row.get(name) for name in sources if row.get(name) not in (None, '')), None)
+            if value is not None: payload.setdefault(target, value)
     payload['_accessor_evidence'] = asdict(result)
     payload['complete'] = result.complete
     payload['grain'] = result.grain
