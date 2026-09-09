@@ -41,8 +41,8 @@ def _access(meta):
 
 def requirement(value):
     meta = _metadata(value)
-    visibility = _field(meta, 'visibility', 'public')
-    if visibility != 'private':
+    import extensions
+    if extensions.is_public(meta):
         return None
     need = _field(meta, 'entitlement') or _access(meta).get('entitlement')
     if not isinstance(need, str) or not need.strip():

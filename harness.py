@@ -1749,6 +1749,9 @@ async def _run_ranking_async(question, ctx, p, top_n=10, *, context):
     for key in needed - set(params):
         if key in ("level", "fips", "geo"):
             params[key] = (ctx.get("partition") or {}).get(key) or ""
+    # Authorize before the read, as every other fetch path does. This site and the two
+    # materialize sites below were the only reads that reached a source unchecked.
+    await extensions.authorize(driver.frontmatter(hit["identifier"]) or {}, operation, context=context)
     rows = _rows_of(await driver.accessor_async(
         hit["identifier"], operation, context=context, **params), cap)
     if not rows:
@@ -2055,6 +2058,7 @@ async def _materialize_async(hit, grain="county", scope="06", *, context):
             kwargs = {"geo": f"{grain}:*&in=state:{scope}"}
             if variable:
                 kwargs["get"] = variable
+            await extensions.authorize(fm, operation, context=context)
             rows = await driver.accessor_async(identifier, operation, context=context, **kwargs)
             observations = []
             for row in rows[1:] if isinstance(rows, list) and len(rows) > 1 else []:
@@ -2072,6 +2076,7 @@ async def _materialize_async(hit, grain="county", scope="06", *, context):
         if not observations and variable.endswith("E") and not variable.endswith("PE"):
             observations = await rows_for(variable[:-1] + "PE")
         return observations, False
+    await extensions.authorize(fm, operation, context=context)
     result = await driver.accessor_async(identifier, operation, context=context,
         **{key: fm[key] for key in ("measureid", "get", "key") if key in fm}, n=5000)
     entity_field = capability.get("entity_field") or "locationid"

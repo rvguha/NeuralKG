@@ -73,8 +73,14 @@ class AtlasTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_private_and_undeclared_tables_refused_before_io(self):
         ctx = self.context()
-        with self.assertRaises(runtime.Refused):
+        # A restricted descriptor raises AccessDenied, which is deliberately NOT a Refused:
+        # every backtrack path catches Refused, so an authorization failure used to be
+        # converted into an answer from the next-best public source.
+        with self.assertRaises(runtime.AccessDenied):
             await atlas.guarded(extensions.Read({**DESC, 'visibility': 'private'}, 's'), context=ctx)
+        for value in ('internal', 'Private', 'restricted', {'level': 'private'}):
+            with self.assertRaises(runtime.AccessDenied):
+                await atlas.guarded(extensions.Read({**DESC, 'visibility': value}, 's'), context=ctx)
         with patch.object(atlas, 'configuration', return_value={'allowed_tables': ['p.other.t']}):
             with self.assertRaises(runtime.Refused):
                 await atlas.guarded(extensions.Read(DESC, 's'), context=ctx)

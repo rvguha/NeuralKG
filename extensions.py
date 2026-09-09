@@ -290,8 +290,41 @@ async def resolve_principal(request):
     return await value if inspect.isawaitable(value) else value
 
 
+PUBLIC_VISIBILITY = {"", "public", "open"}
+
+
+def is_public(descriptor):
+    """Whether a descriptor is unrestricted. Anything unrecognised counts as restricted.
+
+    Fails closed on purpose: `visibility: internal`, `Private`, `restricted`, a non-string, or
+    an `access.entitlement` with no `visibility` at all must not be served to everyone because
+    the value did not match one exact lowercase spelling.
+    """
+    descriptor = descriptor or {}
+    value = descriptor.get("visibility")
+    if not isinstance(value, str):
+        return value is None and not (descriptor.get("access") or {}).get("entitlement")
+    return value.strip().casefold() in PUBLIC_VISIBILITY
+
+
 async def authorize(descriptor, operation, *, context):
-    for fn in registry().authorizers:
+    """Authorize one read. Runs before every source read on every path, including retries.
+
+    With NO authorizer installed this refuses any restricted descriptor rather than allowing
+    it. An instance that ships a private catalog and forgets to install its policy plugin must
+    fail loudly, not serve the private source to anonymous callers -- which is what happened:
+    `instances/atlas.yaml` lists three accessor plugins and not `plugins.atlas_policy`, and
+    nothing anywhere failed.
+    """
+    import runtime
+    authorizers = registry().authorizers
+    if not authorizers:
+        if not is_public(descriptor):
+            raise runtime.AccessDenied(
+                "this resource is restricted and no authorization policy is installed; "
+                "install the instance's policy extension to serve it")
+        return
+    for fn in authorizers:
         value = fn(descriptor, operation, context=context)
         if inspect.isawaitable(value):
             await value
@@ -314,7 +347,8 @@ def filter_candidates(candidates, *, context):
         best_hidden = max(withheld, key=score)
         if not visible or score(best_hidden) >= max(map(score, visible)):
             need = best_hidden.get('entitlement') or best_hidden.get('needs') or 'additional access'
-            raise __import__('runtime').AccessDenied(
+            import runtime
+            raise runtime.AccessDenied(
                 f"the best matching source is restricted and requires {need}; no public source was substituted")
     return visible
 

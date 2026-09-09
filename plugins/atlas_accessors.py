@@ -11,6 +11,7 @@ import os
 
 import answer_synthesizer as synth
 import bq
+import extensions
 import instance
 import llm
 import runtime
@@ -102,7 +103,7 @@ def validate_sql(sql, allowed_tables):
 
 async def guarded(read, *, context):
     descriptor = read.descriptor
-    if field(descriptor, 'visibility', 'public') == 'private':
+    if not extensions.is_public(descriptor):
         need = field(descriptor, 'entitlement') or (field(descriptor, 'access', {}) or {}).get('entitlement')
         if not need or need not in set((context.principal or {}).get('entitlements') or ()):
             raise runtime.AccessDenied('Private Atlas source requires an installed entitlement policy and grant')

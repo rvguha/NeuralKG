@@ -253,7 +253,8 @@ async def run_nlweb_async(spec, *, clients, engine=harness.run, disconnect=None,
             if url:yield stream.message(nlweb.INTERMEDIATE, {'trace_url': url}, 'system')
         for message in _result_messages(stream, spec, result):
             yield message
-    except (runtime.Refused, driver.SourceRateLimitError, runtime.QueryCancelled) as exc:
+    except (runtime.AccessDenied, runtime.Refused, driver.SourceRateLimitError,
+            runtime.QueryCancelled) as exc:
         terminal_error = str(exc)
         if spec.get('debug'):
             while not context.progress.empty():
