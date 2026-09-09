@@ -187,23 +187,31 @@ class AsyncBigQueryClient:
         return await self._request(
             context, "GET", f"/projects/{project}/datasets/{dataset}/tables/{table}")
 
-    async def dry_run(self, sql, *, context, location=None):
+    async def dry_run(self, sql, *, context, location=None, query_parameters=None):
         body = {"jobReference": {"projectId": self.project,
                                  "jobId": uuid.uuid4().hex,
                                  "location": location or self.location},
                 "configuration": {"dryRun": True, "query": {
-                    "query": sql, "useLegacySql": False}}}
+                    "query": sql, "useLegacySql": False,
+                    "parameterMode": "NAMED", "queryParameters": query_parameters or []}}}
         payload = await self._request(
             context, "POST", f"/projects/{self.project}/jobs", json=body)
         return int(((payload.get("statistics") or {}).get("query") or {})
                    .get("totalBytesProcessed") or 0)
 
-    async def query(self, sql, *, context, location=None):
+    async def query(self, sql, *, context, location=None, query_parameters=None,
+                    maximum_bytes_billed=None, with_metadata=False):
         job_id = uuid.uuid4().hex
         job_location = location or self.location
         reference = {"projectId": self.project, "jobId": job_id, "location": job_location}
         body = {"jobReference": reference,
                 "configuration": {"query": {"query": sql, "useLegacySql": False}}}
+        if query_parameters is not None:
+            body['configuration']['query'].update(parameterMode='NAMED', queryParameters=query_parameters)
+        if maximum_bytes_billed is not None:
+            if type(maximum_bytes_billed) is not int or maximum_bytes_billed <= 0:
+                raise runtime.Refused('BigQuery byte cap must be a positive integer')
+            body['configuration']['query']['maximumBytesBilled'] = str(maximum_bytes_billed)
         try:
             payload = await self._request(
                 context, "POST", f"/projects/{self.project}/jobs", json=body)
@@ -231,6 +239,9 @@ class AsyncBigQueryClient:
                                  for field, cell in zip(fields, row.get("f") or [])})
                 token = page.get("pageToken")
                 if not token:
+                    if with_metadata:
+                        stats = (payload.get('statistics') or {}).get('query') or {}
+                        return {'rows': rows, 'job': reference, 'statistics': stats, 'complete': True}
                     return rows
         except (asyncio.CancelledError, runtime.QueryCancelled):
             await self.cancel(job_id, job_location)

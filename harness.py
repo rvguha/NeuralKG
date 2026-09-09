@@ -1437,10 +1437,10 @@ async def _fetch_async(state, ctx, *, context):
         # the scalar path takes `.data` and narrows downstream exactly as a built-in fetch does.
         accessor_name, accessor_fn = extensions.accessor_for(fm)
         if accessor_fn:
-            read_request = extensions.Read(descriptor=fm, source=identifier, operation=None,
+            read_request = extensions.Read(descriptor=fm, source=identifier, operation=state.get('operation'),
                                            parameters=dict(f.ctx or {}), frame=f)
-            result = await accessor_fn(read_request, context=context)
-            return result.data
+            result = await extensions.invoke_accessor(read_request, context=context)
+            return extensions.scalar_payload(result)
         declared = fm.get("executor")
         if declared:
             handler = extensions.executor(declared)

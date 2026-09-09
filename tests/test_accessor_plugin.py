@@ -116,6 +116,43 @@ class BothDispatchPathsTests(unittest.IsolatedAsyncioTestCase):
                                hits=HITS, context=QueryContext())
         self.assertIn('answer_synthesizer.Input', str(caught.exception))
 
+    async def test_scalar_retains_envelope_and_checks_return_type(self):
+        import harness
+        async def metadata(read, *, context):
+            return synth.Input({'value': 7}, False, {'receipt': 'r'}, 'entity',
+                               {'entity': 'canonical'}, {'value': 'USD'}, 'fiscal-year')
+        extensions.registry().accessors['metadata'] = metadata
+        with patch('driver.frontmatter', return_value={'accessor': 'metadata'}):
+            result = await harness._fetch_async({'hit': HITS[0]}, {}, context=QueryContext())
+        self.assertFalse(result['complete'])
+        self.assertEqual(result['unit'], 'USD')
+        self.assertEqual(result['_accessor_evidence']['provenance'], {'receipt': 'r'})
+        self.assertEqual(result['_accessor_evidence']['key_domains'], {'entity': 'canonical'})
+        async def invalid(read, *, context): return {}
+        extensions.registry().accessors['metadata'] = invalid
+        with patch('driver.frontmatter', return_value={'accessor': 'metadata'}):
+            with self.assertRaises(harness.Backtrack):
+                await harness._fetch_async({'hit': HITS[0]}, {}, context=QueryContext())
+
+    async def test_resource_operation_not_logical_operator(self):
+        descriptor = {**DESCRIPTOR, 'access': {'operations': {'lookup': {}, 'history': {}}}}
+        with patch('driver.frontmatter', return_value=descriptor):
+            await dag.read({'operator': 'ReadRows'}, {'source': HITS[0]['identifier'], 'operation': 'history'},
+                           [], hits=HITS, context=QueryContext())
+            self.assertEqual(self.demo.CALLS[-1]['operation'], 'history')
+            for operation in (None, 'ReadRows', 'delete'):
+                with self.assertRaises(runtime.Refused):
+                    await dag.read({'operator': 'ReadRows'}, {'source': HITS[0]['identifier'], 'operation': operation},
+                                   [], hits=HITS, context=QueryContext())
+
+    async def test_cancelled_context_never_invokes_plugin(self):
+        context = QueryContext(); context.cancel()
+        with patch('driver.frontmatter', return_value=DESCRIPTOR):
+            with self.assertRaises(runtime.QueryCancelled):
+                await dag.read({'operator': 'ReadRows'}, {'source': HITS[0]['identifier']},
+                               [], hits=HITS, context=context)
+        self.assertEqual(self.demo.CALLS, [])
+
 
 class AdvertisementTests(unittest.TestCase):
     def tearDown(self):

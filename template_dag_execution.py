@@ -94,12 +94,15 @@ async def read(node,p,dependencies,*,hits,context):
     # declares one is never shadowed by a legacy template_reader or a built-in operator branch.
     accessor_name,accessor_fn=extensions.accessor_for(fm)
     if accessor_fn:
-        read_request=extensions.Read(descriptor=fm,source=source,operation=node.get('operator'),
+        read_request=extensions.Read(descriptor=fm,source=source,operation=p.get('operation'),
                                      parameters=p,dependencies=tuple(dependencies or ()),node=node)
-        result=await accessor_fn(read_request,context=context)
-        if not isinstance(result,synth.Input):
-            raise runtime.Refused(f'accessor {accessor_name!r} returned {type(result).__name__}, '
-                                  'not an answer_synthesizer.Input')
+        result = await extensions.invoke_accessor(read_request,context=context)
+        contract = (((fm.get('access') or {}).get('operations') or {}).get(read_request.operation, {})
+                    .get('capability', {}).get('synthesis', {}))
+        if contract.get('data_path'):
+            from dataclasses import replace
+            result = replace(result, data=synth.get(result.data, contract['data_path']),
+                             provenance={**result.provenance, 'payload': result.data})
         return result
     name=fm.get('template_reader')
     if name:

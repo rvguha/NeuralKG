@@ -70,7 +70,8 @@ def _evidence(intent, hit, data, attempt):
                     quantity_kind=data.get("quantity_kind") or fm.get("quantityKind"),
                     population_complete=(data.get("complete") if "complete" in data else
                                          (cap.get("population") or {}).get("complete")),
-                    provenance={"source_document": hit.get("identifier"),
+                    provenance={"accessor": data.get('_accessor_evidence'),
+                                "source_document": hit.get("identifier"),
                                 "retrieved_at": attempt.started_at},
                     transformations=list(data.get("transformations") or []),
                     warnings=list(data.get("alignment_warnings") or []))

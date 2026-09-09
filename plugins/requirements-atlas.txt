@@ -1,0 +1,2 @@
+# Optional: needed only by plugins.atlas_accessors.
+sqlglot>=25,<30

@@ -220,6 +220,45 @@ def accessor_for(descriptor):
     return name, handler
 
 
+async def invoke_accessor(read, *, context):
+    """The single validated invocation boundary for all accessor callers."""
+    import runtime
+    from answer_synthesizer import Input
+    name, handler = accessor_for(read.descriptor)
+    if handler is None:
+        raise runtime.Refused('No accessor declared')
+    operations = (read.descriptor.get('access') or {}).get('operations') or {}
+    if operations:
+        selected = read.operation or read.descriptor.get('default_operation')
+        if selected is None and len(operations) == 1:
+            selected = next(iter(operations))
+        if selected not in operations:
+            raise runtime.Refused('Missing or undeclared accessor operation: ' + str(selected))
+        read.operation = selected
+    context.check()
+    result = await context.wait(handler(read, context=context))
+    if not isinstance(result, Input):
+        raise runtime.Refused(f'accessor {name!r} returned {type(result).__name__}, not an answer_synthesizer.Input')
+    context.check()
+    return result
+
+
+def scalar_payload(result):
+    """Retain the full source payload AND its independently reported evidence envelope."""
+    from dataclasses import asdict
+    payload = dict(result.data) if isinstance(result.data, dict) else {'results': result.data}
+    payload['_accessor_evidence'] = asdict(result)
+    payload['complete'] = result.complete
+    payload['grain'] = result.grain
+    if result.period_basis:
+        payload['period_basis'] = result.period_basis
+    if result.units:
+        payload['units'] = result.units
+        if 'value' in result.units:
+            payload['unit'] = result.units['value']
+    return payload
+
+
 def split_candidates(candidates, principal):
     """Apply every registered filter in order. With none registered, everything is visible."""
     visible, withheld = list(candidates), []
