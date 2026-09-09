@@ -110,6 +110,7 @@ name_selectors: [q]
         self.assertEqual(harness.EXAMPLE_TABS, [])
         self.assertEqual(harness._SOURCE_ORDER, [])
         self.assertIn("<h1>Exoplanet KG</h1>", harness.PAGE)
+        self.assertNotIn('class="site-header"', harness.PAGE)
         self.assertNotIn("American Red Cross", harness.PAGE)
 
     def test_coidentification_strategy_is_per_item_type(self):
@@ -185,7 +186,21 @@ domains:
         self.use("identity: {name: OnlyTheName}")
         self.assertEqual(instance.identity()["name"], "OnlyTheName")
         self.assertEqual(instance.identity()["tagline"], "OKF + ARD")
+        self.assertEqual(instance.frontend(), {})
         self.assertTrue(instance.is_identifier("ein"))
+
+    def test_frontend_is_instance_presentation_not_engine_configuration(self):
+        self.use("""
+identity: {name: Other KG}
+frontend:
+  body_class: editorial
+  sidebar_collapsed: true
+  navigation:
+    - {label: Catalog, href: /ard}
+""")
+        self.assertEqual(instance.frontend()["body_class"], "editorial")
+        self.assertTrue(instance.frontend()["sidebar_collapsed"])
+        self.assertEqual(instance.frontend()["navigation"][0]["href"], "/ard")
 
     def test_shipped_instance_describes_this_corpus(self):
         instance.reload()

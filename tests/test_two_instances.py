@@ -38,6 +38,27 @@ class TwoInstanceTests(unittest.TestCase):
         self.assertEqual(len(texts), 10)
         self.assertTrue(any(d['identifier'].endswith('dc_indicator_for_place.md') for d in docs))
 
+    def test_atlas_selects_its_frontend_without_forking_the_client(self):
+        code = ("import json, harness; print(json.dumps({"
+                "'atlas': 'class=\"instance-atlas\"' in harness.PAGE,"
+                "'header': 'class=\"site-header\"' in harness.PAGE,"
+                "'hero': 'Ask large-scale data a question.' in harness.PAGE,"
+                "'history': 'chat-history.js' in harness.PAGE,"
+                "'stream': 'sse_format=named' in harness.PAGE,"
+                "'trace': 'How this answer was produced' in harness.PAGE}))")
+        env = {**os.environ, 'INSTANCE_CONFIG': str(ROOT / 'instances' / 'atlas.yaml'),
+               'ARD_STORE': 'json'}
+        rendered = subprocess.check_output([os.sys.executable, '-c', code], cwd=ROOT, env=env,
+                                           text=True).strip()
+        self.assertTrue(all(__import__('json').loads(rendered).values()))
+
+        default = subprocess.check_output(
+            [os.sys.executable, '-c',
+             "import harness; print('class=\"site-header\"' not in harness.PAGE)"],
+            cwd=ROOT, env={**os.environ, 'INSTANCE_CONFIG': str(ROOT / 'instance.yaml'),
+                           'ARD_STORE': 'json'}, text=True).strip()
+        self.assertEqual(default, 'True')
+
     def test_every_public_atlas_computation_has_an_installed_accessor(self):
         config = ROOT / 'instances' / 'atlas.yaml'
         code = ('import json, extensions; r=extensions.registry(); '

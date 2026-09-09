@@ -15,6 +15,25 @@ identity:
   description: Cited answers from Atlas public data, using the shared NeuralKG engine.
   placeholder: e.g. What is the population of India?
 
+# The browser application is still NeuralKG's shared client (including its named SSE stream,
+# local chat history, progress trace, source evidence and answer details).  These are presentation
+# choices only, closely matching atlasdata.world without bringing back Atlas's older, incompatible
+# Firebase/Gemini client.
+frontend:
+  body_class: instance-atlas
+  stylesheet: atlas/frontend.css
+  sidebar_collapsed: true
+  show_chats: true
+  hero_mark: true
+  eyebrow: BUILT ON ARD + OKF, POWERED BY NEURALKG
+  hero_title: Ask large-scale data a question.
+  description: Ask about places, companies, demographics, public health, or markets. Atlas finds the right large-scale dataset, runs the query, and returns a cited answer with a visible audit trail.
+  navigation:
+    - {label: How it works, href: /how-it-works}
+    - {label: Catalog, href: /ard}
+    - {label: Implementation, href: /life-of-a-query}
+    - {label: GitHub, href: "https://github.com/rvguha/NeuralKG", external: true}
+
 domains:
   - name: company
     coidentify: hub

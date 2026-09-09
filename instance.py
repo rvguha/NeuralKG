@@ -79,6 +79,17 @@ def identity():
     return out
 
 
+def frontend():
+    """Presentation choices for this deployment.
+
+    The DOM and browser application remain shared: history, streaming, trace rendering and
+    answer handling must not fork with a brand.  An instance may select a CSS theme and supply
+    ordinary copy/navigation here; the default empty mapping leaves the Neural KG page exactly
+    as it was.
+    """
+    return _section("frontend")
+
+
 def finder_url():
     """Where the ARD Agent Finder is. AGENT_FINDER_URL still wins: a container is configured by
     environment, and a file baked into an image must not override what the platform sets."""
