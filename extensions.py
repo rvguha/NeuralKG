@@ -24,8 +24,15 @@ as it did before this file existed. Extensions load once, at first use, in decla
 Four kinds of thing can be registered today. They were chosen by looking at what an actual
 downstream fork had to replace, rather than by guessing at generality:
 
-  executor            how a source is fetched. A guarded BigQuery runner, a multi-step composite,
-                      an API accessor. Selected by the OKF document's `executor:` field.
+  accessor            how a source is fetched. A guarded BigQuery runner, a multi-step composite,
+                      an API accessor. Selected by the OKF document's `accessor:` field, and
+                      reached from BOTH dispatch paths -- the template/DAG reader and the scalar
+                      fetch -- so one registration is all a plugin author writes. This is the
+                      documented seam; `executor` and `template_reader` below predate it.
+  executor            LEGACY, scalar path only. An `accessor` is preferred: an `executor` is
+                      invisible to the template path, which is what production runs, so a
+                      registration that looks correct silently never fires.
+  template_reader     LEGACY, DAG path only. Same asymmetry, the other way round.
   principal           who is asking. Returns an opaque object the other hooks receive; core has
                       no notion of a user, and an instance with authentication needs one.
   candidate_filter    which discovered sources this principal may be OFFERED. Runs before the
@@ -36,17 +43,61 @@ downstream fork had to replace, rather than by guessing at generality:
 """
 import importlib
 import threading
+from dataclasses import dataclass, field
+from typing import Any
+
+
+@dataclass
+class Read:
+    """What an accessor is asked for. Carries everything BOTH dispatch paths can supply, so a
+    plugin never has to know which one invoked it.
+
+    `frame` is the scalar path's `_F` and is None on the DAG path; `node`/`dependencies` are the
+    DAG path's and are None/() on the scalar path. Everything above them -- descriptor, source,
+    operation, parameters -- is present either way, and a plugin that reads only those works on
+    both. A plugin needing `frame` or `node` is declaring itself path-specific; that is allowed,
+    but it must say so by checking rather than by crashing.
+    """
+    descriptor: dict                 # the OKF frontmatter, as delivered (ARD or disk)
+    source: str                      # the resource identifier, treated as OPAQUE
+    operation: str | None = None     # declared operation being invoked, when the caller knows
+    parameters: dict = field(default_factory=dict)
+    dependencies: tuple = ()         # resolved upstream results, DAG path only
+    node: dict | None = None
+    frame: Any = None
 
 
 class Registry:
     """What an extension's `setup()` is handed."""
 
     def __init__(self):
+        self.accessors = {}
         self.executors = {}
         self.template_readers = {}
         self.candidate_filters = []
         self.coidentify_strategies = {}
         self._principal = None
+
+    def accessor(self, name):
+        """Register `async fn(read, *, context) -> answer_synthesizer.Input` under a name an OKF
+        document declares as `accessor:`.
+
+        Return the COMPLETE payload in `Input.data` -- never a scalar projection, because the
+        scalar path narrows it and the DAG path does not, and a plugin cannot know which ran.
+        Set `complete`, `provenance`, `grain`, `units` and `period_basis` from what the source
+        actually reported; they are what downstream checks and citations are built from.
+
+        Raise runtime.Refused to reject this source and let the engine backtrack to the next
+        candidate; anything else propagates as a real error. Honour `context` for cancellation
+        and accounting -- an accessor that makes its own model or data calls must make them
+        through the shared services on `context`, or its usage is invisible to the ledger.
+        """
+        def register(fn):
+            if name in self.accessors:
+                raise ValueError(f"accessor {name!r} is already registered")
+            self.accessors[name] = fn
+            return fn
+        return register
 
     def executor(self, name):
         """Register `async fn(frame, *, context)` under a name an OKF document can declare.
@@ -143,6 +194,30 @@ def reset():
 def executor(name):
     """The registered executor called `name`, or None."""
     return registry().executors.get(name) if name else None
+
+
+def accessor(name):
+    """The registered accessor called `name`, or None."""
+    return registry().accessors.get(name) if name else None
+
+
+def accessor_for(descriptor):
+    """(name, handler) for a descriptor's declared accessor, or (None, None) if it declares none.
+
+    Raises runtime.Refused when a descriptor names an accessor no loaded extension registers --
+    a descriptor may SELECT an installed name, never supply one, and a missing one must fail
+    loudly rather than fall through to a built-in that happens to match another marker.
+    """
+    name = (descriptor or {}).get("accessor")
+    if not name:
+        return None, None
+    handler = registry().accessors.get(name)
+    if handler is None:
+        import runtime
+        loaded = ", ".join(sorted(registry().accessors)) or "none"
+        raise runtime.Refused(f"this source declares accessor {name!r}, which no loaded "
+                              f"extension registers (loaded: {loaded})")
+    return name, handler
 
 
 def split_candidates(candidates, principal):

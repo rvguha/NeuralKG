@@ -1432,6 +1432,15 @@ async def _fetch_async(state, ctx, *, context):
         # or `composite` is replacing the fetch path deliberately, and must not be shadowed by a
         # built-in that happens to match one of the frontmatter markers below. Selected by the
         # document's `executor:` field -- named, not inferred, so a descriptor says what runs it.
+        # An `accessor:` is the documented seam and is reached from the template path too, so it
+        # is checked before the scalar-only `executor:`. Its Input carries the COMPLETE payload;
+        # the scalar path takes `.data` and narrows downstream exactly as a built-in fetch does.
+        accessor_name, accessor_fn = extensions.accessor_for(fm)
+        if accessor_fn:
+            read_request = extensions.Read(descriptor=fm, source=identifier, operation=None,
+                                           parameters=dict(f.ctx or {}), frame=f)
+            result = await accessor_fn(read_request, context=context)
+            return result.data
         declared = fm.get("executor")
         if declared:
             handler = extensions.executor(declared)

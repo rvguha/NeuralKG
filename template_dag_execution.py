@@ -76,15 +76,32 @@ def available_sources(hits):
         name=fm.get('template_reader')
         caps=planner.capabilities(h['identifier'])
         usable={op:cap for op,cap in caps.items() if (cap.get('synthesis') or {}).get('read_only') is True}
+        # An accessor is validated at ADVERTISE time, not at execution time: a descriptor naming
+        # one that is not installed must not reach the planner as a usable source at all.
+        accessor=fm.get('accessor')
+        if accessor and accessor not in extensions.registry().accessors:
+            continue
         result.append({**h,'template_reader':name if name in readers else None,'read_operations':usable,
-                       'scalar_adapter':True})
+                       'accessor':accessor,'scalar_adapter':True})
     return result
 
 
 async def read(node,p,dependencies,*,hits,context):
     source=p.get('source')
     if source not in {h['identifier'] for h in hits}:raise runtime.Refused('Read source was not supplied by ARD')
-    fm=driver.frontmatter(source) or {}; name=fm.get('template_reader')
+    fm=driver.frontmatter(source) or {}
+    # One accessor registration serves both dispatch paths. Checked FIRST so a descriptor that
+    # declares one is never shadowed by a legacy template_reader or a built-in operator branch.
+    accessor_name,accessor_fn=extensions.accessor_for(fm)
+    if accessor_fn:
+        read_request=extensions.Read(descriptor=fm,source=source,operation=node.get('operator'),
+                                     parameters=p,dependencies=tuple(dependencies or ()),node=node)
+        result=await accessor_fn(read_request,context=context)
+        if not isinstance(result,synth.Input):
+            raise runtime.Refused(f'accessor {accessor_name!r} returned {type(result).__name__}, '
+                                  'not an answer_synthesizer.Input')
+        return result
+    name=fm.get('template_reader')
     if name:
         handler=extensions.registry().template_readers.get(name)
         if not handler:raise runtime.Refused('Source template reader is not registered: '+name)
