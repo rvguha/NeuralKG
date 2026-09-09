@@ -356,7 +356,8 @@ async def search_many_async(texts, k=10, sources=None, rerank=True, rerank_query
             raise runtime.QueryCancelled(payload.get("error") or "Agent Finder query cancelled")
         raise runtime.Refused(f"agent finder error {response.status_code}: "
                          f"{payload.get('error') or response.reason_phrase}")
-    return _search_results(payload)
+    import extensions
+    return extensions.filter_candidates(_search_results(payload), context=context)
 
 
 async def search_async(text, k=10, sources=None, rerank=True, *, context):

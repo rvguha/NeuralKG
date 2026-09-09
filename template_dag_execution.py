@@ -104,6 +104,7 @@ async def read(node,p,dependencies,*,hits,context):
             result = replace(result, data=synth.get(result.data, contract['data_path']),
                              provenance={**result.provenance, 'payload': result.data})
         return result
+    await extensions.authorize(fm, p.get('operation'), context=context)
     name=fm.get('template_reader')
     if name:
         handler=extensions.registry().template_readers.get(name)

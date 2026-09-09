@@ -1,0 +1,2 @@
+# Optional: needed only when plugins.atlas_policy is enabled.
+firebase-admin>=6,<8

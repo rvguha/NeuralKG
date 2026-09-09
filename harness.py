@@ -1441,6 +1441,7 @@ async def _fetch_async(state, ctx, *, context):
                                            parameters=dict(f.ctx or {}), frame=f)
             result = await extensions.invoke_accessor(read_request, context=context)
             return extensions.scalar_payload(result)
+        await extensions.authorize(fm, state.get('operation'), context=context)
         declared = fm.get("executor")
         if declared:
             handler = extensions.executor(declared)

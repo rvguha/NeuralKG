@@ -42,6 +42,7 @@ downstream fork had to replace, rather than by guessing at generality:
                       are named but unimplemented, and are exactly what an instance would add.
 """
 import importlib
+import inspect
 import threading
 from dataclasses import dataclass, field
 from typing import Any
@@ -77,6 +78,8 @@ class Registry:
         self.candidate_filters = []
         self.coidentify_strategies = {}
         self._principal = None
+        self.authorizers = []
+        self.budget_hooks = []
 
     def accessor(self, name):
         """Register `async fn(read, *, context) -> answer_synthesizer.Input` under a name an OKF
@@ -144,6 +147,24 @@ class Registry:
         substitute a different thing for the one that was asked about.
         """
         self.candidate_filters.append(fn)
+        return fn
+
+    def authorizer(self, fn):
+        """Register async fn(descriptor, operation, *, context).
+
+        This is defence in depth after discovery filtering. It runs before every plugin or
+        built-in source read, including child plans and retries. Raise runtime.AccessDenied.
+        """
+        self.authorizers.append(fn)
+        return fn
+
+    def budget(self, fn):
+        """Register async fn(phase, *, context, outcome=None), where phase is start or finish.
+
+        The hook owns persistence/reservation. The engine guarantees finish for every started
+        query and shares the same context/ledgers with child operations.
+        """
+        self.budget_hooks.append(fn)
         return fn
 
     def coidentify_strategy(self, name):
@@ -235,12 +256,51 @@ async def invoke_accessor(read, *, context):
         if selected not in operations:
             raise runtime.Refused('Missing or undeclared accessor operation: ' + str(selected))
         read.operation = selected
+    await authorize(read.descriptor, read.operation, context=context)
     context.check()
     result = await context.wait(handler(read, context=context))
     if not isinstance(result, Input):
         raise runtime.Refused(f'accessor {name!r} returned {type(result).__name__}, not an answer_synthesizer.Input')
     context.check()
     return result
+
+
+async def resolve_principal(request):
+    """Resolve the trusted caller using the one configured provider; None means public."""
+    fn = registry()._principal
+    if fn is None:
+        return None
+    value = fn(request)
+    return await value if inspect.isawaitable(value) else value
+
+
+async def authorize(descriptor, operation, *, context):
+    for fn in registry().authorizers:
+        value = fn(descriptor, operation, context=context)
+        if inspect.isawaitable(value):
+            await value
+
+
+async def budget_event(phase, *, context, outcome=None):
+    for fn in registry().budget_hooks:
+        value = fn(phase, context=context, outcome=outcome)
+        if inspect.isawaitable(value):
+            await value
+
+
+def filter_candidates(candidates, *, context):
+    visible, withheld = split_candidates(candidates, context.principal)
+    context.memo.setdefault('withheld_resources', []).extend(withheld)
+    if withheld:
+        def score(item):
+            try: return float(item.get('score') or 0)
+            except (TypeError, ValueError): return 0.0
+        best_hidden = max(withheld, key=score)
+        if not visible or score(best_hidden) >= max(map(score, visible)):
+            need = best_hidden.get('entitlement') or best_hidden.get('needs') or 'additional access'
+            raise __import__('runtime').AccessDenied(
+                f"the best matching source is restricted and requires {need}; no public source was substituted")
+    return visible
 
 
 def scalar_payload(result):

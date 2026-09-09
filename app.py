@@ -48,6 +48,7 @@ import driver
 import harness
 import nlweb
 import runtime
+import extensions
 import stage_reports
 from query_context import QueryContext
 from source_clients import AsyncSourceClients
@@ -182,7 +183,7 @@ def _result_messages(stream, request, result):
     yield stream.message(nlweb.END, "", "system")
 
 
-async def run_nlweb_async(spec, *, clients, engine=harness.run, disconnect=None,
+async def run_nlweb_async(spec, *, clients, engine=harness.run, disconnect=None, principal=None,
                           progress_size=128, heartbeat_seconds=15):
     """Yield NLWeb messages and ``None`` heartbeats from one owned root task."""
     stream = nlweb.Stream(spec.get("conversation_id"))
@@ -191,6 +192,7 @@ async def run_nlweb_async(spec, *, clients, engine=harness.run, disconnect=None,
         float(os.getenv("QUERY_TIMEOUT_SECONDS", "180")),
         progress=asyncio.Queue(maxsize=progress_size)))
     context.memo['flow_started'] = time.time()
+    context.principal = principal
     events = []
     result = None
     terminal_error = None
@@ -216,8 +218,12 @@ async def run_nlweb_async(spec, *, clients, engine=harness.run, disconnect=None,
             assumptions=spec.get("assumptions") or None,
             on_ambiguity=spec.get("on_ambiguity") or "answer", context=context)
 
-    task = asyncio.create_task(invoke_engine(), name=f"query-{context.trace_id}")
+    task = None
+    budget_started = False
     try:
+        await extensions.budget_event('start', context=context)
+        budget_started = True
+        task = asyncio.create_task(invoke_engine(), name=f"query-{context.trace_id}")
         await asyncio.sleep(0)  # make the root task own any children before disconnect can cancel it
         last_frame = time.monotonic()
         while not task.done():
@@ -256,8 +262,10 @@ async def run_nlweb_async(spec, *, clients, engine=harness.run, disconnect=None,
         yield stream.message(nlweb.ERROR, str(exc), "system")
         yield stream.message(nlweb.END, "", "system")
     except asyncio.CancelledError:
-        context.cancel(); task.cancel()
-        await asyncio.gather(task, return_exceptions=True)
+        context.cancel()
+        if task is not None:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
         raise
     except Exception as exc:
         terminal_error = f'{type(exc).__name__}: {exc}'
@@ -269,9 +277,16 @@ async def run_nlweb_async(spec, *, clients, engine=harness.run, disconnect=None,
         yield stream.message(nlweb.ERROR, f"{type(exc).__name__}: {exc}", "system")
         yield stream.message(nlweb.END, "", "system")
     finally:
-        if not task.done():
+        if task is not None and not task.done():
             context.cancel(); task.cancel()
-        await asyncio.gather(task, return_exceptions=True)
+        if task is not None:
+            await asyncio.gather(task, return_exceptions=True)
+        if budget_started:
+            try:
+                await extensions.budget_event('finish', context=context,
+                                              outcome=result if result is not None else terminal_error)
+            except Exception:
+                logging.getLogger(__name__).exception('Budget reconciliation failed')
 
 
 def create_app(engine=harness.run, clients_factory=AsyncSourceClients):
@@ -326,6 +341,10 @@ def create_app(engine=harness.run, clients_factory=AsyncSourceClients):
         spec, error = await parse(request)
         if error:
             return error
+        try:
+            principal = await extensions.resolve_principal(request)
+        except runtime.AccessDenied as exc:
+            return JSONResponse({'error': str(exc)}, 403)
         state, trace_id, started = request.app.state, uuid.uuid4().hex, time.monotonic()
         quota_limit = int(os.getenv("ASK_LIMIT_PER_DAY", "200"))
         if quota_limit:
@@ -355,7 +374,7 @@ def create_app(engine=harness.run, clients_factory=AsyncSourceClients):
             try:
                 async for message in run_nlweb_async(
                         spec, clients=state.clients, engine=engine,
-                        disconnect=request.is_disconnected):
+                        disconnect=request.is_disconnected, principal=principal):
                     if message is None:
                         yield None
                     else:

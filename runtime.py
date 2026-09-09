@@ -11,3 +11,7 @@ class Refused(Exception):
 
 class QueryBudgetExceeded(Refused):
     """A bounded query exhausted work, not wall-clock time or client cancellation."""
+
+
+class AccessDenied(Refused):
+    """The caller is not authenticated or authorized for the requested operation."""

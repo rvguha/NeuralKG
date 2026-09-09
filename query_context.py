@@ -93,6 +93,8 @@ class QueryContext:
     interpretation_bound: bool = False
     defer_render: bool = False
     operation_events: list = field(default_factory=list)
+    principal: Any = None
+    execution_policy: dict = field(default_factory=dict)
 
     @classmethod
     def with_timeout(cls, seconds: float, **kwargs):
@@ -123,7 +125,8 @@ class QueryContext:
                             grant_pool=self.grant_pool, permits=self.permits, budget=self.budget,
                             execution_mode=self.execution_mode,
                             interpretation_bound=self.interpretation_bound, defer_render=self.defer_render,
-                            operation_events=self.operation_events)
+                            operation_events=self.operation_events, principal=self.principal,
+                            execution_policy=dict(self.execution_policy))
 
     async def provider_call(self, name: str, factory: Callable[[], Awaitable[T]]) -> T:
         if self.permits is None:
