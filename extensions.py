@@ -229,7 +229,7 @@ def accessor_for(descriptor):
     a descriptor may SELECT an installed name, never supply one, and a missing one must fail
     loudly rather than fall through to a built-in that happens to match another marker.
     """
-    name = (descriptor or {}).get("accessor")
+    name = accessor_name(descriptor)
     if not name:
         return None, None
     handler = registry().accessors.get(name)
@@ -239,6 +239,22 @@ def accessor_for(descriptor):
         raise runtime.Refused(f"this source declares accessor {name!r}, which no loaded "
                               f"extension registers (loaded: {loaded})")
     return name, handler
+
+
+def accessor_name(descriptor):
+    """The installed accessor a self-contained OKF document selects.
+
+    NeuralKG-authored descriptors use the compact top-level ``accessor`` field. Atlas's older
+    OKF dialect spells the same contract ``computation.runtime.executor``. Both are catalog data,
+    not alternate execution paths: they resolve to the same registered accessor here.
+    """
+    descriptor = descriptor or {}
+    direct = descriptor.get("accessor")
+    if direct:
+        return direct
+    computation = descriptor.get("computation") or {}
+    runtime = computation.get("runtime") if isinstance(computation, dict) else {}
+    return runtime.get("executor") if isinstance(runtime, dict) else None
 
 
 async def invoke_accessor(read, *, context):
@@ -317,6 +333,39 @@ def scalar_payload(result):
         if 'value' in result.units:
             payload['unit'] = result.units['value']
     return payload
+
+
+def scalar_input(result, preferred=None):
+    """Project one accessor row to a scalar while retaining the complete payload as evidence.
+
+    DAG arithmetic needs a number; the final renderer needs the source's complete JSON. This
+    adapter provides both and refuses whenever the scalar is not structurally unambiguous.
+    """
+    from dataclasses import replace
+    original = result.data
+    if isinstance(original, (str, int, float, bool)):
+        return result
+    rows = original.get('rows') if isinstance(original, dict) else original
+    if not isinstance(rows, list) or len(rows) != 1 or not isinstance(rows[0], dict):
+        # A registered accessor may deliberately expose a full relation even when the logical
+        # node says ReadScalar (older plugins did). Preserve that contract; downstream arithmetic
+        # will refuse if the chosen template truly requires a scalar.
+        return result
+    row = rows[0]
+    names = []
+    if isinstance(preferred, str):
+        folded = preferred.casefold().replace(' ', '_')
+        names.extend(k for k in row if k.casefold().replace(' ', '_') == folded)
+    names.extend(k for k in ('value', 'ratio_pct', 'amount', 'count', 'total') if k in row)
+    names.extend(k for k in result.units if k in row)
+    names = list(dict.fromkeys(names))
+    if len(names) != 1 or not isinstance(row[names[0]], (str, int, float, bool)):
+        return result
+    field = names[0]
+    provenance = {**result.provenance, 'payload': original, 'scalar_field': field,
+                  'scalar_row': row}
+    return replace(result, data=row[field], provenance=provenance,
+                   units={'value': result.units.get(field)} if field in result.units else result.units)
 
 
 def split_candidates(candidates, principal):

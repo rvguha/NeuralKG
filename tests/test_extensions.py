@@ -93,6 +93,20 @@ class ExtensionRegistryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             registry.executor("dup")(lambda f, *, context: None)
 
+    def test_atlas_nested_executor_selects_the_same_accessor_contract(self):
+        descriptor = {'computation': {'runtime': {'executor': 'datacommons_place'}}}
+        self.assertEqual(extensions.accessor_name(descriptor), 'datacommons_place')
+        self.assertEqual(extensions.accessor_name({'accessor': 'new_name', **descriptor}), 'new_name')
+
+    def test_scalar_input_keeps_complete_accessor_payload_as_evidence(self):
+        from answer_synthesizer import Input
+        result = Input([{'value': 7, 'source': 'reported'}], True,
+                       {'source': 'example'}, 'observation', units={'value': 'USD'})
+        scalar = extensions.scalar_input(result, preferred='revenue')
+        self.assertEqual(scalar.data, 7)
+        self.assertEqual(scalar.units, {'value': 'USD'})
+        self.assertEqual(scalar.provenance['payload'], result.data)
+
 
 if __name__ == "__main__":
     unittest.main()

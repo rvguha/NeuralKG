@@ -136,6 +136,7 @@ class AsyncSecClient:
         self.cik_locks = {}
         self.ticker_lock = asyncio.Lock()
         self.tickers = None
+        self.company_names = None
 
     def snapshot(self):
         return {
@@ -216,9 +217,35 @@ class AsyncSecClient:
                     data = await self._json("https://www.sec.gov/files/company_tickers.json", context)
                     self.tickers = {item["ticker"].upper(): (str(item["cik_str"]), item["title"])
                                     for item in data.values()}
+                    self.company_names = [(item['title'], str(item['cik_str']), item['ticker'].upper())
+                                          for item in data.values()]
             finally:
                 self.ticker_lock.release()
         return self.tickers.get(ticker.upper(), (None, None))
+
+    async def resolve_company(self, value, context):
+        """Resolve an exact ticker/name or a unique normalized name; never guess ambiguity."""
+        import re
+        aliases = {'google': 'GOOGL', 'alphabet': 'GOOGL', 'facebook': 'META', 'meta': 'META'}
+        text = str(value or '').strip()
+        if not text: raise runtime.Refused('SEC company is required')
+        aliased = aliases.get(text.casefold(), text)
+        cik, title = await self.ticker_to_cik(aliased, context)
+        if cik: return cik, title
+        def norm(name):
+            name = name.casefold().strip()
+            suffix = re.compile(r'[,.]?\s+(incorporated|inc|corporation|corp|company|co|holdings?|group|plc|llc|ltd|limited|lp|reit)\.?$')
+            previous = None
+            while name != previous:
+                previous, name = name, suffix.sub('', name).strip()
+            return name
+        needle = norm(text)
+        exact = {(cik, title) for title, cik, _ in self.company_names or () if norm(title) == needle}
+        if len(exact) == 1: return exact.pop()
+        matches = {(cik, title) for title, cik, _ in self.company_names or () if needle in norm(title)}
+        if len(matches) == 1: return matches.pop()
+        if len(matches) > 1: raise runtime.Refused('SEC company name is ambiguous; use the exact name or ticker')
+        raise runtime.Refused('No SEC company matched: ' + text)
 
     async def concept(self, cik, concept, context):
         company = await self.company_facts(cik, context)

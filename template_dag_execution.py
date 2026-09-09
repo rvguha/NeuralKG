@@ -78,11 +78,15 @@ def available_sources(hits):
         usable={op:cap for op,cap in caps.items() if (cap.get('synthesis') or {}).get('read_only') is True}
         # An accessor is validated at ADVERTISE time, not at execution time: a descriptor naming
         # one that is not installed must not reach the planner as a usable source at all.
-        accessor=fm.get('accessor')
+        accessor=extensions.accessor_name(fm)
         if accessor and accessor not in extensions.registry().accessors:
             continue
+        computation=fm.get('computation') or {}
+        recipe=computation.get('runtime') if isinstance(computation,dict) else {}
+        declared_parameters=recipe.get('parameters') if isinstance(recipe,dict) else []
         result.append({**h,'template_reader':name if name in readers else None,'read_operations':usable,
-                       'accessor':accessor,'scalar_adapter':True})
+                       'accessor':accessor,'accessor_parameters':declared_parameters or [],
+                       'scalar_adapter':True})
     return result
 
 
@@ -103,6 +107,8 @@ async def read(node,p,dependencies,*,hits,context):
             from dataclasses import replace
             result = replace(result, data=synth.get(result.data, contract['data_path']),
                              provenance={**result.provenance, 'payload': result.data})
+        if node['operator']=='ReadScalar':
+            result=extensions.scalar_input(result,preferred=p.get('field') or p.get('measure'))
         return result
     await extensions.authorize(fm, p.get('operation'), context=context)
     name=fm.get('template_reader')
@@ -153,7 +159,7 @@ async def run(question,understanding,hits,*,context):
     operators={n['operator'] for c in candidates for n in templates[c['shape']]['plan']['nodes']}
     system='''Bind ONE supplied candidate to its FIXED catalog DAG. Return JSON {"candidate":"id or null","reason":"explanation","parameters":{"node_id":{...}}}.
 Do not change node IDs, operators, dependencies or output. Bind only listed node parameters. Never invent data, crosswalks, source identifiers, capability evidence, methods, units or user constraints.
-Every acquisition node needs source (exact ARD identifier), question, and accessor coordinates. ReadScalar: entity,type,measure,period (YYYY or latest). Other read nodes require a registered template_reader or a listed read_operations synthesis contract and operation/params. ReadDescriptor reads source metadata. If no suitable input adapter exists, return candidate:null and explain the missing input contract, not a simulated answer.
+Every acquisition node needs source (exact ARD identifier), question, and accessor coordinates. ReadScalar: entity,type,measure,period (YYYY or latest). A resource with accessor_parameters also needs params containing only that declared schema, bound from the question; never invent provider identifiers. Other read nodes require a registered accessor, template_reader, or listed read_operations synthesis contract and operation/params. ReadDescriptor reads source metadata. If no suitable input adapter exists, return candidate:null and explain the missing input contract, not a simulated answer.
 Expressions use {field:"column"}, {input:0}, {input:0,field:"path"}, bare constants, or {op:"identity|abs|sign|not|add|subtract|multiply|divide|power|eq|ne|lt|le|gt|ge|and|or",args:[...]}. No code or SQL. A descriptor is a callable source, not fetched data. Different viable templates may have different input needs. Choose one all of whose reads can be served.'''
     payload={'question':question,'candidates':[{'understanding':c,'template':templates[c['shape']]} for c in candidates],
              'resources':available_sources(hits),'operator_parameters':{o:ARGUMENTS[o] for o in operators if o in ARGUMENTS}}

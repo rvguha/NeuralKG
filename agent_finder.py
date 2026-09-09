@@ -13,7 +13,7 @@ tables). Run with the Azure keys loaded:
   set -a; source ./set_keys.sh; set +a
   python3 agent_finder.py            # serves on http://127.0.0.1:8088
 """
-import asyncio, base64, json, os, re, sys, time, urllib.parse
+import asyncio, base64, datetime, json, os, re, sys, time, urllib.parse
 from contextlib import asynccontextmanager
 
 from starlette.applications import Starlette
@@ -87,6 +87,17 @@ def publisher(identifier):
     return parts[1] if len(parts) > 2 else "root"
 
 
+def _descriptor_roots():
+    return tuple(os.path.realpath(path) for path in index.descriptor_roots())
+
+
+def _safe_descriptor(identifier):
+    path = os.path.realpath(os.path.join(ROOT, identifier))
+    return (path if any(path == root or path.startswith(root + os.sep)
+                        for root in _descriptor_roots())
+            and path.endswith(".md") and os.path.exists(path) else None)
+
+
 
 # --- the catalog behind the ARD endpoints -------------------------------------------------------
 # /search answers "which table fits this question". A registry also has to answer "what IS in
@@ -143,10 +154,11 @@ def _access_document(identifier):
     """The descriptor a leaf mechanically names with its OKF `source` field."""
     fm = _leaf_fm(identifier)
     source = fm.get("source")
-    if source:
+    if isinstance(source, str) and source:
         return os.path.relpath(
             os.path.normpath(os.path.join(ROOT, os.path.dirname(identifier), source)), ROOT)
-    return f"sources/{publisher(identifier)}/_access.md"
+    conventional = f"sources/{publisher(identifier)}/_access.md"
+    return conventional if _safe_descriptor(conventional) else identifier
 
 
 def _access_fm(source_dir):
@@ -216,7 +228,18 @@ def _add_okf_terms(entry, frontmatter):
             continue
         if key in _ARD_FIELDS and not (key == "trust" and "trustManifest" not in entry):
             continue
-        entry[f"okf:{key}"] = value
+        entry[f"okf:{key}"] = _json_safe(value)
+
+
+def _json_safe(value):
+    """Mechanical YAML-to-JSON conversion for the small type gap between the formats."""
+    if isinstance(value, (datetime.date, datetime.datetime)):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    return value
 
 
 def ard_urn(identifier):
@@ -281,11 +304,8 @@ def _entry_from_meta(m, full=False):
 
 
 def _leaf_text(identifier):
-    path = os.path.realpath(os.path.join(ROOT, identifier))
-    roots = (os.path.realpath(os.path.join(ROOT, "sources")),
-             os.path.realpath(os.path.join(ROOT, "corpora", "gcp-bigquery", "okf")))
-    if (not any(path.startswith(root + os.sep) for root in roots)
-            or not path.endswith(".md") or not os.path.exists(path)):
+    path = _safe_descriptor(identifier)
+    if not path:
         return ""
     with open(path, encoding="utf-8") as stream:
         return stream.read()
@@ -381,11 +401,8 @@ def _entry(identifier):
     same thing and a client that listed entries has the URN while an OKF tool has the path."""
     _entries, _by = _catalog()
     path = _BY_URN.get(identifier, identifier)
-    real = os.path.realpath(os.path.join(ROOT, path))
-    roots = (os.path.realpath(os.path.join(ROOT, "sources")),
-             os.path.realpath(os.path.join(ROOT, "corpora", "gcp-bigquery", "okf")))
-    if (not any(real.startswith(root + os.sep) for root in roots)
-            or not real.endswith(".md") or not os.path.exists(real)):
+    real = _safe_descriptor(path)
+    if not real:
         return None
     hit = next((e for e in _entries if e["_path"] == path), None)
     if hit:
@@ -633,7 +650,8 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    release_ok, release_detail = index.verify(require_release=True)
+    require_release = os.getenv("ARD_REQUIRE_RELEASE", "1").lower() not in ("0", "false", "no")
+    release_ok, release_detail = index.verify(require_release=require_release)
     if not release_ok:
         print("ERROR: registry release is stale or incomplete", file=sys.stderr)
         for error in release_detail.get("errors", [release_detail.get("error", "unknown error")]):

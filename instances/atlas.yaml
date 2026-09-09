@@ -1,0 +1,83 @@
+# Atlas, running on the shared NeuralKG engine.
+#
+# This file contains deployment choices only: its own ARD finder, identity, corpus examples and
+# installed accessors. It does not select an alternate query pipeline.
+ard:
+  finder_url: http://127.0.0.1:8188
+  crosswalk: hub
+
+query_understanding:
+  selection_model: openai/gpt-oss-120b
+
+identity:
+  name: Atlas
+  tagline: Ask large-scale data
+  description: Cited answers from Atlas public data, using the shared NeuralKG engine.
+  placeholder: e.g. What is the population of India?
+
+domains:
+  - name: company
+    coidentify: hub
+    identifiers: [cik, lei]
+  - name: place
+    coidentify: hub
+    identifiers: [dcid, geo, gnis, "fips*"]
+  - name: any
+    coidentify: hub
+    identifiers: [qid]
+
+name_selectors: [q, name, company, place, parent_place]
+
+extensions:
+  - plugins.atlas_accessors
+  - plugins.atlas_sec
+  - plugins.atlas_datacommons
+
+plugin_config:
+  atlas_accessors:
+    project: atlas-ard-okf
+    byte_cap: 21474836480
+    allow_ad_hoc: false
+    allowed_tables:
+      - bigquery-public-data.covid19_open_data.covid19_open_data
+      - bigquery-public-data.geo_us_boundaries.counties
+      - bigquery-public-data.geo_us_boundaries.states
+      - bigquery-public-data.usa_names.usa_1910_current
+  atlas_datacommons:
+    api_key_env: DC_API_KEY
+    max_entities: 3500
+    max_rows: 5000
+    max_pages: 20
+    max_response_bytes: 33554432
+
+source_order: [atlas]
+source_examples:
+  atlas:
+    - What is the population of India?
+    - Compare life expectancy in Japan and the United States.
+    - How has Brazil's GDP per capita changed since 2000?
+    - What was Google's revenue in 2023?
+    - What was the most popular baby name in the United States in 2020?
+
+examples:
+  - label: 🌍 Places & demographics
+    dirs: [atlas]
+    queries:
+      - What is the population of India?
+      - Compare life expectancy in Japan and the United States.
+      - How has median household income in Santa Clara County, CA changed over the last 10 years?
+      - How has Brazil's GDP per capita changed since 2000?
+      - Compare the fertility rate of Nigeria and Germany over the last 20 years.
+      - What is the median age in Miami, Florida?
+  - label: 🗺️ Rankings across places
+    dirs: [atlas]
+    queries:
+      - Which counties in California have the highest unemployment rate?
+      - Rank US states by median household income, top 10.
+      - Which ten countries in Africa have the lowest life expectancy?
+      - Which US states have the highest obesity rate?
+  - label: 🏢 Companies & public records
+    dirs: [atlas]
+    queries:
+      - What was Google's revenue in 2023?
+      - What was the most popular baby name in the United States in 2020?

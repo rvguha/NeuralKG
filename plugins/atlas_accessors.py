@@ -25,6 +25,9 @@ def configuration():
 
 
 def setup(registry):
+    # Atlas's original OKF documents call this executor simply ``bigquery``. The newer name says
+    # what the implementation guarantees; both names enter this exact same guarded code path.
+    registry.accessor('bigquery')(guarded)
     registry.accessor('bigquery_guarded')(guarded)
     registry.accessor('bigquery_sample_llm')(themes)
 
@@ -144,7 +147,8 @@ async def guarded(read, *, context):
     except BaseException:
         event['status'] = 'failed_or_cancelled'
         raise
-    provenance = {'source': read.source, 'execution': event, 'reviewed_computation': reviewed,
+    provenance = {'source': read.source, 'execution': event, 'payload': result,
+                  'reviewed_computation': reviewed,
                   'citation': field(descriptor, 'citation_template'),
                   'review': {k: field(descriptor, k) for k in ('version', 'reviewer', 'reviewed_on', 'stale_after')}}
     return synth.Input(result['rows'], result.get('complete') is True, provenance,

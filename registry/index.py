@@ -21,7 +21,27 @@ import llm, runtime   # provider-agnostic embeddings (Azure OpenAI | OpenAI | Ge
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 SOURCES = os.path.join(ROOT, "sources")
-REGISTRY = os.path.dirname(__file__)
+
+# A process may serve a different descriptor corpus and index without copying or changing the
+# engine.  Paths are process configuration: this is what lets two finders run from one checkout.
+# Descriptor roots must remain under ROOT because identifiers are repo-relative, portable handles
+# that the finder can safely dereference when returning the complete OKF document.
+def _configured_roots():
+    value = os.getenv("ARD_DESCRIPTOR_ROOTS", "")
+    if not value:
+        return (SOURCES, os.path.join(ROOT, "corpora", "gcp-bigquery", "okf"))
+    roots = []
+    for item in value.split(os.pathsep):
+        path = os.path.realpath(item if os.path.isabs(item) else os.path.join(ROOT, item))
+        if not (path == os.path.realpath(ROOT) or path.startswith(os.path.realpath(ROOT) + os.sep)):
+            raise ValueError("ARD descriptor roots must be inside the NeuralKG checkout")
+        roots.append(path)
+    return tuple(roots)
+
+
+CUSTOM_DESCRIPTOR_ROOTS = bool(os.getenv("ARD_DESCRIPTOR_ROOTS", ""))
+DESCRIPTOR_ROOTS = _configured_roots()
+REGISTRY = os.path.realpath(os.getenv("ARD_INDEX_DIR") or os.path.dirname(__file__))
 BUILDS = os.path.join(REGISTRY, "builds")
 CURRENT = os.path.join(REGISTRY, "current")
 LEGACY_VEC = os.path.join(REGISTRY, "vectors.npy")
@@ -58,6 +78,13 @@ def _active_paths():
 CACHE_VEC, CACHE_META = _active_paths()
 
 
+def descriptor_roots():
+    """Current roots, preserving tests/tools that temporarily replace ROOT and SOURCES."""
+    if CUSTOM_DESCRIPTOR_ROOTS:
+        return DESCRIPTOR_ROOTS
+    return (SOURCES, os.path.join(ROOT, "corpora", "gcp-bigquery", "okf"))
+
+
 def embed(texts, batch=96):
     return np.asarray(llm.embed(texts, batch), dtype=np.float32)
 
@@ -84,7 +111,7 @@ def scope_of(path, fm):
     coin flip. The scope text is already authored per source (the classifier uses it to choose
     sources); this puts it in front of the embedding and the re-ranker too."""
     src = fm.get("source")
-    if not (path and src):
+    if not (path and isinstance(src, str) and src):
         return ""
     ap = os.path.normpath(os.path.join(os.path.dirname(path), src))
     if ap not in _SCOPE_CACHE:
@@ -136,12 +163,16 @@ def release_inputs_hash():
 def _collect_docs(emodel, limit=None):
     """Read the descriptor corpus and return the metadata and exact text to embed."""
     docs, texts = [], []
-    descriptor_roots = (SOURCES, os.path.join(ROOT, "corpora", "gcp-bigquery", "okf"))
-    paths = sorted(path for root in descriptor_roots
+    paths = sorted(path for root in descriptor_roots()
                    for path in glob.glob(os.path.join(root, "**", "*.md"), recursive=True))
     for path in paths:
         fm = frontmatter(path)
-        if not fm or not fm.get("representativeQueries"):
+        # A source/access document describes inheritance rather than one answerable resource.
+        # Atlas's reviewed computations predate representativeQueries; title, definition and tags
+        # are still sufficient discovery text, so do not make examples a condition of existence.
+        if (not fm or os.path.basename(path) == "_access.md"
+                or not (fm.get("title") and (fm.get("description") or fm.get("representativeQueries")))
+                or (not CUSTOM_DESCRIPTOR_ROOTS and not fm.get("representativeQueries"))):
             continue
         text = index_text(fm, path)
         docs.append({

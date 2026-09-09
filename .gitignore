@@ -38,6 +38,7 @@ set_keys*.local
 # --- python / os ---------------------------------------------------------------------
 __pycache__/
 *.pyc
+instances/*/registry/
 *.pyo
 *.egg-info/
 .venv/
@@ -58,6 +59,12 @@ dist/
 sources/
 corpora/
 catalog/
+# The reviewed Atlas public bundle is a checked-in example instance fixture, not NeuralKG's
+# default corpus. It is kept byte-for-byte with its upstream provenance so the two-instance
+# launcher is reproducible from one checkout.
+!instances/atlas/catalog/
+!instances/atlas/catalog/**
+instances/.local/
 tools/descriptions_cache.json
 tools/repr_queries_cache.json
 tools/descriptions_input.json

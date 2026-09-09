@@ -1,5 +1,6 @@
 """Stage 2 contracts for the single-loop Agent Finder service and async client seam."""
 import asyncio
+import datetime
 import os
 import sys
 import threading
@@ -151,6 +152,15 @@ class AsyncAgentFinderTests(unittest.IsolatedAsyncioTestCase):
         mapped = {"trustManifest": {"identity": "did:web:sec.gov"}}
         agent_finder._add_okf_terms(mapped, {"trust": {"identity": "did:web:sec.gov"}})
         self.assertNotIn("okf:trust", mapped)               # mapped fields are not also repeated
+
+    async def test_yaml_dates_are_mechanically_json_serialized(self):
+        entry = {}
+        agent_finder._add_okf_terms(entry, {
+            'reviewed_on': datetime.date(2026, 9, 3),
+            'nested': {'stale_after': datetime.date(2027, 3, 1)},
+        })
+        self.assertEqual(entry['okf:reviewed_on'], '2026-09-03')
+        self.assertEqual(entry['okf:nested']['stale_after'], '2027-03-01')
 
     async def test_execution_uses_the_descriptor_delivered_by_ard(self):
         path = "sources/nonprofit-990/cstbasisothr.md"
