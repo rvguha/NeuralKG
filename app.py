@@ -481,6 +481,10 @@ def create_app(engine=harness.run, clients_factory=AsyncSourceClients):
         if path == "": return HTMLResponse(instance_frontend.page() or harness.PAGE)
         if path == 'flow':
             return RedirectResponse('/')
+        if path == "finance" and instance_frontend.page() is not None:
+            return RedirectResponse("https://atlasdata.world/finance")
+        if path == "implementation" and instance_frontend.page() is not None:
+            return RedirectResponse("https://atlasdata.world/implementation")
         if path == "instance-frontend.css":
             content = instance_frontend.asset("stylesheet")
             return (Response(content, media_type="text/css", headers={"Cache-Control": "no-cache"})
