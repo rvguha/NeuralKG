@@ -122,3 +122,10 @@ class DescriptorDrivenFetchTests(unittest.TestCase):
         source = inspect.getsource(harness)
         self.assertIn('if binding == "$name":', source)
         self.assertIn('(f.state.get("entity") or {}).get("name") or f.mention', source)
+
+    def test_structured_okf_source_is_not_treated_as_an_access_document_path(self):
+        from types import SimpleNamespace
+        fetch = SimpleNamespace(
+            fm={'source': {'kind': 'datacommons', 'api': 'observation'}},
+            ident='instances/atlas/catalog/attested-computations/dc_indicator_for_place.md')
+        self.assertIsNone(harness._fetch_spec(fetch))

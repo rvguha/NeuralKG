@@ -44,7 +44,7 @@ class DCTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.data[0]['rank'],1)
     async def test_key_and_caps_fail_honestly(self):
         with unittest.mock.patch.object(dc,'config',return_value={}):
-            with self.assertRaises(runtime.Refused):dc.Client(self.context())
+            with self.assertRaises(runtime.AccessDenied):dc.Client(self.context())
         with unittest.mock.patch.object(dc,'config',return_value={'api_key':'key','max_entities':1}):
             client=dc.Client(self.context())
             with self.assertRaises(runtime.Refused):await client.observations('v',[{'dcid':'1','name':'1'},{'dcid':'2','name':'2'}])

@@ -401,18 +401,19 @@ def _rerank_budget(n):
 
 
 def _card(i, c):
-    """What the re-ranker sees for one candidate: what the table is, whose data it covers, and how
-    people ask for it.
+    """What the re-ranker sees for one candidate.
 
-    NOT the description. The description exists to make the EMBEDDING discriminate — that is where
-    a long definition earns its cost, and the prefilter has already used it by the time we get
-    here. Repeating it to the re-ranker doubles the prompt (838 -> 429 chars per card, and a
-    re-rank sends 60 of them) to restate what the title, scope and example queries already say.
-    Set ARD_RERANK_DESC=1 to put it back."""
+    Example queries are the compact discriminator when a catalog supplies them. Machine-crawled
+    and older OKF entries often do not, though; title-only cards made a generic table name beat a
+    reviewed Data Commons computation whose definition explicitly covered the query. In that case
+    the description is the only usable contract and must be sent. ARD_RERANK_DESC=1 still forces
+    descriptions for every card when diagnosing a catalog with weak examples.
+    """
     s = f"{i}. {c['title']}"
     if c.get("scope"):
         s += f"\n   covers: {c['scope']}"
-    if c.get("description") and os.getenv("ARD_RERANK_DESC", "0").lower() in ("1", "true", "yes"):
+    if c.get("description") and (not c.get("queries") or
+            os.getenv("ARD_RERANK_DESC", "0").lower() in ("1", "true", "yes")):
         s += f"\n   about: {c['description']}"
     if c.get("queries"):
         s += "\n   people ask: " + " | ".join(c["queries"][:6])

@@ -46,6 +46,14 @@ class AsyncAgentFinderTests(unittest.IsolatedAsyncioTestCase):
         self.addAsyncCleanup(client.aclose)
         return client
 
+    def test_rerank_card_uses_description_when_examples_are_absent(self):
+        candidate = {"title": "Reported statistic", "description": "Includes diabetes prevalence",
+                     "queries": []}
+        with mock.patch.dict(os.environ, {"ARD_RERANK_DESC": "0"}):
+            self.assertIn("Includes diabetes prevalence", index._card(0, candidate))
+            candidate["queries"] = ["What is the population of India?"]
+            self.assertNotIn("Includes diabetes prevalence", index._card(0, candidate))
+
     async def test_many_query_texts_reach_retrieval_without_truncation(self):
         received = []
         async def search(texts, *args, **kwargs):

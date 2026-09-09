@@ -25,6 +25,13 @@ def extracted(**overrides):
 
 
 class ThreeRoundTests(unittest.IsolatedAsyncioTestCase):
+    def test_selection_prompt_requires_api_dependent_alternative_plans(self):
+        self.assertIn('lookup.scalar', qu.SELECT)
+        self.assertIn('lookup.binary', qu.SELECT)
+        self.assertIn('reduce.streaming', qu.SELECT)
+        self.assertIn('How many people in Texas have diabetes?', qu.SELECT)
+        self.assertIn('lookup.binary is a plausible route', qu.EXTRACT)
+
     async def test_entity_attribute_interpretations_survive_extraction(self):
         alternatives=[{'entity':'Microsoft Corporation','attribute':a,'description':a}
                       for a in ('revenue','number of employees')]

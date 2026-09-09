@@ -587,7 +587,11 @@ def _fetch_spec(f):
     if f.fm.get("fetch"):
         return f.fm["fetch"]
     src = f.fm.get("source")
-    if not src:
+    # In the original NeuralKG corpus ``source`` is a relative link to a shared
+    # access document.  OKF also permits a structured source description (for
+    # example Atlas uses {kind: datacommons, api: observation}).  That object is
+    # metadata for a registered accessor, never a filesystem path.
+    if not isinstance(src, (str, bytes, os.PathLike)):
         return None
     path = os.path.normpath(os.path.join(os.path.dirname(f.ident), src))
     if path not in _FETCH_SPEC_CACHE:

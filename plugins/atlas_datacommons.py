@@ -49,7 +49,10 @@ class Client:
     def __init__(self, context):
         self.context=context; self.cfg=config(); self.base=self.cfg.get('api_base','https://api.datacommons.org/v2').rstrip('/')
         self.key=self.cfg.get('api_key') or os.getenv(self.cfg.get('api_key_env','DC_API_KEY'),'')
-        if not self.key: raise runtime.Refused('Data Commons API key is not configured')
+        # This is a terminal server-credential failure, not evidence that a lower-ranked
+        # source should silently replace Data Commons.  AccessDenied deliberately bypasses
+        # the ordinary candidate backtracking and compatibility fallback paths.
+        if not self.key: raise runtime.AccessDenied('Data Commons API key is not configured')
         if context.http_client is None: raise runtime.Refused('Data Commons requires an async HTTP client')
         self.max_entities=int(self.cfg.get('max_entities',3500)); self.max_rows=int(self.cfg.get('max_rows',5000))
         self.max_bytes=int(self.cfg.get('max_response_bytes',32*1024*1024)); self.max_pages=int(self.cfg.get('max_pages',20))
