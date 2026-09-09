@@ -15,24 +15,13 @@ identity:
   description: Cited answers from Atlas public data, using the shared NeuralKG engine.
   placeholder: e.g. What is the population of India?
 
-# The browser application is still NeuralKG's shared client (including its named SSE stream,
-# local chat history, progress trace, source evidence and answer details).  These are presentation
-# choices only, closely matching atlasdata.world without bringing back Atlas's older, incompatible
-# Firebase/Gemini client.
+# Atlas owns its frontend word-for-word. Its small transport adapter consumes NeuralKG's named
+# NLWeb stream and keeps the local turn store; the shared query engine does not know which page
+# rendered the result.
 frontend:
-  body_class: instance-atlas
+  template: atlas/frontend.html
   stylesheet: atlas/frontend.css
-  sidebar_collapsed: true
-  show_chats: true
-  hero_mark: true
-  eyebrow: BUILT ON ARD + OKF, POWERED BY NEURALKG
-  hero_title: Ask large-scale data a question.
-  description: Ask about places, companies, demographics, public health, or markets. Atlas finds the right large-scale dataset, runs the query, and returns a cited answer with a visible audit trail.
-  navigation:
-    - {label: How it works, href: /how-it-works}
-    - {label: Catalog, href: /ard}
-    - {label: Implementation, href: /life-of-a-query}
-    - {label: GitHub, href: "https://github.com/rvguha/NeuralKG", external: true}
+  javascript: atlas/frontend.js
 
 domains:
   - name: company
@@ -79,7 +68,7 @@ source_examples:
     - What was the most popular baby name in the United States in 2020?
 
 examples:
-  - label: 🌍 Places & demographics
+  - label: Places & demographics — Data Commons
     dirs: [atlas]
     queries:
       - What is the population of India?
@@ -88,15 +77,46 @@ examples:
       - How has Brazil's GDP per capita changed since 2000?
       - Compare the fertility rate of Nigeria and Germany over the last 20 years.
       - What is the median age in Miami, Florida?
-  - label: 🗺️ Rankings across places
+  - label: Rankings across places — Data Commons
     dirs: [atlas]
     queries:
       - Which counties in California have the highest unemployment rate?
       - Rank US states by median household income, top 10.
       - Which ten countries in Africa have the lowest life expectancy?
+      - Rank the countries in Asia by CO2 emissions per capita.
       - Which US states have the highest obesity rate?
-  - label: 🏢 Companies & public records
+  - label: Public health
+    dirs: [atlas]
+    queries:
+      - How did COVID case rates change by year in Alameda County, CA?
+      - How did COVID-19 case rates change over time in Los Angeles County, CA?
+      - How many people in Texas have diabetes?
+  - label: Weather & air quality
+    dirs: [atlas]
+    queries:
+      - What was the average temperature in Chicago in 2023?
+      - Which US counties had the worst air quality last year?
+      - How has annual average PM2.5 in Los Angeles County changed over the last five years?
+  - label: Cities & crime
+    dirs: [atlas]
+    queries:
+      - What are the most common types of crime reported in Chicago?
+      - What are the most common 311 complaint types in New York City?
+      - How have motor-vehicle collisions in New York City trended by year?
+  - label: Climate & land — Earth Engine
+    dirs: [atlas]
+    queries:
+      - Which counties in California were the hottest in July 2025?
+      - Which Oregon counties have lost the most forest since 2000?
+  - label: Companies & SEC filings
     dirs: [atlas]
     queries:
       - What was Google's revenue in 2023?
+      - Revenue for Apple, Microsoft and Nvidia over the last five fiscal years.
+  - label: Elections, search & society
+    dirs: [atlas]
+    queries:
+      - Which candidates raised the most money in federal campaign contributions recently?
+      - Which committees received the largest individual contributions in the 2020 cycle?
+      - What were the top rising search terms in the United States most recently?
       - What was the most popular baby name in the United States in 2020?

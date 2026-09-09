@@ -50,6 +50,7 @@ import nlweb
 import runtime
 import extensions
 import stage_reports
+import instance_frontend
 from query_context import QueryContext
 from source_clients import AsyncSourceClients
 
@@ -477,9 +478,18 @@ def create_app(engine=harness.run, clients_factory=AsyncSourceClients):
 
     async def static(request):
         path = request.path_params.get("path", "")
-        if path == "": return HTMLResponse(harness.PAGE)
+        if path == "": return HTMLResponse(instance_frontend.page() or harness.PAGE)
         if path == 'flow':
             return RedirectResponse('/')
+        if path == "instance-frontend.css":
+            content = instance_frontend.asset("stylesheet")
+            return (Response(content, media_type="text/css", headers={"Cache-Control": "no-cache"})
+                    if content is not None else JSONResponse({"error": "not found"}, 404))
+        if path == "instance-frontend.js":
+            content = instance_frontend.asset("javascript")
+            return (Response(content, media_type="text/javascript",
+                             headers={"Cache-Control": "no-cache"})
+                    if content is not None else JSONResponse({"error": "not found"}, 404))
         if path == "chat-history.js":
             with open(os.path.join(os.path.dirname(__file__), "chat_history.js"), encoding="utf-8") as stream:
                 return Response(stream.read(), media_type="text/javascript",

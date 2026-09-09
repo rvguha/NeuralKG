@@ -11,7 +11,7 @@ Run as a CLI; the ASGI application in app.py owns HTTP serving:
   python3 harness.py "How much did Apple spend on R&D in 2023?"     # one-shot (prints JSON)
   python3 -m uvicorn app:app --host 127.0.0.1 --port 8099
 """
-import asyncio, functools, os, sys, json, math, re, html
+import asyncio, functools, os, sys, json, math, re
 import instance
 import extensions
 import runtime
@@ -2484,17 +2484,14 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8">
  @media(min-width:761px){.app-shell{transition:grid-template-columns .18s ease}.sidebar{transition:transform .18s ease}.app-shell.collapsed{grid-template-columns:0 minmax(0,1fr)}.app-shell.collapsed .sidebar{transform:translateX(-100%)}.pane-reopen{position:fixed;left:10px;top:12px;z-index:6;display:none;background:#fff;border:1px solid #e2e2de;color:#555;padding:5px 10px;border-radius:8px;font-size:1rem;line-height:1;cursor:pointer;box-shadow:0 1px 3px #0000000f}.pane-reopen:hover{background:#f4f4f1;color:#111}.app-shell.collapsed .pane-reopen{display:block}}
 @media(prefers-reduced-motion:reduce){.app-shell,.sidebar{transition:none}}
  @media(max-width:760px){.pane-toggle{display:none}.app-shell{display:block}.sidebar{transform:translateX(-100%);transition:transform .2s;width:min(86vw,300px);box-shadow:4px 0 18px #0002}.sidebar.open{transform:none}.main{display:block}.mobile-bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #eee;position:sticky;top:0;background:#fffc;backdrop-filter:blur(10px);z-index:4}.menu-button{background:transparent;color:#333;padding:5px 9px;font-size:1.2rem}.content{padding-top:20px}}
-</style><!--INSTANCE_STYLES--></head><body class="<!--INSTANCE_BODY_CLASS-->">
-<!--INSTANCE_HEADER-->
-<div class="app-shell" id="app-shell" data-sidebar-default="<!--INSTANCE_SIDEBAR_DEFAULT-->"><button id="pane-reopen" class="pane-reopen" type="button" title="Show chats" aria-label="Show chat history">›</button><aside id="sidebar" class="sidebar"><div class="brand"><span>Neural KG</span><button id="pane-toggle" class="pane-toggle" type="button" title="Hide chats" aria-label="Hide chat history" aria-expanded="true" aria-controls="sidebar">‹</button></div>
+</style></head><body>
+<div class="app-shell" id="app-shell"><button id="pane-reopen" class="pane-reopen" type="button" title="Show chats" aria-label="Show chat history">›</button><aside id="sidebar" class="sidebar"><div class="brand"><span>Neural KG</span><button id="pane-toggle" class="pane-toggle" type="button" title="Hide chats" aria-label="Hide chat history" aria-expanded="true" aria-controls="sidebar">‹</button></div>
 <button id="new-chat" class="new-chat" type="button">＋ New chat</button><div class="history-label">Chats</div>
 <div id="history-list" class="history-list"><div class="history-empty">Loading chats…</div></div></aside>
 <main class="main"><div class="mobile-bar"><button id="menu-button" class="menu-button" type="button">☰</button><b>Neural KG</b></div><div class="content">
-<section class="instance-hero"><div class="instance-hero-mark" aria-hidden="true"><!--INSTANCE_HERO_MARK--></div><!--INSTANCE_EYEBROW-->
 <h1>Neural KG</h1>
 <p class="byline"><a href="https://github.com/GoogleCloudPlatform/knowledge-catalog/tree/main/okf" style="color:inherit;text-decoration:underline;text-decoration-color:#bbb;text-underline-offset:3px">OKF</a> + <a href="https://agenticresourcediscovery.org/" style="color:inherit;text-decoration:underline;text-decoration-color:#bbb;text-underline-offset:3px">ARD</a></p>
 <p class="sub">Ask a question in plain English. An ARD Agent Finder discovers which dataset answers it; the data is fetched live, the answer is checked, and the search backtracks until it actually answers your question. <a href="how-it-works" style="color:#1a73e8">How it works ›</a> · <a href="life-of-a-query" style="color:#1a73e8">Life of a query ›</a></p>
-</section>
 <form id="f"><input id="q" placeholder="e.g. Is the American Red Cross a 501(c)(3)?" autofocus><button id="b">Ask</button></form>
 <div id="out" class="transcript"></div>
 <div id="welcome">
@@ -2536,12 +2533,11 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8">
  async function showConversation(id){
    if(!CHAT_STORE)return;var turns=await CHAT_STORE.listConversation(id);
    welcome.hidden=turns.length>0;
-   document.body.classList.toggle('has-query',turns.length>0);
    out.innerHTML=turns.map(function(t){var answer=t.answer?esc(t.answer):(t.error?'<span class="turn-error">'+esc(t.error)+'</span>':'<span class="loading">Response interrupted</span>');return '<article class="turn"><div class="turn-user">'+esc(t.prompt||'')+'</div><div class="turn-assistant">'+answer+'</div><div class="turn-meta">'+esc(formatTurnTime(t.completed_at||t.started_at))+'</div></article>';}).join('');
    window.scrollTo(0,0);renderHistory();document.getElementById('sidebar').classList.remove('open');
  }
  function selectConversation(id){CONVERSATION_ID=CHAT_STORE.selectConversation(id);showConversation(id);}
- function newChat(){CONVERSATION_ID=CHAT_STORE.newConversation();ACTIVE_TURN=null;out.innerHTML='';welcome.hidden=false;document.body.classList.remove('has-query');q.value='';renderHistory();q.focus();document.getElementById('sidebar').classList.remove('open');}
+ function newChat(){CONVERSATION_ID=CHAT_STORE.newConversation();ACTIVE_TURN=null;out.innerHTML='';welcome.hidden=false;q.value='';renderHistory();q.focus();document.getElementById('sidebar').classList.remove('open');}
  document.getElementById('new-chat').onclick=newChat;
  document.getElementById('menu-button').onclick=function(){document.getElementById('sidebar').classList.toggle('open');};
  (function(){var shell=document.getElementById('app-shell'),KEY='nkg.sidebar.collapsed',
@@ -2553,8 +2549,7 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8">
    if(persist){try{localStorage.setItem(KEY,collapsed?'1':'0');}catch(e){}}}
   // localStorage throws outright in some privacy modes, not just returns null.
   var saved=null;try{saved=localStorage.getItem(KEY);}catch(e){}
-  var defaultCollapsed=shell.getAttribute('data-sidebar-default')==='collapsed';
-  apply(saved===null?defaultCollapsed:saved==='1',false);
+  apply(saved==='1',false);
   hide.onclick=function(){apply(true,true);show.focus();};
   show.onclick=function(){apply(false,true);hide.focus();};
  })();
@@ -2602,7 +2597,6 @@ PAGE = r"""<!doctype html><html><head><meta charset="utf-8">
  });
  f.onsubmit=async function(e){e.preventDefault();var question=q.value.trim();if(!question)return;
    welcome.hidden=true;
-   document.body.classList.add('has-query');
    b.disabled=true;
    TURN_MESSAGES=[];TURN_TERMINAL=null;TURN_ERROR=null;TURN_FINISHED=false;ACTIVE_TURN=null;
    if(CHAT_STORE&&CONVERSATION_ID){try{
@@ -3223,75 +3217,3 @@ if _INSTANCE_NAME != "Neural KG":
                .replace("<b>Neural KG</b>", f"<b>{_INSTANCE_NAME}</b>")
     ARD_PAGE = ARD_PAGE.replace("Neural KG", _INSTANCE_NAME)
     HOW_PAGE = HOW_PAGE.replace("Neural KG", _INSTANCE_NAME)
-
-
-def _frontend_markup(frontend):
-    """Render the small, trusted presentation vocabulary from instance YAML.
-
-    Config supplies text and links, never executable markup.  This keeps Atlas-specific copy out
-    of the shared client and avoids reviving the old second frontend with its incompatible SSE
-    event protocol.
-    """
-    if not frontend:
-        return ""
-    nav = frontend.get("navigation") or []
-    links = []
-    for item in nav:
-        if not isinstance(item, dict) or not item.get("label") or not item.get("href"):
-            continue
-        target = ' target="_blank" rel="noopener"' if item.get("external") else ""
-        links.append(f'<a href="{html.escape(str(item["href"]), quote=True)}"{target}>'
-                     f'{html.escape(str(item["label"]))}</a>')
-    if frontend.get("show_chats", True):
-        links.insert(0, '<button class="site-chats" type="button" data-open-chats>Chats</button>')
-    if not links and not frontend.get("header"):
-        return ""
-    name = html.escape(_INSTANCE_NAME)
-    return (f'<header class="site-header"><a class="site-wordmark" href="/">'
-            '<span class="site-logo" aria-hidden="true"></span>'
-            f'<span>{name}</span></a><nav>{"".join(links)}</nav></header>')
-
-
-_FRONTEND = instance.frontend()
-_BODY_CLASS = str(_FRONTEND.get("body_class") or "").strip()
-_SIDEBAR_DEFAULT = "collapsed" if _FRONTEND.get("sidebar_collapsed") else "open"
-_HEADER = _frontend_markup(_FRONTEND)
-_EYEBROW = (f'<div class="instance-eyebrow">{html.escape(str(_FRONTEND["eyebrow"]))}</div>'
-             if _FRONTEND.get("eyebrow") else "")
-_HERO_MARK = '<span class="hero-logo"></span>' if _FRONTEND.get("hero_mark") else ""
-
-PAGE = (PAGE.replace("<!--INSTANCE_BODY_CLASS-->", html.escape(_BODY_CLASS, quote=True))
-            .replace("<!--INSTANCE_SIDEBAR_DEFAULT-->", _SIDEBAR_DEFAULT)
-            .replace("<!--INSTANCE_HEADER-->", _HEADER)
-            .replace("<!--INSTANCE_EYEBROW-->", _EYEBROW)
-            .replace("<!--INSTANCE_HERO_MARK-->", _HERO_MARK))
-
-if _FRONTEND.get("hero_title"):
-    PAGE = PAGE.replace(f"<h1>{html.escape(_INSTANCE_NAME)}</h1>",
-                        f'<h1>{html.escape(str(_FRONTEND["hero_title"]))}</h1>', 1)
-if _FRONTEND.get("description"):
-    _description = html.escape(str(_FRONTEND["description"]))
-    PAGE = re.sub(r'<p class="sub">.*?</p>', f'<p class="sub">{_description}</p>', PAGE,
-                  count=1, flags=re.DOTALL)
-
-_stylesheet = str(_FRONTEND.get("stylesheet") or "").strip()
-if _stylesheet:
-    _style_path = os.path.realpath(os.path.join(os.path.dirname(instance.path()), _stylesheet))
-    _instance_dir = os.path.realpath(os.path.dirname(instance.path()))
-    if os.path.commonpath((_instance_dir, _style_path)) != _instance_dir:
-        raise ValueError("frontend.stylesheet must be inside the instance directory")
-    with open(_style_path, encoding="utf-8") as _styles:
-        PAGE = PAGE.replace("<!--INSTANCE_STYLES-->", f"<style>{_styles.read()}</style>")
-else:
-    PAGE = PAGE.replace("<!--INSTANCE_STYLES-->", "")
-
-# A configured top bar can open the same local chat-history drawer.  This is presentation only;
-# the IndexedDB store and conversation semantics remain the shared client implementation.
-if _HEADER:
-    PAGE = PAGE.replace("</script></body></html>", """</script><script>
-document.querySelectorAll('[data-open-chats]').forEach(function(button){button.onclick=function(){
- var shell=document.getElementById('app-shell'),sidebar=document.getElementById('sidebar');
- if(window.matchMedia('(max-width:760px)').matches)sidebar.classList.add('open');
- else{shell.classList.remove('collapsed');try{localStorage.setItem('nkg.sidebar.collapsed','0');}catch(e){}}
-};});
-</script></body></html>""")

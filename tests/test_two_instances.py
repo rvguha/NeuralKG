@@ -39,13 +39,17 @@ class TwoInstanceTests(unittest.TestCase):
         self.assertTrue(any(d['identifier'].endswith('dc_indicator_for_place.md') for d in docs))
 
     def test_atlas_selects_its_frontend_without_forking_the_client(self):
-        code = ("import json, harness; print(json.dumps({"
-                "'atlas': 'class=\"instance-atlas\"' in harness.PAGE,"
-                "'header': 'class=\"site-header\"' in harness.PAGE,"
-                "'hero': 'Ask large-scale data a question.' in harness.PAGE,"
-                "'history': 'chat-history.js' in harness.PAGE,"
-                "'stream': 'sse_format=named' in harness.PAGE,"
-                "'trace': 'How this answer was produced' in harness.PAGE}))")
+        code = ("import json, instance_frontend; p=instance_frontend.page(); "
+                "j=instance_frontend.asset('javascript'); print(json.dumps({"
+                "'title': 'Atlas — ask large-scale data a question' in p,"
+                "'landing': 'Built on ARD + OKF, answered by Gemini' in p,"
+                "'copy': 'Why it&amp;#39;s not just a chatbot' in p or "
+                          "\"Why it's not just a chatbot\" in p,"
+                "'ask': 'Ask a question your data can answer…' in p,"
+                "'trace': 'Life of this query' in p,"
+                "'walkthrough': 'Walkthrough — what Atlas did' in p,"
+                "'history': 'chat-history.js' in p,"
+                "'stream': 'sse_format=named' in j}))")
         env = {**os.environ, 'INSTANCE_CONFIG': str(ROOT / 'instances' / 'atlas.yaml'),
                'ARD_STORE': 'json'}
         rendered = subprocess.check_output([os.sys.executable, '-c', code], cwd=ROOT, env=env,
@@ -54,7 +58,7 @@ class TwoInstanceTests(unittest.TestCase):
 
         default = subprocess.check_output(
             [os.sys.executable, '-c',
-             "import harness; print('class=\"site-header\"' not in harness.PAGE)"],
+             "import instance_frontend; print(instance_frontend.page() is None)"],
             cwd=ROOT, env={**os.environ, 'INSTANCE_CONFIG': str(ROOT / 'instance.yaml'),
                            'ARD_STORE': 'json'}, text=True).strip()
         self.assertEqual(default, 'True')
