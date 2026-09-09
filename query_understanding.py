@@ -24,6 +24,11 @@ Return JSON with "bindings" (object keyed only by declared slot names), "entitie
 Distinguish missing parameters from missing data. "missing" records unknown slot bindings or clarification needs; "acquisition_queries" requests the external data required by the plan, even when every parameter is known. Knowing an entity, measure and period does NOT supply its value. For example, "What was AMD's total revenue in 2023?" still requires an acquisition request for AMD total revenue in 2023 even if missing is [].
 For a plausible plan containing external reads or discovery, acquisition_queries must be nonempty and describe every required input in natural language. Do not use this list to ask the user for internal slot names, arithmetic expressions, dataset identifiers, or already-specified parameters. Unknown parameters can remain explicitly unspecified in the data requests; do not invent them. Do not assume data has already been fetched. Inapplicable approaches may have an empty list.
 Retain entity descriptions and possible identities for later crosswalk. Do not resolve identifiers from memory. Leave unspecified periods unspecified; 'all dollars' does not mean 'all time'. Do not invent statistics or slot bindings. An unknown source capability is a requirement for later planning, not grounds to declare the shape inapplicable. Do not choose between this approach and other shapes.'''
+EXTRACT += '''
+Also return interpretations: a list of {entity: string, attribute: string, description: string}.
+Use this when the question plausibly refers to different real entities or different attributes; these will ALL be answered using ordinary data calls, not presented as a clarification question. For "How big is Microsoft?", give separate attributes revenue, total assets, market capitalization and number of employees for Microsoft Corporation. For an unqualified place name retain plausible city/county identities with fully qualified names; San Francisco city and county can be coextensive, so do not duplicate the same identity. For a club versus its separately registered foundation, or a university versus a separately registered board/trust, retain genuinely plausible distinct identities, not aliases. Do not invent identifiers or organizations. Do not include a related entity excluded by explicit wording. Do not treat an explicit comparison of named entities, arithmetic operands, required input measures, or alternative execution templates as ambiguous interpretations: those stay one question. If both entity and attribute vary, include the meaningful combinations. Each entry pins only entity/attribute; all other original constraints remain unchanged. Return [] when there is only one interpretation. Descriptions explain the distinction. Do not assume source availability and do not ask the user to choose.'''
+EXTRACT += '''
+Entity scope examples: "Obesity rate in Miami" must retain City of Miami, Florida and Miami-Dade County, Florida as separately labeled interpretations, rather than leaving both entities as "Miami". "Is the Sierra Club a 501(c)(3)?" retains Sierra Club and Sierra Club Foundation as distinct organization interpretations, with the SAME 501(c)(3) predicate. The bare organization's familiar name is not itself an explicit exclusion of its foundation. Wording such as "the city, not the county", "Sierra Club itself, excluding the foundation", or an explicit canonical identifier DOES exclude other identities. Prioritize these entity distinctions rather than manufacturing different measures while leaving an ambiguous entity unresolved. Keep the full specific measure wording, not generic eligibility or size.'''
 
 
 def load_catalog():
@@ -120,6 +125,11 @@ async def understand(question, *, context):
                 raise ValueError('Expected binding object')
             if set(result['bindings']) - set(shape['slots']):
                 raise ValueError('Undeclared slot binding')
+            interpretations=result.setdefault('interpretations',[])
+            if not isinstance(interpretations,list) or any(not isinstance(i,dict) or
+                not all(isinstance(i.get(k),str) for k in ('entity','attribute','description')) or
+                not (i['entity'].strip() or i['attribute'].strip()) for i in interpretations):
+                raise ValueError('Interpretations require entity, attribute and description strings')
             for key in ('entities','measures','periods','missing','acquisition_queries'):
                 if not isinstance(result.get(key),list): raise ValueError('Expected list: '+key)
             for entity in result['entities']:
@@ -139,7 +149,7 @@ async def understand(question, *, context):
                 raise ValueError('Plan requires external data: acquisition_queries must describe required inputs even when all parameters are bound')
         try:
             output = await call(EXTRACT, {'shape':shape}, 'understand-extract', validate)
-            fields = ('bindings','entities','measures','periods','missing','acquisition_queries','applicability','reason')
+            fields = ('bindings','entities','measures','periods','missing','acquisition_queries','applicability','reason','interpretations')
             return {'shape':identifier, 'status':'ok', **{k:output[k] for k in fields}, 'requirements':shape.get('requires',{}), 'plan_template':shape['plan']}
         except runtime.QueryCancelled:
             raise

@@ -1027,6 +1027,8 @@ async def discover_async(question, sites=None, assumptions=None, *, context, _un
     ctx = await (_understand or query_understanding_async)(question, context=context)
     if 'candidates' in ctx:
         context.memo['understanding'] = ctx
+        if not context.interpretation_bound and _extracted_interpretations(ctx):
+            return ctx, []  # Each interpretation makes the ordinary discovery calls.
         if assumptions:
             raise runtime.Refused('Legacy assumptions cannot overwrite independent template candidates')
         queries = list(dict.fromkeys(q for c in ctx['candidates'] if c.get('status') == 'ok' and c.get('applicability') != 'inapplicable'
@@ -2155,6 +2157,41 @@ async def _run_correlate_async(question, ctx, *, context):
             "caveats": ["correlation is not causation", "this is an ecological correlation"]}
 
 
+def _extracted_interpretations(understanding):
+    # Use one extraction's coherent set, not a union of execution approaches.
+    for candidate in understanding.get('candidates',[]):
+        if candidate.get('status')!='ok' or candidate.get('applicability')!='plausible':
+            continue
+        unique={}
+        for item in candidate.get('interpretations',[]):
+            key=(item['entity'].strip().casefold(),item['attribute'].strip().casefold())
+            unique.setdefault(key,item)
+        if len(unique)>1:return list(unique.values())
+    return []
+
+
+async def _answer_interpretations(question, interpretations, *, sites, context):
+    async def answer(item, child):
+        child.interpretation_bound=True
+        child.defer_render=True
+        scoped=question+'\nFor this answer, interpret the entity and attribute as: '+json.dumps(item,ensure_ascii=False)+'. Preserve every other constraint in the original question.'
+        try:
+            result=await run(scoped,sites=sites,on_ambiguity='all',context=child)
+            return {'interpretation':item,'result':result}
+        except (runtime.QueryCancelled,runtime.QueryBudgetExceeded):
+            raise
+        except (runtime.Refused,ard_client.DiscoveryError) as exc:
+            return {'interpretation':item,'status':'unavailable','error':str(exc)}
+    await _asay(context,'status',icon='🔎',msg=f'Answering {len(interpretations)} entity/attribute interpretations separately…')
+    answers=await _ordered(context,[lambda child,item=item:answer(item,child) for item in interpretations])
+    data={'interpretation_answers':answers,'aggregation':'collection only; never sum across interpretations'}
+    rendered=await TK.synthesize_async(question,data,context=context)
+    return {'question':question,'shape':'multiple-interpretations','answer':rendered,
+            'answer_renderer':'llm-synthesis','plan':'Same execution flow for each extracted interpretation',
+            'data':data,'evidence':{'kind':'interpretations','payload':data},'candidates':[],
+            'usage':context.usage_ledger.snapshot(),'discovery_usage':context.discovery_ledger.snapshot()}
+
+
 async def run(question, sites=None, assumptions=None, on_ambiguity="answer", *, context=None, _compatibility=False):
     """Complete event-loop-native engine, including every composite plan."""
     owned_clients = None
@@ -2190,6 +2227,9 @@ async def run(question, sites=None, assumptions=None, on_ambiguity="answer", *, 
             try:
                 ctx, hits = await discover_async(question,sites=sites,assumptions=assumptions,context=context)
                 if 'candidates' in ctx:
+                    interpretations=_extracted_interpretations(ctx)
+                    if interpretations and not context.interpretation_bound:
+                        return await _answer_interpretations(question,interpretations,sites=sites,context=context)
                     import template_execution
                     result = await template_execution.run(question,ctx,hits,context=context)
                     result['execution_path'] = 'template'

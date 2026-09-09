@@ -1,0 +1,3774 @@
+proposal:
+  author: codex
+  status: independent proposal; not runtime catalog
+  baseline_sha256: fb7de52ee9b2adcb3740b74754ec6e144ddaa2b9e089d450f97150897c4a11f3
+  baseline_count: 98
+  reduced_count: 76
+  identity: typed parameterized operator/dependency template
+  scope: Reduce the 98-entry baseline, preserving ambiguous originals as explicit routing branches; no automatic
+    rewrite of evaluation labels.
+rules:
+- Physical API adapters may realize a declared input contract; they may not hide additional logical joins,
+  reductions or model fits.
+- A precomputed answer can discharge a computation only with equivalent grain, definition, period, scope and
+  evidence. It does not globally merge that computation with lookup.
+- All enumerations, joins, reductions, statistical kernels and dependent acquisitions remain explicit nodes.
+- Constants, field coordinates, projection, named finite fan-out cardinality and declared kernel arguments
+  are bindings, not catalog entries.
+- Boolean predicate identity, lag zero and relative slice zero are legal neutral bindings; arbitrary optional
+  stages are not.
+- 'A route is not chosen just from a legacy label: bind requested computation and advertised input capabilities
+  first. If underspecified, clarify; if unavailable, report infeasible.'
+- These are design-level DAGs, not executable plans. Operator contracts below and routing prose require implementation
+  before automated equivalence can be claimed.
+parameter_contracts:
+  bin_rule:
+    enum:
+    - equal_width_from_min_max
+    contract: DeriveBins uses one streaming min/max pass. Quantile-derived bins require a separate order-statistic
+      plan, not a new name for this binding.
+  test_method:
+    enum:
+    - welch_two_sample_t
+    contract: TwoSampleTest computes per-sample moments, Welch statistic/degrees of freedom and its tail probability.
+      Other test algorithms are not silently interchangeable.
+  model_spec:
+    enum:
+    - ordinary_least_squares
+    contract: Predictor columns, intercept, training population and rank-deficiency policy must be specified.
+      No model selection or hyperparameter search hidden in FitModel.
+  baseline_spec:
+    type: supplied linear-model coefficients and feature schema
+    contract: Evaluation only; no fitting.
+  acceleration_summary:
+    enum:
+    - return_second_differences
+    - sign_of_mean_second_difference
+    contract: A fixed second-difference summary, never an unspecified model fit.
+  scalar_expression:
+    language: finite pure arithmetic/Boolean expression over supplied node values and constants
+    operators:
+    - identity
+    - add
+    - subtract
+    - multiply
+    - divide
+    - power
+    - abs
+    - sign
+    - compare
+    - and
+    - or
+    - not
+    forbidden:
+    - acquisition
+    - join
+    - group
+    - sort
+    - aggregation
+    - model_fit
+    required_policies:
+    - units
+    - 'null'
+    - zero_denominator
+  stream_kernel:
+    enum:
+    - count
+    - sum
+    - mean
+    - min
+    - max
+    - range
+    - variance
+    - stddev
+    - weighted_mean
+    - predicate_count
+    - conditional_counts
+    - sum_and_sum_squares
+    - pearson_moments
+    contract: Declared finite-state accumulator; conditional_counts emits numerator and denominator; weights
+      and predicate fields must already be present. No distinct sets, quantiles, arbitrary reducers or subqueries.
+  row_predicate:
+    language: Boolean combination of comparisons over available fields and constants; true allowed
+    contract: No reads or aggregates; null uses explicitly bound three-valued semantics.
+  join_mode:
+    enum:
+    - inner
+    - left
+    contract: One declared equijoin kernel; mode changes match emission, not input topology.
+  match_polarity:
+    enum:
+    - has_match
+    - has_no_match
+  temporal_direction:
+    enum:
+    - backward
+    - forward
+    - either
+    contract: One temporal-neighbor operator with an explicit direction guard and tolerance; valid-time interval
+      constraints must hold.
+  relation_path:
+    type: finite nonempty ordered relation list of length >= 2
+    contract: RepeatTraverse loops over this list. Each iteration is the same edge traversal operation, never
+      an arbitrary embedded plan.
+  ordering:
+    type: available field(s), ASC/DESC, null ordering
+  limit:
+    type: positive integer or all
+  projection:
+    type: available output fields; no hidden computation or acquisition
+  absence_claim:
+    enum:
+    - no_record_in_scoped_dataset
+    - authoritative_nonmembership
+    contract: The latter needs completeness/negative-evidence proof. A missing record does not establish an
+      absent real-world fact.
+  alignment:
+    type: explicit identity/time keys, cardinality and unmatched-row policy
+    contract: No implicit entity crosswalk; a missing crosswalk is an unmet input requirement.
+  population:
+    type: enumerable relation scope with required fields, predicates, grain and coverage evidence
+  actor_description:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  allocation_model:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  allocation_rule:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  bin_boundary_policy:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  bin_edges:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  boolean_polarity:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  boundary_key:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  candidate_population:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  change_formulas:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  comparison_expression:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  contribution_key:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  cycle_policy:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  descriptor_key:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  discovery_scope:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  distance_metric:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  distinct_keys:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  empty_set_policy:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  endpoint_populations:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  entity_key:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  entity_keys:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  event_selector:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  geography_pair:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  gini_convention:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  group_keys:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  interval_boundary_policy:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  lag:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  measure:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  missing_policy:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  percentile_convention:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  periods:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  point_key:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  population_pair:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  populations:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  quantile_convention:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  quantiles:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  radius:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  relation_population:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  relative_offsets:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  release:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  release_pair:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  reporting_basis:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  required_population:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  residual_selection:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  root_key:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  rule_semantics:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  scalar_coordinates:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  scalar_operand_pairs:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  scalar_operands:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  seed_population:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  series_coordinates:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  series_pair:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  significance_level:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  spacing_policy:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  spatial_predicate:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  ties:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  time_alignment:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  tolerance:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+  traversal_scope:
+    type: explicit typed binding
+    contract: Must be supplied or clarified; may bind values or a declared operator-specific method, never
+      insert a subplan.
+global_guards:
+- Required fields/keys, predicate support, ordering direction, pagination and completeness must be proved for
+  each concrete input operation.
+- Preserve output grain, multiplicity, tie convention, units, temporal basis, identity alignment and missing-data
+  semantics.
+- Incomplete enumerations cannot support exact totals, negative existence, full ranking or universal claims
+  absent another completeness proof.
+- Ambiguous statistic, allocation model, test, predictive model or temporal convention must be bound or clarified,
+  not invented.
+patterns:
+- id: lookup.scalar
+  title: Read a bound value and optionally test it
+  applies_when: One scalar or direct edge assertion; freshness metadata is co-delivered. A latest-period discovery
+    dependency uses lookup.event-bound instead.
+  parameters:
+  - scalar_expression
+  - scalar_coordinates
+  - projection
+  plan:
+  - id: a
+    operator: ReadScalar
+    inputs: []
+  - id: b
+    operator: Scalar
+    inputs:
+    - a
+  output: b
+  covers:
+  - point.value
+  - point.status
+  - point.categorical
+  - point.threshold-check
+  - time.latest-vintage
+  - relation.existence
+- id: lookup.record
+  title: Read a complete entity record or published component vector
+  applies_when: Publisher supplies the requested record/vector; constructing a breakdown from contributions
+    uses reduce.grouped.
+  parameters:
+  - entity_key
+  - projection
+  plan:
+  - id: a
+    operator: ReadRecord
+    inputs: []
+  - id: b
+    operator: Project
+    inputs:
+    - a
+  output: b
+  covers:
+  - point.record
+  - point.breakdown
+- id: lookup.binary
+  title: Compute from two independently bound scalar operands
+  applies_when: Two supplied values; annualized means endpoint CAGR; period-over-period uses supplied period
+    totals; geographic allocation weight is supplied. Derived operands and raw windows route separately.
+  parameters:
+  - scalar_coordinates
+  - scalar_expression
+  - projection
+  plan:
+  - id: a
+    operator: ReadScalar
+    inputs: []
+  - id: b
+    operator: ReadScalar
+    inputs: []
+  - id: c
+    operator: Scalar
+    inputs:
+    - a
+    - b
+  output: c
+  covers:
+  - point.ratio
+  - point.component-share
+  - change.absolute
+  - change.percent
+  - change.direction
+  - change.rate-annualized
+  - change.period-over-period
+  - comparison.difference
+  - source.agreement
+  - relation.geographic-disaggregation
+- id: lookup.version
+  title: Read the value from a specified release
+  applies_when: Version-addressable scalar input; do not substitute the present release.
+  parameters:
+  - release
+  - scalar_coordinates
+  - projection
+  plan:
+  - id: a
+    operator: ReadVersionedScalar
+    inputs: []
+  - id: b
+    operator: Project
+    inputs:
+    - a
+  output: b
+  covers:
+  - source.vintage
+- id: lookup.event-bound
+  title: Resolve a date then read the value at it
+  applies_when: Event date or latest available date must be discovered before binding the value request.
+  parameters:
+  - event_selector
+  - scalar_coordinates
+  - projection
+  plan:
+  - id: a
+    operator: ResolveDate
+    inputs: []
+  - id: b
+    operator: ReadScalar
+    inputs:
+    - a
+  - id: c
+    operator: Project
+    inputs:
+    - b
+  output: c
+  covers:
+  - time.level-at-event
+  - time.latest-vintage
+- id: records.select
+  title: Search or enumerate records and apply row-local predicates
+  applies_when: All tested fields are co-delivered. Owner/topic are predicate bindings; eligibility only when
+    already materialized. Explicit negative values support absence claims, missing rows do not.
+  parameters:
+  - population
+  - row_predicate
+  - projection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: Filter
+    inputs:
+    - a
+  - id: c
+    operator: Project
+    inputs:
+    - b
+  output: c
+  covers:
+  - records.for-entity
+  - records.matching
+  - filter.threshold
+  - filter.range
+  - filter.categorical
+  - filter.conjunction-all
+  - filter.disjunction-any
+  - filter.negation-closed
+  - filter.temporal-active
+  - topical.eligibility
+- id: series.values
+  title: Read and align one or more named trajectories
+  applies_when: Finite named entities with series-valued input; one entity is fan-out cardinality one.
+  parameters:
+  - entity_keys
+  - measure
+  - periods
+  - time_alignment
+  - projection
+  plan:
+  - id: a
+    operator: MapReadSeries
+    inputs: []
+  - id: b
+    operator: AlignTime
+    inputs:
+    - a
+  - id: c
+    operator: Project
+    inputs:
+    - b
+  output: c
+  covers:
+  - timeseries.single-entity
+  - timeseries.multi-entity
+- id: compare.values
+  title: Read named scalar operands side by side
+  applies_when: Each operand is a supplied scalar; period coordinates already bound, not a hidden resampling
+    or derived measure.
+  parameters:
+  - scalar_operands
+  - projection
+  plan:
+  - id: a
+    operator: MapReadScalar
+    inputs: []
+  - id: b
+    operator: Assemble
+    inputs:
+    - a
+  output: b
+  covers:
+  - comparison.values
+- id: compare.derived-values
+  title: Compute two-input measures for named candidates and display them
+  applies_when: Each operand requires two scalar acquisitions, e.g. per-capita normalization or endpoint growth.
+  parameters:
+  - scalar_operand_pairs
+  - scalar_expression
+  - projection
+  plan:
+  - id: a
+    operator: MapReadScalarPairs
+    inputs: []
+  - id: b
+    operator: MapScalar
+    inputs:
+    - a
+  - id: c
+    operator: Assemble
+    inputs:
+    - b
+  output: c
+  covers:
+  - comparison.values
+- id: compare.winner
+  title: Order a closed named set by supplied values
+  applies_when: The comparison measure is supplied, not computed from new operands.
+  parameters:
+  - scalar_operands
+  - ordering
+  - limit
+  - ties
+  - projection
+  plan:
+  - id: a
+    operator: MapReadScalar
+    inputs: []
+  - id: b
+    operator: Order
+    inputs:
+    - a
+  - id: c
+    operator: Take
+    inputs:
+    - b
+  - id: d
+    operator: Project
+    inputs:
+    - c
+  output: d
+  covers:
+  - comparison.which
+- id: compare.derived-winner
+  title: Order named candidates by a two-input computed measure
+  applies_when: Compute ratio, difference or growth per candidate before ordering.
+  parameters:
+  - scalar_operand_pairs
+  - scalar_expression
+  - ordering
+  - limit
+  - ties
+  - projection
+  plan:
+  - id: a
+    operator: MapReadScalarPairs
+    inputs: []
+  - id: b
+    operator: MapScalar
+    inputs:
+    - a
+  - id: c
+    operator: Order
+    inputs:
+    - b
+  - id: d
+    operator: Take
+    inputs:
+    - c
+  - id: e
+    operator: Project
+    inputs:
+    - d
+  output: e
+  covers:
+  - comparison.which
+  - comparison.growth
+- id: compare.derived-difference
+  title: Compare two independently computed two-input values
+  applies_when: Each compared value itself requires a pair of scalar reads and a formula.
+  parameters:
+  - scalar_operand_pairs
+  - scalar_expression
+  - comparison_expression
+  plan:
+  - id: a
+    operator: MapReadScalarPairs
+    inputs: []
+  - id: b
+    operator: MapScalar
+    inputs:
+    - a
+  - id: c
+    operator: Scalar
+    inputs:
+    - b
+  output: c
+  covers:
+  - comparison.difference
+- id: rank.population
+  title: Order an enumerable population and select an extreme prefix
+  applies_when: Includes bottom-N, N=1 and topical populations; all population scores must be comparable.
+  parameters:
+  - population
+  - ordering
+  - limit
+  - ties
+  - projection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: Order
+    inputs:
+    - a
+  - id: c
+    operator: Take
+    inputs:
+    - b
+  - id: d
+    operator: Project
+    inputs:
+    - c
+  output: d
+  covers:
+  - rank.top-n
+  - rank.extremum-single
+- id: rank.named-position
+  title: Find a named member's rank or surrounding members
+  applies_when: Locate a named rank and return a relative slice; radius zero returns its rank. Projection does
+    not perform another read.
+  parameters:
+  - population
+  - ordering
+  - ties
+  - entity_key
+  - relative_offsets
+  - projection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: Rank
+    inputs:
+    - a
+  - id: c
+    operator: Locate
+    inputs:
+    - b
+  - id: d
+    operator: RelativeSlice
+    inputs:
+    - c
+  - id: e
+    operator: Project
+    inputs:
+    - d
+  output: e
+  covers:
+  - rank.of-named-entity
+  - rank.neighbors
+- id: rank.reference-distance
+  title: Rank members by distance from a named reference value
+  applies_when: Closest values, not adjacent ordinal ranks. Absolute value distance can order neighbors differently
+    from rank distance.
+  parameters:
+  - scalar_coordinates
+  - population
+  - scalar_expression
+  - ordering
+  - limit
+  - ties
+  - projection
+  plan:
+  - id: a
+    operator: ReadScalar
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: MapScalar
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: Order
+    inputs:
+    - c
+  - id: e
+    operator: Take
+    inputs:
+    - d
+  - id: f
+    operator: Project
+    inputs:
+    - e
+  output: f
+  covers:
+  - rank.neighbors
+- id: rank.change
+  title: Rank two populations then compare member ranks
+  applies_when: Each endpoint requires population-wide ranking before alignment and rank subtraction.
+  parameters:
+  - population_pair
+  - ordering
+  - ties
+  - limit
+  - scalar_expression
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: Rank
+    inputs:
+    - a
+  - id: d
+    operator: Rank
+    inputs:
+    - b
+  - id: e
+    operator: AlignEntity
+    inputs:
+    - c
+    - d
+  - id: f
+    operator: MapScalar
+    inputs:
+    - e
+  - id: g
+    operator: Order
+    inputs:
+    - f
+  - id: h
+    operator: Take
+    inputs:
+    - g
+  output: h
+  covers:
+  - rank.change
+- id: rank.percentile
+  title: Locate a reference value in a population distribution
+  applies_when: Reference scalar and full comparison population are required; tied-value convention is explicit.
+  parameters:
+  - scalar_coordinates
+  - population
+  - percentile_convention
+  plan:
+  - id: a
+    operator: ReadScalar
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: ReferenceCounts
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: Scalar
+    inputs:
+    - c
+  output: d
+  covers:
+  - rank.percentile-of-entity
+- id: rank.grouped
+  title: Select extreme members independently within each group
+  applies_when: Group membership is co-delivered, with no hidden bridge or prior group aggregate.
+  parameters:
+  - population
+  - group_keys
+  - ordering
+  - limit
+  - ties
+  - projection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: Group
+    inputs:
+    - a
+  - id: c
+    operator: GroupOrder
+    inputs:
+    - b
+  - id: d
+    operator: GroupTake
+    inputs:
+    - c
+  - id: e
+    operator: Project
+    inputs:
+    - d
+  output: e
+  covers:
+  - rank.within-group
+- id: reduce.streaming
+  title: Reduce one relation with a declared fixed-state statistic
+  applies_when: Sum/count/mean/range/variance/stddev, paired weighted mean, conditional counts or HHI from
+    sum(x^2)/sum(x)^2; required values and weights/predicates co-delivered. IQR/quantiles, top-N share, Gini
+    and distinct counts use other templates.
+  parameters:
+  - population
+  - stream_kernel
+  - scalar_expression
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: StreamReduce
+    inputs:
+    - a
+  - id: c
+    operator: Scalar
+    inputs:
+    - b
+  output: c
+  covers:
+  - aggregate.sum
+  - aggregate.count
+  - aggregate.mean
+  - aggregate.spread
+  - aggregate.weighted-mean
+  - assoc.conditional-rate
+  - aggregate.concentration
+- id: reduce.quantiles
+  title: Compute one or more exact quantiles and optionally their difference
+  applies_when: Median is q=.5; IQR uses q=.25,.75 and subtracts results. No fixed-state approximation substituted.
+  parameters:
+  - population
+  - quantiles
+  - quantile_convention
+  - scalar_expression
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: OrderStatistics
+    inputs:
+    - a
+  - id: c
+    operator: Scalar
+    inputs:
+    - b
+  output: c
+  covers:
+  - aggregate.median
+  - aggregate.percentile-value
+  - aggregate.spread
+- id: reduce.distinct
+  title: Count distinct identities
+  applies_when: Identity resolution is explicit input contract; dedup keys are not raw row IDs unless requested.
+  parameters:
+  - population
+  - distinct_keys
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: Distinct
+    inputs:
+    - a
+  - id: c
+    operator: Count
+    inputs:
+    - b
+  output: c
+  covers:
+  - aggregate.count-distinct
+- id: reduce.histogram
+  title: Count rows in supplied numeric bins
+  applies_when: Bin edges are supplied constants; data-derived edges use reduce.adaptive-histogram.
+  parameters:
+  - population
+  - bin_edges
+  - bin_boundary_policy
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: Bin
+    inputs:
+    - a
+  - id: c
+    operator: Group
+    inputs:
+    - b
+  - id: d
+    operator: GroupCount
+    inputs:
+    - c
+  output: d
+  covers:
+  - aggregate.histogram
+- id: reduce.adaptive-histogram
+  title: Derive bin boundaries then bin and count the population
+  applies_when: The declared bin rule needs population statistics before binning.
+  parameters:
+  - population
+  - bin_rule
+  - bin_boundary_policy
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: DeriveBins
+    inputs:
+    - a
+  - id: c
+    operator: Bin
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: Group
+    inputs:
+    - c
+  - id: e
+    operator: GroupCount
+    inputs:
+    - d
+  output: e
+  covers:
+  - aggregate.histogram
+- id: reduce.grouped
+  title: Compute fixed-state aggregates at a supplied grouping grain
+  applies_when: Disjoint/co-delivered groups; sum/count/mean etc. Related counts may be filtered afterward.
+    Grouped distinct/quantile and bridge allocation are separate.
+  parameters:
+  - population
+  - group_keys
+  - stream_kernel
+  - row_predicate
+  - projection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: Group
+    inputs:
+    - a
+  - id: c
+    operator: GroupStreamReduce
+    inputs:
+    - b
+  - id: d
+    operator: Filter
+    inputs:
+    - c
+  - id: e
+    operator: Project
+    inputs:
+    - d
+  output: e
+  covers:
+  - aggregate.by-group
+  - point.breakdown
+  - filter.count-predicate
+- id: join.related-count
+  title: Count related records including candidates with zero matches
+  applies_when: Predicate may accept zero, so enumerate candidates independently and retain zero-match members.
+    Positive-count-only predicates can use reduce.grouped.
+  parameters:
+  - population_pair
+  - alignment
+  - group_keys
+  - row_predicate
+  - projection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: Group
+    inputs:
+    - b
+  - id: d
+    operator: GroupCount
+    inputs:
+    - c
+  - id: e
+    operator: LeftJoin
+    inputs:
+    - a
+    - d
+  - id: f
+    operator: FillUnmatchedCountZero
+    inputs:
+    - e
+  - id: g
+    operator: Filter
+    inputs:
+    - f
+  - id: h
+    operator: Project
+    inputs:
+    - g
+  output: h
+  covers:
+  - filter.count-predicate
+- id: reduce.grouped-distinct
+  title: Count distinct identities within each group
+  applies_when: Statistic=count-distinct, with co-delivered group membership.
+  parameters:
+  - population
+  - group_keys
+  - distinct_keys
+  - projection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: Distinct
+    inputs:
+    - a
+  - id: c
+    operator: Group
+    inputs:
+    - b
+  - id: d
+    operator: GroupCount
+    inputs:
+    - c
+  - id: e
+    operator: Project
+    inputs:
+    - d
+  output: e
+  covers:
+  - aggregate.by-group
+- id: reduce.grouped-quantile
+  title: Compute exact quantiles within each group
+  applies_when: Statistic=median or another quantile; group membership is co-delivered.
+  parameters:
+  - population
+  - group_keys
+  - quantiles
+  - quantile_convention
+  - projection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: Group
+    inputs:
+    - a
+  - id: c
+    operator: GroupOrderStatistics
+    inputs:
+    - b
+  - id: d
+    operator: Project
+    inputs:
+    - c
+  output: d
+  covers:
+  - aggregate.by-group
+- id: reduce.allocated-groups
+  title: Expand group membership, allocate contributions, then aggregate
+  applies_when: An explicit bridge supplies overlapping group membership. Allocation precedes sum/count/mean;
+    fractional count means allocated count, not ordinary integer count.
+  parameters:
+  - population
+  - group_keys
+  - contribution_key
+  - allocation_rule
+  - stream_kernel
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadMembership
+    inputs: []
+  - id: c
+    operator: Join
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: Distinct
+    inputs:
+    - c
+  - id: e
+    operator: Allocate
+    inputs:
+    - d
+  - id: f
+    operator: Group
+    inputs:
+    - e
+  - id: g
+    operator: GroupStreamReduce
+    inputs:
+    - f
+  output: g
+  covers:
+  - aggregate.by-group
+- id: reduce.bridge-distinct
+  title: Expand membership and count unique contributors per group
+  applies_when: Overlapping group bridge and count-distinct; deduplicate on group plus contributor. Fractional
+    distinct counts require clarification, not silent allocation.
+  parameters:
+  - population
+  - group_keys
+  - contribution_key
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadMembership
+    inputs: []
+  - id: c
+    operator: Join
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: Distinct
+    inputs:
+    - c
+  - id: e
+    operator: Group
+    inputs:
+    - d
+  - id: f
+    operator: GroupCount
+    inputs:
+    - e
+  output: f
+  covers:
+  - aggregate.by-group
+- id: reduce.bridge-quantile
+  title: Expand membership and calculate each group's exact quantile
+  applies_when: Full-to-each-group or explicitly selected exclusive membership. Fractional weighted quantile
+    is not implied by median.
+  parameters:
+  - population
+  - group_keys
+  - contribution_key
+  - quantiles
+  - quantile_convention
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadMembership
+    inputs: []
+  - id: c
+    operator: Join
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: Distinct
+    inputs:
+    - c
+  - id: e
+    operator: Group
+    inputs:
+    - d
+  - id: f
+    operator: GroupOrderStatistics
+    inputs:
+    - e
+  output: f
+  covers:
+  - aggregate.by-group
+- id: reduce.group-shares
+  title: Compute group totals then divide by their combined total
+  applies_when: Groups form a partition at the contribution grain; overlapping full allocations cannot claim
+    shares of the original total.
+  parameters:
+  - population
+  - group_keys
+  - stream_kernel
+  - scalar_expression
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: Group
+    inputs:
+    - a
+  - id: c
+    operator: GroupStreamReduce
+    inputs:
+    - b
+  - id: d
+    operator: StreamReduce
+    inputs:
+    - c
+  - id: e
+    operator: MapScalar
+    inputs:
+    - c
+    - d
+  output: e
+  covers:
+  - aggregate.share-by-group
+- id: reduce.top-share
+  title: Divide the top-N contribution sum by the population sum
+  applies_when: Concentration requested as top-N share.
+  parameters:
+  - population
+  - ordering
+  - limit
+  - ties
+  - scalar_expression
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: Order
+    inputs:
+    - a
+  - id: c
+    operator: Take
+    inputs:
+    - b
+  - id: d
+    operator: StreamReduce
+    inputs:
+    - c
+  - id: e
+    operator: StreamReduce
+    inputs:
+    - a
+  - id: f
+    operator: Scalar
+    inputs:
+    - d
+    - e
+  output: f
+  covers:
+  - aggregate.concentration
+- id: reduce.gini
+  title: Sort contributions and calculate the Lorenz-based Gini
+  applies_when: Concentration requested as Gini; negative-value convention must be supplied.
+  parameters:
+  - population
+  - gini_convention
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: Order
+    inputs:
+    - a
+  - id: c
+    operator: LorenzReduce
+    inputs:
+    - b
+  output: c
+  covers:
+  - aggregate.concentration
+- id: join.paired-reduce
+  title: Align two acquired measures then apply a fixed-state paired statistic
+  applies_when: Separately acquired weights/values or Pearson paired observations. Cardinality and missing-value
+    policy are explicit. Rank correlation requires ordering and uses assoc.population-ranks.
+  parameters:
+  - population_pair
+  - alignment
+  - missing_policy
+  - stream_kernel
+  - scalar_expression
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: AlignEntity
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: StreamReduce
+    inputs:
+    - c
+  - id: e
+    operator: Scalar
+    inputs:
+    - d
+  output: e
+  covers:
+  - aggregate.weighted-mean
+  - assoc.correlation-population
+- id: series.streaming
+  title: Reduce a series using a fixed-state statistic or predicate count
+  applies_when: Duration here means number of observed periods, as in the original definition. Sum, variance,
+    range and predicate count are kernels; elapsed duration needs an interval-weight contract.
+  parameters:
+  - series_coordinates
+  - stream_kernel
+  - scalar_expression
+  plan:
+  - id: a
+    operator: ReadSeries
+    inputs: []
+  - id: b
+    operator: StreamReduce
+    inputs:
+    - a
+  - id: c
+    operator: Scalar
+    inputs:
+    - b
+  output: c
+  covers:
+  - time.duration-above
+  - time.volatility
+  - time.cumulative-to-date
+- id: series.event-bound-reduction
+  title: Resolve an event boundary before acquiring and reducing observations
+  applies_when: For example funding since Maria when the date is not already resolved in the prompt bindings.
+  parameters:
+  - event_selector
+  - series_coordinates
+  - stream_kernel
+  - scalar_expression
+  plan:
+  - id: a
+    operator: ResolveDate
+    inputs: []
+  - id: b
+    operator: ReadSeries
+    inputs:
+    - a
+  - id: c
+    operator: StreamReduce
+    inputs:
+    - b
+  - id: d
+    operator: Scalar
+    inputs:
+    - c
+  output: d
+  covers:
+  - time.cumulative-to-date
+- id: series.quantiles
+  title: Compute exact series quantiles or their spread
+  applies_when: Dispersion requested as IQR or another order statistic.
+  parameters:
+  - series_coordinates
+  - quantiles
+  - quantile_convention
+  - scalar_expression
+  plan:
+  - id: a
+    operator: ReadSeries
+    inputs: []
+  - id: b
+    operator: OrderStatistics
+    inputs:
+    - a
+  - id: c
+    operator: Scalar
+    inputs:
+    - b
+  output: c
+  covers:
+  - time.volatility
+- id: series.growth-average
+  title: Average growth between successive observations
+  applies_when: Arithmetic average of observed periodic growth, rather than endpoint CAGR.
+  parameters:
+  - series_coordinates
+  - scalar_expression
+  - stream_kernel
+  plan:
+  - id: a
+    operator: ReadSeries
+    inputs: []
+  - id: b
+    operator: AdjacentPairs
+    inputs:
+    - a
+  - id: c
+    operator: MapScalar
+    inputs:
+    - b
+  - id: d
+    operator: StreamReduce
+    inputs:
+    - c
+  output: d
+  covers:
+  - change.rate-annualized
+- id: series.window-comparison
+  title: Aggregate each of two raw observation windows then compare
+  applies_when: Requested period totals must be computed from raw observations; dates alone do not supply those
+    totals.
+  parameters:
+  - series_pair
+  - stream_kernel
+  - scalar_expression
+  plan:
+  - id: a
+    operator: ReadSeries
+    inputs: []
+  - id: b
+    operator: ReadSeries
+    inputs: []
+  - id: c
+    operator: StreamReduce
+    inputs:
+    - a
+  - id: d
+    operator: StreamReduce
+    inputs:
+    - b
+  - id: e
+    operator: Scalar
+    inputs:
+    - c
+    - d
+  output: e
+  covers:
+  - change.period-over-period
+- id: series.acceleration
+  title: Calculate and summarize second differences
+  applies_when: Observation spacing and the acceleration summary rule must be bound; do not infer a regression
+    model.
+  parameters:
+  - series_coordinates
+  - spacing_policy
+  - acceleration_summary
+  plan:
+  - id: a
+    operator: ReadSeries
+    inputs: []
+  - id: b
+    operator: Difference
+    inputs:
+    - a
+  - id: c
+    operator: Difference
+    inputs:
+    - b
+  - id: d
+    operator: SummarizeAcceleration
+    inputs:
+    - c
+  output: d
+  covers:
+  - trend.acceleration
+- id: series.extreme-time
+  title: Find the time of an extreme observation
+  applies_when: Series-valued acquisition; return observation times, with explicit tie handling.
+  parameters:
+  - series_coordinates
+  - ordering
+  - limit
+  - ties
+  - projection
+  plan:
+  - id: a
+    operator: ReadSeries
+    inputs: []
+  - id: b
+    operator: Order
+    inputs:
+    - a
+  - id: c
+    operator: Take
+    inputs:
+    - b
+  - id: d
+    operator: Project
+    inputs:
+    - c
+  output: d
+  covers:
+  - time.extremum
+- id: series.first-match
+  title: Find the earliest observation satisfying a condition
+  applies_when: Chronological search, not maximum value. Crossing semantics are level threshold unless consecutive
+    crossing is explicitly requested.
+  parameters:
+  - series_coordinates
+  - row_predicate
+  - ties
+  - projection
+  plan:
+  - id: a
+    operator: ReadSeries
+    inputs: []
+  - id: b
+    operator: TimeOrder
+    inputs:
+    - a
+  - id: c
+    operator: Filter
+    inputs:
+    - b
+  - id: d
+    operator: Take
+    inputs:
+    - c
+  - id: e
+    operator: Project
+    inputs:
+    - d
+  output: e
+  covers:
+  - time.first-crossing
+- id: quantify.witness
+  title: Search for a witness or counterexample and return a Boolean
+  applies_when: ANY(predicate) or NOT ANY(NOT predicate); bind three-valued/null and empty-population semantics.
+    Negative witness search requires coverage.
+  parameters:
+  - population
+  - row_predicate
+  - boolean_polarity
+  - missing_policy
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: Test
+    inputs:
+    - a
+  - id: c
+    operator: Any
+    inputs:
+    - b
+  - id: d
+    operator: Scalar
+    inputs:
+    - c
+  output: d
+  covers:
+  - quantifier.universal
+  - quantifier.existential
+- id: join.enrich
+  title: Align two relations and return selected joined fields
+  applies_when: Equijoin kernel with explicit inner/left mode. Intersection projects unique shared keys. Cross-input
+    conjunction applies predicate to joined fields.
+  parameters:
+  - population_pair
+  - alignment
+  - join_mode
+  - row_predicate
+  - projection
+  - distinct_keys
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: Join
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: Filter
+    inputs:
+    - c
+  - id: e
+    operator: Project
+    inputs:
+    - d
+  - id: f
+    operator: DistinctIfRequested
+    inputs:
+    - e
+  output: f
+  covers:
+  - join.inner-enrichment
+  - join.outer-enrichment
+  - filter.conjunction-all
+- id: join.membership
+  title: Keep candidates with or without a matching related record
+  applies_when: Existence-index probe per candidate; match polarity is bound. Anti-match supports scoped record
+    absence; authoritative non-membership requires completeness evidence.
+  parameters:
+  - population_pair
+  - alignment
+  - match_polarity
+  - absence_claim
+  - projection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: BuildMembership
+    inputs:
+    - b
+  - id: d
+    operator: MembershipFilter
+    inputs:
+    - a
+    - c
+  - id: e
+    operator: Project
+    inputs:
+    - d
+  output: e
+  covers:
+  - filter.existence
+  - filter.negation-open
+  - set.difference
+- id: set.union
+  title: Combine independently enumerated qualifying sets and deduplicate
+  applies_when: Disjunction whose alternatives are separately enumerated; do not require a match in both sets.
+  parameters:
+  - populations
+  - distinct_keys
+  plan:
+  - id: a
+    operator: MapReadRows
+    inputs: []
+  - id: b
+    operator: Union
+    inputs:
+    - a
+  - id: c
+    operator: Distinct
+    inputs:
+    - b
+  output: c
+  covers:
+  - filter.disjunction-any
+- id: set.symmetric-difference
+  title: Return members present in exactly one of two sets
+  applies_when: Both directional differences, not one anti-match with a direction binding.
+  parameters:
+  - population_pair
+  - alignment
+  - distinct_keys
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: AntiJoin
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: AntiJoin
+    inputs:
+    - b
+    - a
+  - id: e
+    operator: Union
+    inputs:
+    - c
+    - d
+  - id: f
+    operator: Distinct
+    inputs:
+    - e
+  output: f
+  covers:
+  - set.symmetric-difference
+- id: join.double-change
+  title: Compute two changes per aligned entity and test their relationship
+  applies_when: Four endpoint populations; same or independent windows, AND/OR or sign relation are bindings.
+    Outer alignment for OR uses unknown semantics, never coerces missing to zero.
+  parameters:
+  - endpoint_populations
+  - alignment
+  - change_formulas
+  - row_predicate
+  - missing_policy
+  - projection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: ReadRows
+    inputs: []
+  - id: d
+    operator: ReadRows
+    inputs: []
+  - id: e
+    operator: AlignEndpoints
+    inputs:
+    - a
+    - b
+    - c
+    - d
+  - id: f
+    operator: MapChanges
+    inputs:
+    - e
+  - id: g
+    operator: Filter
+    inputs:
+    - f
+  - id: h
+    operator: Project
+    inputs:
+    - g
+  output: h
+  covers:
+  - multi.change-conjunction-all
+  - multi.change-disjunction-any
+  - multi.direction-relation
+  - multi.independent-windows
+- id: join.change-and-level
+  title: Compute one change and combine it with another level
+  applies_when: 'Three acquisitions: two change endpoints plus one level; independently bound windows do not
+    add another shape.'
+  parameters:
+  - endpoint_populations
+  - alignment
+  - change_formulas
+  - row_predicate
+  - missing_policy
+  - projection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: ReadRows
+    inputs: []
+  - id: d
+    operator: AlignEndpoints
+    inputs:
+    - a
+    - b
+    - c
+  - id: e
+    operator: MapChanges
+    inputs:
+    - d
+  - id: f
+    operator: Filter
+    inputs:
+    - e
+  - id: g
+    operator: Project
+    inputs:
+    - f
+  output: g
+  covers:
+  - multi.change-plus-level
+  - multi.independent-windows
+- id: join.filter-rank
+  title: Filter on one acquired measure then rank by another
+  applies_when: Two population inputs followed by alignment, filtering and ordering; N=1 is a limit binding.
+  parameters:
+  - population_pair
+  - alignment
+  - row_predicate
+  - ordering
+  - limit
+  - ties
+  - projection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: AlignEntity
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: Filter
+    inputs:
+    - c
+  - id: e
+    operator: Order
+    inputs:
+    - d
+  - id: f
+    operator: Take
+    inputs:
+    - e
+  - id: g
+    operator: Project
+    inputs:
+    - f
+  output: g
+  covers:
+  - multi.threshold-then-rank
+  - multi.constrained-optimum
+- id: join.derived-filter
+  title: Calculate a two-input per-entity value then filter
+  applies_when: Both population measures are acquired explicitly; row formula cannot acquire new data.
+  parameters:
+  - population_pair
+  - alignment
+  - scalar_expression
+  - row_predicate
+  - projection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: AlignEntity
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: MapScalar
+    inputs:
+    - c
+  - id: e
+    operator: Filter
+    inputs:
+    - d
+  - id: f
+    operator: Project
+    inputs:
+    - e
+  output: f
+  covers:
+  - multi.ratio-threshold
+- id: hierarchy.rollup
+  title: Expand a hierarchy and aggregate distinct scoped contributions
+  applies_when: Include named root and requested descendants without double counting consolidated parent totals.
+  parameters:
+  - root_key
+  - traversal_scope
+  - contribution_key
+  - stream_kernel
+  plan:
+  - id: a
+    operator: ReadHierarchy
+    inputs: []
+  - id: b
+    operator: ResolveScope
+    inputs:
+    - a
+  - id: c
+    operator: MapReadScalar
+    inputs:
+    - b
+  - id: d
+    operator: Distinct
+    inputs:
+    - c
+  - id: e
+    operator: StreamReduce
+    inputs:
+    - d
+  output: e
+  covers:
+  - relation.hierarchy-rollup
+- id: hierarchy.exclusive
+  title: Reconcile a parent total with subordinate contributions
+  applies_when: Parent-only reported value uses lookup.scalar; otherwise hierarchy scope and reporting basis
+    must support subtraction.
+  parameters:
+  - root_key
+  - traversal_scope
+  - reporting_basis
+  - scalar_expression
+  plan:
+  - id: a
+    operator: ReadHierarchy
+    inputs: []
+  - id: b
+    operator: ResolveScope
+    inputs:
+    - a
+  - id: c
+    operator: MapReadScalar
+    inputs:
+    - b
+  - id: d
+    operator: ReconcileScope
+    inputs:
+    - c
+  - id: e
+    operator: Scalar
+    inputs:
+    - d
+  output: e
+  covers:
+  - relation.hierarchy-exclusive
+- id: spatial.allocate
+  title: Derive geographic overlap weights then allocate a coarse total
+  applies_when: 'Weight not supplied: obtain geometries, intersect and apply a specified allocation model.'
+  parameters:
+  - scalar_coordinates
+  - geography_pair
+  - allocation_model
+  plan:
+  - id: a
+    operator: ReadScalar
+    inputs: []
+  - id: b
+    operator: ReadGeometries
+    inputs: []
+  - id: c
+    operator: SpatialIntersect
+    inputs:
+    - b
+  - id: d
+    operator: DeriveWeights
+    inputs:
+    - c
+  - id: e
+    operator: Allocate
+    inputs:
+    - a
+    - d
+  output: e
+  covers:
+  - relation.geographic-disaggregation
+- id: reduce.entity-share
+  title: Divide an entity value by an independently computed population total
+  applies_when: Denominator requires aggregation of raw population values, not a supplied scalar.
+  parameters:
+  - scalar_coordinates
+  - population
+  - stream_kernel
+  - scalar_expression
+  plan:
+  - id: a
+    operator: ReadScalar
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: StreamReduce
+    inputs:
+    - b
+  - id: d
+    operator: Scalar
+    inputs:
+    - a
+    - c
+  output: d
+  covers:
+  - relation.entity-to-population-share
+  - point.component-share
+- id: assoc.population-ranks
+  title: Align and rank observations before calculating Spearman correlation
+  applies_when: Spearman rather than Pearson; ties use average ranks. Ranking is explicit, not hidden in a
+    correlation-method argument.
+  parameters:
+  - population_pair
+  - alignment
+  - ties
+  - stream_kernel
+  - scalar_expression
+  - missing_policy
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: AlignEntity
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: RankColumns
+    inputs:
+    - c
+  - id: e
+    operator: StreamReduce
+    inputs:
+    - d
+  - id: f
+    operator: Scalar
+    inputs:
+    - e
+  output: f
+  covers:
+  - assoc.correlation-population
+- id: assoc.series
+  title: Shift and align two series then calculate Pearson correlation
+  applies_when: Lag zero is contemporaneous; specified lag is a time-coordinate binding. Searching many lags
+    is not implicit. This kernel is Pearson, not hidden rank correlation.
+  parameters:
+  - series_pair
+  - lag
+  - time_alignment
+  - stream_kernel
+  - scalar_expression
+  - missing_policy
+  plan:
+  - id: a
+    operator: ReadSeries
+    inputs: []
+  - id: b
+    operator: ReadSeries
+    inputs: []
+  - id: c
+    operator: ShiftTime
+    inputs:
+    - b
+  - id: d
+    operator: AlignTime
+    inputs:
+    - a
+    - c
+  - id: e
+    operator: StreamReduce
+    inputs:
+    - d
+  - id: f
+    operator: Scalar
+    inputs:
+    - e
+  output: f
+  covers:
+  - assoc.correlation-over-time
+  - assoc.lagged
+- id: assoc.series-ranks
+  title: Shift, align and rank two series before Spearman correlation
+  applies_when: Explicit rank transform over paired observations; lag zero remains a legal binding.
+  parameters:
+  - series_pair
+  - lag
+  - time_alignment
+  - ties
+  - stream_kernel
+  - scalar_expression
+  - missing_policy
+  plan:
+  - id: a
+    operator: ReadSeries
+    inputs: []
+  - id: b
+    operator: ReadSeries
+    inputs: []
+  - id: c
+    operator: ShiftTime
+    inputs:
+    - b
+  - id: d
+    operator: AlignTime
+    inputs:
+    - a
+    - c
+  - id: e
+    operator: RankColumns
+    inputs:
+    - d
+  - id: f
+    operator: StreamReduce
+    inputs:
+    - e
+  - id: g
+    operator: Scalar
+    inputs:
+    - f
+  output: g
+  covers:
+  - assoc.correlation-over-time
+  - assoc.lagged
+- id: assoc.group-statistic
+  title: Compare independently calculated group statistics
+  applies_when: Question requests a difference between fixed-state group summaries, not a significance test.
+  parameters:
+  - population_pair
+  - stream_kernel
+  - scalar_expression
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: StreamReduce
+    inputs:
+    - a
+  - id: d
+    operator: StreamReduce
+    inputs:
+    - b
+  - id: e
+    operator: Scalar
+    inputs:
+    - c
+    - d
+  output: e
+  covers:
+  - assoc.group-difference
+- id: assoc.group-test
+  title: Run a declared two-sample distribution test
+  applies_when: A statistical hypothesis test is requested; method, assumptions and threshold must be bound.
+  parameters:
+  - population_pair
+  - test_method
+  - significance_level
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: TwoSampleTest
+    inputs:
+    - a
+    - b
+  output: c
+  covers:
+  - assoc.group-difference
+- id: assoc.fitted-outliers
+  title: Fit a specified model and select large residuals
+  applies_when: Prediction baseline must be estimated from the acquired population.
+  parameters:
+  - population_pair
+  - alignment
+  - model_spec
+  - residual_selection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: AlignEntity
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: FitModel
+    inputs:
+    - c
+  - id: e
+    operator: Residual
+    inputs:
+    - c
+    - d
+  - id: f
+    operator: SelectResiduals
+    inputs:
+    - e
+  output: f
+  covers:
+  - assoc.outlier
+- id: assoc.baseline-outliers
+  title: Compare observations to a supplied predictive baseline
+  applies_when: Baseline model already supplied; no training or fitting may be hidden in evaluation.
+  parameters:
+  - population
+  - baseline_spec
+  - residual_selection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: EvaluateBaseline
+    inputs:
+    - a
+  - id: c
+    operator: Residual
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: SelectResiduals
+    inputs:
+    - c
+  output: d
+  covers:
+  - assoc.outlier
+- id: meta.available
+  title: Discover descriptors and test scoped resource availability
+  applies_when: Search resource descriptions, not publisher data; negative answer scoped to the searched catalog.
+  parameters:
+  - discovery_scope
+  - row_predicate
+  plan:
+  - id: a
+    operator: DiscoverDescriptors
+    inputs: []
+  - id: b
+    operator: Filter
+    inputs:
+    - a
+  - id: c
+    operator: Any
+    inputs:
+    - b
+  output: c
+  covers:
+  - meta.availability
+- id: meta.count
+  title: Count matching resources in a discovery catalog
+  applies_when: Population consists of resource descriptors, as in the original datasets-covering-air-quality
+    example; discovery contract must support complete enumeration.
+  parameters:
+  - discovery_scope
+  - row_predicate
+  plan:
+  - id: a
+    operator: DiscoverDescriptors
+    inputs: []
+  - id: b
+    operator: Filter
+    inputs:
+    - a
+  - id: c
+    operator: Count
+    inputs:
+    - b
+  output: c
+  covers:
+  - aggregate.count
+- id: lookup.version-comparison
+  title: Compare assertions from two releases
+  applies_when: Question asks whether a value was revised, not simply its value in one release.
+  parameters:
+  - release_pair
+  - scalar_coordinates
+  - scalar_expression
+  plan:
+  - id: a
+    operator: ReadVersionedScalar
+    inputs: []
+  - id: b
+    operator: ReadVersionedScalar
+    inputs: []
+  - id: c
+    operator: Scalar
+    inputs:
+    - a
+    - b
+  output: c
+  covers:
+  - source.vintage
+- id: meta.definition
+  title: Read a measure's definition from a descriptor
+  applies_when: Descriptor field is directly available; documentation crawling is not silently a scalar lookup.
+  parameters:
+  - descriptor_key
+  - projection
+  plan:
+  - id: a
+    operator: ReadDescriptor
+    inputs: []
+  - id: b
+    operator: Project
+    inputs:
+    - a
+  output: b
+  covers:
+  - meta.definition
+- id: eligibility.evaluate
+  title: Retrieve candidate opportunities and evaluate their rules for an actor
+  applies_when: 'Eligibility is not materialized: rule retrieval and actor-specific evaluation are explicit.'
+  parameters:
+  - population
+  - actor_description
+  - rule_semantics
+  - row_predicate
+  - projection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: MapReadRules
+    inputs:
+    - a
+  - id: c
+    operator: EvaluateRules
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: Filter
+    inputs:
+    - c
+  - id: e
+    operator: Project
+    inputs:
+    - d
+  output: e
+  covers:
+  - topical.eligibility
+- id: join.division
+  title: Find candidates related to every required member
+  applies_when: Preserve zero-match candidates and empty-required-set semantics; relation and required set
+    have independent coverage.
+  parameters:
+  - candidate_population
+  - relation_population
+  - required_population
+  - alignment
+  - empty_set_policy
+  - projection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: ReadRows
+    inputs: []
+  - id: d
+    operator: MatchRequired
+    inputs:
+    - a
+    - b
+    - c
+  - id: e
+    operator: Group
+    inputs:
+    - d
+  - id: f
+    operator: AllRequired
+    inputs:
+    - e
+    - c
+  - id: g
+    operator: Project
+    inputs:
+    - f
+  output: g
+  covers:
+  - join.division
+- id: join.path
+  title: Traverse a declared finite relation path
+  applies_when: Path is an ordered list of relation types, minimum two, traversed by the same bounded loop;
+    no arbitrary recursive subplans or unbounded transitive closure.
+  parameters:
+  - seed_population
+  - relation_path
+  - cycle_policy
+  - distinct_keys
+  - projection
+  plan:
+  - id: a
+    operator: ReadSeeds
+    inputs: []
+  - id: b
+    operator: RepeatTraverse
+    inputs:
+    - a
+  - id: c
+    operator: DistinctIfRequested
+    inputs:
+    - b
+  - id: d
+    operator: Project
+    inputs:
+    - c
+  output: d
+  covers:
+  - join.multi-hop
+- id: join.grouped-measures
+  title: Aggregate each raw input independently then align groups
+  applies_when: Protect each input's contribution grain before joining. Already-published aggregates may use
+    join.enrich as a physical substitution.
+  parameters:
+  - population_pair
+  - group_keys
+  - contribution_key
+  - stream_kernel
+  - alignment
+  - projection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: Group
+    inputs:
+    - a
+  - id: d
+    operator: Group
+    inputs:
+    - b
+  - id: e
+    operator: GroupStreamReduce
+    inputs:
+    - c
+  - id: f
+    operator: GroupStreamReduce
+    inputs:
+    - d
+  - id: g
+    operator: AlignEntity
+    inputs:
+    - e
+    - f
+  - id: h
+    operator: Project
+    inputs:
+    - g
+  output: h
+  covers:
+  - join.aggregate-each-side
+- id: temporal.match
+  title: Match observations by time proximity with a direction constraint
+  applies_when: One temporal-neighbor kernel with backward/forward/either direction; as-of is backward. Interval-version
+    validity and tie policies remain enforced.
+  parameters:
+  - population_pair
+  - alignment
+  - temporal_direction
+  - tolerance
+  - ties
+  - projection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: TemporalNeighborMatch
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: Project
+    inputs:
+    - c
+  output: d
+  covers:
+  - temporal.as-of
+  - temporal.nearest
+- id: temporal.overlap
+  title: Return pairs of overlapping intervals
+  applies_when: Both sides contribute intervals, rather than a single relation filtered against a constant
+    window.
+  parameters:
+  - population_pair
+  - alignment
+  - interval_boundary_policy
+  - projection
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: IntervalJoin
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: Project
+    inputs:
+    - c
+  output: d
+  covers:
+  - temporal.interval-overlap
+- id: temporal.sequence
+  title: Find entities with one event preceding another
+  applies_when: Entity-aligned event pairs plus ordering test; existence projection deduplicates qualifying
+    entities.
+  parameters:
+  - population_pair
+  - alignment
+  - row_predicate
+  - projection
+  - distinct_keys
+  plan:
+  - id: a
+    operator: ReadRows
+    inputs: []
+  - id: b
+    operator: ReadRows
+    inputs: []
+  - id: c
+    operator: AlignEntity
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: Filter
+    inputs:
+    - c
+  - id: e
+    operator: Project
+    inputs:
+    - d
+  - id: f
+    operator: Distinct
+    inputs:
+    - e
+  output: f
+  covers:
+  - temporal.event-sequence
+- id: spatial.contains
+  title: Resolve a boundary and test geometries for containment
+  applies_when: Boundary geometry is acquired explicitly; stored region codes are a guarded filter optimization.
+  parameters:
+  - boundary_key
+  - population
+  - spatial_predicate
+  - projection
+  plan:
+  - id: a
+    operator: ReadBoundary
+    inputs: []
+  - id: b
+    operator: ReadGeometries
+    inputs: []
+  - id: c
+    operator: SpatialPredicate
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: Filter
+    inputs:
+    - c
+  - id: e
+    operator: Project
+    inputs:
+    - d
+  output: e
+  covers:
+  - spatial.containment
+- id: spatial.radius
+  title: Resolve a point and filter by geometric distance
+  applies_when: Metric and coordinate system specified; computed distance precedes radius test.
+  parameters:
+  - point_key
+  - population
+  - distance_metric
+  - radius
+  - projection
+  plan:
+  - id: a
+    operator: ResolvePoint
+    inputs: []
+  - id: b
+    operator: ReadGeometries
+    inputs: []
+  - id: c
+    operator: Distance
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: Filter
+    inputs:
+    - c
+  - id: e
+    operator: Project
+    inputs:
+    - d
+  output: e
+  covers:
+  - spatial.proximity
+- id: spatial.nearest
+  title: Resolve a point and select distance-ranked neighbors
+  applies_when: Extremum selection, not radius filtering; N=1 is the original request.
+  parameters:
+  - point_key
+  - population
+  - distance_metric
+  - limit
+  - ties
+  - projection
+  plan:
+  - id: a
+    operator: ResolvePoint
+    inputs: []
+  - id: b
+    operator: ReadGeometries
+    inputs: []
+  - id: c
+    operator: Distance
+    inputs:
+    - a
+    - b
+  - id: d
+    operator: Order
+    inputs:
+    - c
+  - id: e
+    operator: Take
+    inputs:
+    - d
+  - id: f
+    operator: Project
+    inputs:
+    - e
+  output: f
+  covers:
+  - spatial.nearest
+baseline_mapping:
+- original_id: point.value
+  original_asks: One named entity, one measure, one period; the answer is a single value. A published rate,
+    percentage, median, exchange rate or per-capita figure is a measure lookup unless the question explicitly
+    requests computing it from operands. Latest/current specifies the lookup period.
+  original_examples:
+  - How much NIH funding does MIT receive?
+  - What was Apple's total revenue in 2023?
+  routes:
+  - pattern: lookup.scalar
+    when: One scalar or direct edge assertion; freshness metadata is co-delivered. A latest-period discovery
+      dependency uses lookup.event-bound instead.
+- original_id: point.status
+  original_asks: Whether a named entity holds a stated status or classification.
+  original_examples:
+  - Is the Sierra Club a 501(c)(3)?
+  - Is Tesla an SEC registrant?
+  routes:
+  - pattern: lookup.scalar
+    when: One scalar or direct edge assertion; freshness metadata is co-delivered. A latest-period discovery
+      dependency uses lookup.event-bound instead.
+- original_id: records.for-entity
+  original_asks: Individual records belonging or related to one named entity, such as its awards, contracts,
+    filings or patents. A period restriction does not change this shape. No statistic over the records is requested.
+  original_examples:
+  - NSF research awards for MIT
+  - List the SEC filings by Ford in 2023
+  routes:
+  - pattern: records.select
+    when: All tested fields are co-delivered. Owner/topic are predicate bindings; eligibility only when already
+      materialized. Explicit negative values support absence claims, missing rows do not.
+- original_id: timeseries.single-entity
+  original_asks: The value of one measure for one entity at each of several periods.
+  original_examples:
+  - Apple total revenue from 2019 to 2023
+  - How has NIH funding to Stanford changed since 2019?
+  routes:
+  - pattern: series.values
+    when: Finite named entities with series-valued input; one entity is fan-out cardinality one.
+- original_id: rank.top-n
+  original_asks: An ordered list of the extreme-scoring members of a population that the question does not
+    enumerate, at either end.
+  original_examples:
+  - Top 10 universities by NIH funding
+  - The 10 counties with the lowest diabetes rates
+  - Largest federal programmes for wildfire mitigation
+  - The biggest grants awarded for opioid treatment
+  - Which counties have the lowest life expectancy?
+  - The 10 states with the least federal research funding
+  routes:
+  - pattern: rank.population
+    when: Includes bottom-N, N=1 and topical populations; all population scores must be comparable.
+- original_id: aggregate.sum
+  original_asks: The sum of a measure across a specified population or the constituent parts of an area. Each
+    contribution counts once at the requested grain. A geography-defined population uses the same sum as any
+    other population.
+  original_examples:
+  - Total NIH funding to all universities
+  - Total population of all California counties
+  - Total federal grants to California, summed across its counties
+  - Population of the Chicago metro area from its constituent counties
+  routes:
+  - pattern: reduce.streaming
+    when: Sum/count/mean/range/variance/stddev, paired weighted mean, conditional counts or HHI from sum(x^2)/sum(x)^2;
+      required values and weights/predicates co-delivered. IQR/quantiles, top-N share, Gini and distinct counts
+      use other templates.
+- original_id: comparison.values
+  original_asks: Values for explicitly specified entity/measure operands, displayed alongside each other. A
+    requested normalization or calendar alignment is part of the operand expression. No particular difference,
+    winning operand or order is requested.
+  original_examples:
+  - Show NIH funding for Harvard and MIT side by side
+  - Report Ford and GM revenue for 2023
+  - Show fiscal-year and calendar-year spending alongside each other with periods explicitly labeled
+  routes:
+  - pattern: compare.values
+    when: Each operand is a supplied scalar; period coordinates already bound, not a hidden resampling or derived
+      measure.
+  - pattern: compare.derived-values
+    when: Each operand requires two scalar acquisitions, e.g. per-capita normalization or endpoint growth.
+- original_id: point.ratio
+  original_asks: One entity, two explicitly specified measures, the first divided by the second. Includes per-unit
+    normalization. A share of a component or population total uses the corresponding share shape.
+  original_examples:
+  - Apple's debt divided by its equity
+  - NIH funding per faculty member at Johns Hopkins
+  - Federal spending per resident in Cook County
+  routes:
+  - pattern: lookup.binary
+    when: Two supplied values; annualized means endpoint CAGR; period-over-period uses supplied period totals;
+      geographic allocation weight is supplied. Derived operands and raw windows route separately.
+- original_id: records.matching
+  original_asks: Individual records matching search predicates without a named owner/recipient entity. Topic
+    or category restrictions define the search. When a named entity owns or receives the requested records,
+    use records.for-entity.
+  original_examples:
+  - Grants for education
+  - Federal programmes on wildfire mitigation
+  routes:
+  - pattern: records.select
+    when: All tested fields are co-delivered. Owner/topic are predicate bindings; eligibility only when already
+      materialized. Explicit negative values support absence claims, missing rows do not.
+- original_id: assoc.correlation-population
+  original_asks: Whether two measures move together across the members of a population.
+  original_examples:
+  - Is county income correlated with diabetes rate?
+  - What is the correlation between university enrolment and research expenditure?
+  routes:
+  - pattern: join.paired-reduce
+    when: Separately acquired weights/values or Pearson paired observations. Cardinality and missing-value
+      policy are explicit. Rank correlation requires ordering and uses assoc.population-ranks.
+  - pattern: assoc.population-ranks
+    when: Spearman rather than Pearson; ties use average ranks. Ranking is explicit, not hidden in a correlation-method
+      argument.
+- original_id: point.record
+  original_asks: Every attribute a publisher holds for one named entity, with no measure singled out.
+  original_examples:
+  - Tell me about the American Red Cross
+  - Show me Pfizer's company profile
+  routes:
+  - pattern: lookup.record
+    when: Publisher supplies the requested record/vector; constructing a breakdown from contributions uses
+      reduce.grouped.
+- original_id: point.categorical
+  original_asks: One named entity's non-quantitative attribute, including a category, name, mission, address,
+    URL, calendar date, or clock time. Asking which category applies differs from a yes/no status check.
+  original_examples:
+  - What sector is Moderna classified under?
+  - In which state is the Kresge Foundation registered?
+  routes:
+  - pattern: lookup.scalar
+    when: One scalar or direct edge assertion; freshness metadata is co-delivered. A latest-period discovery
+      dependency uses lookup.event-bound instead.
+- original_id: point.threshold-check
+  original_asks: A yes/no answer about one named entity, decided by comparing one of its measures to a number
+    in the question.
+  original_examples:
+  - Did Netflix spend more than $10B on content in 2023?
+  - Is Boston's uninsured rate above 5%?
+  routes:
+  - pattern: lookup.scalar
+    when: One scalar or direct edge assertion; freshness metadata is co-delivered. A latest-period discovery
+      dependency uses lookup.event-bound instead.
+- original_id: point.breakdown
+  original_asks: One entity, one measure, split across the categories that make it up, with every part reported.
+  original_examples:
+  - Amazon's revenue by segment
+  - How is the Ford Foundation's grantmaking distributed by programme area?
+  routes:
+  - pattern: lookup.record
+    when: Publisher supplies the requested record/vector; constructing a breakdown from contributions uses
+      reduce.grouped.
+  - pattern: reduce.grouped
+    when: Disjoint/co-delivered groups; sum/count/mean etc. Related counts may be filtered afterward. Grouped
+      distinct/quantile and bridge allocation are separate.
+- original_id: point.component-share
+  original_asks: One named component of one entity's measure, expressed as a proportion of that entity's total.
+  original_examples:
+  - What share of Apple's revenue comes from services?
+  - What percentage of Yale's budget is NIH funding?
+  routes:
+  - pattern: lookup.binary
+    when: Two supplied values; annualized means endpoint CAGR; period-over-period uses supplied period totals;
+      geographic allocation weight is supplied. Derived operands and raw windows route separately.
+  - pattern: reduce.entity-share
+    when: Denominator requires aggregation of raw population values, not a supplied scalar.
+- original_id: change.absolute
+  original_asks: One entity, one measure, the difference between its values at two stated times, in the measure's
+    own units.
+  original_examples:
+  - How much did Apple's revenue grow between 2019 and 2023?
+  - By how many dollars did NIH funding to Stanford rise from FY2020 to FY2024?
+  routes:
+  - pattern: lookup.binary
+    when: Two supplied values; annualized means endpoint CAGR; period-over-period uses supplied period totals;
+      geographic allocation weight is supplied. Derived operands and raw windows route separately.
+- original_id: change.percent
+  original_asks: One entity, one measure, the change between two stated times expressed as a fraction of the
+    earlier value.
+  original_examples:
+  - By what percentage did Tesla's revenue grow from 2021 to 2023?
+  - What was the percent decline in Detroit's population between 2010 and 2020?
+  routes:
+  - pattern: lookup.binary
+    when: Two supplied values; annualized means endpoint CAGR; period-over-period uses supplied period totals;
+      geographic allocation weight is supplied. Derived operands and raw windows route separately.
+- original_id: change.direction
+  original_asks: The sign of a change for one entity, where the magnitude is not requested.
+  original_examples:
+  - Did Intel's revenue fall last year?
+  - Has obesity in Mississippi gone up since 2015?
+  routes:
+  - pattern: lookup.binary
+    when: Two supplied values; annualized means endpoint CAGR; period-over-period uses supplied period totals;
+      geographic allocation weight is supplied. Derived operands and raw windows route separately.
+- original_id: change.rate-annualized
+  original_asks: One entity's average growth per period across an interval, so intervals of different length
+    are comparable.
+  original_examples:
+  - What is Nvidia's compound annual revenue growth rate over the last five years?
+  - Average yearly growth in Texas Medicaid enrolment since 2015
+  routes:
+  - pattern: lookup.binary
+    when: Two supplied values; annualized means endpoint CAGR; period-over-period uses supplied period totals;
+      geographic allocation weight is supplied. Derived operands and raw windows route separately.
+  - pattern: series.growth-average
+    when: Arithmetic average of observed periodic growth, rather than endpoint CAGR.
+- original_id: change.period-over-period
+  original_asks: One entity's measure in a period against the same position in an earlier cycle, so the two
+    windows are calendar-aligned rather than adjacent.
+  original_examples:
+  - How did Q3 2024 revenue compare with Q3 2023 for Starbucks?
+  - Year-over-year change in Florida unemployment for June
+  routes:
+  - pattern: lookup.binary
+    when: Two supplied values; annualized means endpoint CAGR; period-over-period uses supplied period totals;
+      geographic allocation weight is supplied. Derived operands and raw windows route separately.
+  - pattern: series.window-comparison
+    when: Requested period totals must be computed from raw observations; dates alone do not supply those totals.
+- original_id: trend.acceleration
+  original_asks: Whether one entity's growth is speeding up, slowing or steady, which is a property of the
+    series' second difference.
+  original_examples:
+  - Is Medicare spending growth accelerating?
+  - Has the rise in California wildfire acreage slowed down?
+  routes:
+  - pattern: series.acceleration
+    when: Observation spacing and the acceleration summary rule must be bound; do not infer a regression model.
+- original_id: time.extremum
+  original_asks: The period at which one entity's measure reached its maximum or minimum, where the answer
+    is a time rather than a value.
+  original_examples:
+  - In which year did Boeing's revenue peak?
+  - When was unemployment in Ohio lowest?
+  routes:
+  - pattern: series.extreme-time
+    when: Series-valued acquisition; return observation times, with explicit tie handling.
+- original_id: time.first-crossing
+  original_asks: The earliest period at which one entity's measure passed a cut-off named in the question.
+  original_examples:
+  - When did Apple's revenue first exceed $100 billion?
+  - In what year did Arizona's population first pass 7 million?
+  routes:
+  - pattern: series.first-match
+    when: Chronological search, not maximum value. Crossing semantics are level threshold unless consecutive
+      crossing is explicitly requested.
+- original_id: time.duration-above
+  original_asks: The number of periods in which one entity's measure satisfied a stated condition.
+  original_examples:
+  - How many years has Alaska run a budget deficit?
+  - For how many quarters was Boeing's cash flow negative?
+  routes:
+  - pattern: series.streaming
+    when: Duration here means number of observed periods, as in the original definition. Sum, variance, range
+      and predicate count are kernels; elapsed duration needs an interval-weight contract.
+- original_id: time.level-at-event
+  original_asks: One entity's measure at a period identified by an event rather than by a date the asker states.
+  original_examples:
+  - What was GM's revenue the year it filed for bankruptcy?
+  - What was New Orleans' population when Katrina hit?
+  routes:
+  - pattern: lookup.event-bound
+    when: Event date or latest available date must be discovered before binding the value request.
+- original_id: time.volatility
+  original_asks: The dispersion of one entity's measure across periods, as a property of the whole series.
+  original_examples:
+  - How volatile has Chesapeake Energy's quarterly revenue been?
+  - How much does Kansas farm income swing year to year?
+  routes:
+  - pattern: series.streaming
+    when: Duration here means number of observed periods, as in the original definition. Sum, variance, range
+      and predicate count are kernels; elapsed duration needs an interval-weight contract.
+  - pattern: series.quantiles
+    when: Dispersion requested as IQR or another order statistic.
+- original_id: time.latest-vintage
+  original_asks: The newest available value AND the observation period or freshness information explicitly
+    requested. A question merely saying latest or current uses point.value with its period bound accordingly.
+  original_examples:
+  - What is the most recent unemployment figure for Detroit, and for what month?
+  - How current is the IRS 990 data for the Gates Foundation?
+  routes:
+  - pattern: lookup.scalar
+    when: One scalar or direct edge assertion; freshness metadata is co-delivered. A latest-period discovery
+      dependency uses lookup.event-bound instead.
+  - pattern: lookup.event-bound
+    when: Event date or latest available date must be discovered before binding the value request.
+- original_id: time.cumulative-to-date
+  original_asks: One entity's measure summed from a stated start to the present, where the boundary is open
+    at one end.
+  original_examples:
+  - How much federal funding has Puerto Rico received since Maria?
+  - Total NSF awards to Caltech since 2010
+  routes:
+  - pattern: series.streaming
+    when: Duration here means number of observed periods, as in the original definition. Sum, variance, range
+      and predicate count are kernels; elapsed duration needs an interval-weight contract.
+  - pattern: series.event-bound-reduction
+    when: For example funding since Maria when the date is not already resolved in the prompt bindings.
+- original_id: timeseries.multi-entity
+  original_asks: A named set of entities, one measure, every period, so the trajectories can be set against
+    each other.
+  original_examples:
+  - Ford and GM revenue from 2015 to 2023
+  - Compare NIH funding trends at Harvard, Yale and Stanford since 2010
+  routes:
+  - pattern: series.values
+    when: Finite named entities with series-valued input; one entity is fan-out cardinality one.
+- original_id: comparison.difference
+  original_asks: The signed or explicitly requested absolute gap between two values. Operands may identify
+    different entities, measures, or explicitly named publisher assertions; publisher roles do not create another
+    subtraction shape.
+  original_examples:
+  - How much more NIH funding does Harvard get than MIT?
+  - What is the revenue gap between Ford and GM?
+  - How far apart are SEC and IRS figures for this foundation's assets?
+  - What is the gap between reported and audited federal spending?
+  routes:
+  - pattern: lookup.binary
+    when: Two supplied values; annualized means endpoint CAGR; period-over-period uses supplied period totals;
+      geographic allocation weight is supplied. Derived operands and raw windows route separately.
+  - pattern: compare.derived-difference
+    when: Each compared value itself requires a pair of scalar reads and a formula.
+- original_id: comparison.which
+  original_asks: Which of explicitly named candidates has the largest or smallest requested measure. The measure
+    may explicitly specify a ratio or normalization; preserve that expression when comparing.
+  original_examples:
+  - Does Caltech or Michigan get more NIH funding?
+  - Which is bigger by revenue, Target or Costco?
+  routes:
+  - pattern: compare.winner
+    when: The comparison measure is supplied, not computed from new operands.
+  - pattern: compare.derived-winner
+    when: Compute ratio, difference or growth per candidate before ordering.
+- original_id: comparison.growth
+  original_asks: A named set of entities where the ordering is by change across a window rather than by level.
+  original_examples:
+  - Did Pfizer or Merck grow revenue faster since 2020?
+  - Which grew more since 2015, Austin or Nashville?
+  routes:
+  - pattern: compare.derived-winner
+    when: Compute ratio, difference or growth per candidate before ordering.
+- original_id: rank.of-named-entity
+  original_asks: The ordinal position of one named entity within a population it is not compared against explicitly.
+  original_examples:
+  - Where does Emory rank among universities for NIH funding?
+  - What is Fresno's rank among California counties for obesity?
+  routes:
+  - pattern: rank.named-position
+    when: Locate a named rank and return a relative slice; radius zero returns its rank. Projection does not
+      perform another read.
+- original_id: rank.extremum-single
+  original_asks: One winning member at the maximum or minimum of a measure over a population not individually
+    enumerated in the question. Direction is a slot; no ordered list is requested.
+  original_examples:
+  - Which university has the largest endowment?
+  - What is the most funded NIH institute?
+  routes:
+  - pattern: rank.population
+    when: Includes bottom-N, N=1 and topical populations; all population scores must be comparable.
+- original_id: rank.change
+  original_asks: The population ranked twice, at two times, with the answer being the largest movements between
+    the two orderings.
+  original_examples:
+  - Which counties rose most in the obesity rankings since 2015?
+  - Which universities climbed fastest in NIH funding rank?
+  routes:
+  - pattern: rank.change
+    when: Each endpoint requires population-wide ranking before alignment and rank subtraction.
+- original_id: rank.neighbors
+  original_asks: The members of a population immediately above and below a named entity on a measure.
+  original_examples:
+  - Which universities are just ahead of Duke in NIH funding?
+  - Which counties have obesity rates closest to Travis County?
+  routes:
+  - pattern: rank.named-position
+    when: Locate a named rank and return a relative slice; radius zero returns its rank. Projection does not
+      perform another read.
+  - pattern: rank.reference-distance
+    when: Closest values, not adjacent ordinal ranks. Absolute value distance can order neighbors differently
+      from rank distance.
+- original_id: rank.percentile-of-entity
+  original_asks: One named entity located in the population's distribution as a proportion rather than an ordinal.
+  original_examples:
+  - What percentile is Rice University in for research spending?
+  - Is Denver in the top quartile of counties for uninsured rate?
+  routes:
+  - pattern: rank.percentile
+    when: Reference scalar and full comparison population are required; tied-value convention is explicit.
+- original_id: rank.within-group
+  original_asks: A population partitioned by an attribute, with the top member reported for every partition.
+  original_examples:
+  - The largest nonprofit in each state
+  - Which hospital has the highest readmission rate in each region?
+  routes:
+  - pattern: rank.grouped
+    when: Group membership is co-delivered, with no hidden bridge or prior group aggregate.
+- original_id: aggregate.count
+  original_asks: The size of a population, where no measure other than membership is involved.
+  original_examples:
+  - How many 501(c)(3) organisations are there?
+  - How many counties report obesity data?
+  - How many federal grant programmes address homelessness?
+  - How many datasets cover air quality?
+  routes:
+  - pattern: reduce.streaming
+    when: Sum/count/mean/range/variance/stddev, paired weighted mean, conditional counts or HHI from sum(x^2)/sum(x)^2;
+      required values and weights/predicates co-delivered. IQR/quantiles, top-N share, Gini and distinct counts
+      use other templates.
+  - pattern: meta.count
+    when: Population consists of resource descriptors, as in the original datasets-covering-air-quality example;
+      discovery contract must support complete enumeration.
+- original_id: aggregate.mean
+  original_asks: The arithmetic mean of a measure across population members, each counted once.
+  original_examples:
+  - What is the average diabetes rate across US counties?
+  - Average grant size awarded by NSF
+  routes:
+  - pattern: reduce.streaming
+    when: Sum/count/mean/range/variance/stddev, paired weighted mean, conditional counts or HHI from sum(x^2)/sum(x)^2;
+      required values and weights/predicates co-delivered. IQR/quantiles, top-N share, Gini and distinct counts
+      use other templates.
+- original_id: aggregate.median
+  original_asks: The value separating the population's upper and lower halves, which requires the whole distribution
+    rather than a running total.
+  original_examples:
+  - What is the median nonprofit revenue?
+  - Median household income across California counties
+  routes:
+  - pattern: reduce.quantiles
+    when: Median is q=.5; IQR uses q=.25,.75 and subtracts results. No fixed-state approximation substituted.
+- original_id: aggregate.percentile-value
+  original_asks: The measure's value at a named percentile of the population.
+  original_examples:
+  - What is the 90th percentile of county obesity rates?
+  - What revenue puts a nonprofit in the top 1%?
+  routes:
+  - pattern: reduce.quantiles
+    when: Median is q=.5; IQR uses q=.25,.75 and subtracts results. No fixed-state approximation substituted.
+- original_id: aggregate.spread
+  original_asks: The variation of a measure across a population, as a range, standard deviation or interquartile
+    distance.
+  original_examples:
+  - How much do obesity rates vary between counties?
+  - What is the spread in university endowments?
+  routes:
+  - pattern: reduce.streaming
+    when: Sum/count/mean/range/variance/stddev, paired weighted mean, conditional counts or HHI from sum(x^2)/sum(x)^2;
+      required values and weights/predicates co-delivered. IQR/quantiles, top-N share, Gini and distinct counts
+      use other templates.
+  - pattern: reduce.quantiles
+    when: Median is q=.5; IQR uses q=.25,.75 and subtracts results. No fixed-state approximation substituted.
+- original_id: aggregate.histogram
+  original_asks: The population's members counted into bands of a measure, so the shape of the distribution
+    is the answer.
+  original_examples:
+  - How many nonprofits fall in each revenue band?
+  - Distribution of counties by uninsured rate
+  routes:
+  - pattern: reduce.histogram
+    when: Bin edges are supplied constants; data-derived edges use reduce.adaptive-histogram.
+  - pattern: reduce.adaptive-histogram
+    when: The declared bin rule needs population statistics before binning.
+- original_id: aggregate.weighted-mean
+  original_asks: A population average in which each member's contribution is scaled by a second measure, so
+    large members dominate.
+  original_examples:
+  - What is the population-weighted average obesity rate across counties?
+  - Average interest rate weighted by loan size
+  routes:
+  - pattern: reduce.streaming
+    when: Sum/count/mean/range/variance/stddev, paired weighted mean, conditional counts or HHI from sum(x^2)/sum(x)^2;
+      required values and weights/predicates co-delivered. IQR/quantiles, top-N share, Gini and distinct counts
+      use other templates.
+  - pattern: join.paired-reduce
+    when: Separately acquired weights/values or Pearson paired observations. Cardinality and missing-value
+      policy are explicit. Rank correlation requires ordering and uses assoc.population-ranks.
+- original_id: aggregate.by-group
+  original_asks: 'A specified aggregate statistic for each group. Groups can overlap: retain the requested
+    contribution grain and allocation rule rather than counting rows created by a bridge. The statistic and
+    overlap rule must be bound from the question or clarified.'
+  original_examples:
+  - Total NIH funding by state
+  - Average nonprofit revenue in each city
+  - Grant amounts by research topic where a grant carries several topics
+  - Company revenue by market segment where segments overlap
+  routes:
+  - pattern: reduce.grouped
+    when: Disjoint/co-delivered groups; sum/count/mean etc. Related counts may be filtered afterward. Grouped
+      distinct/quantile and bridge allocation are separate.
+  - pattern: reduce.grouped-distinct
+    when: Statistic=count-distinct, with co-delivered group membership.
+  - pattern: reduce.grouped-quantile
+    when: Statistic=median or another quantile; group membership is co-delivered.
+  - pattern: reduce.allocated-groups
+    when: An explicit bridge supplies overlapping group membership. Allocation precedes sum/count/mean; fractional
+      count means allocated count, not ordinary integer count.
+  - pattern: reduce.bridge-distinct
+    when: Overlapping group bridge and count-distinct; deduplicate on group plus contributor. Fractional distinct
+      counts require clarification, not silent allocation.
+  - pattern: reduce.bridge-quantile
+    when: Full-to-each-group or explicitly selected exclusive membership. Fractional weighted quantile is not
+      implied by median.
+- original_id: aggregate.share-by-group
+  original_asks: A partitioned population where each group is reported as a fraction of the total, so the parts
+    sum to one.
+  original_examples:
+  - What share of federal grants goes to each state?
+  - Percentage of nonprofits by sector
+  routes:
+  - pattern: reduce.group-shares
+    when: Groups form a partition at the contribution grain; overlapping full allocations cannot claim shares
+      of the original total.
+- original_id: aggregate.concentration
+  original_asks: The proportion of a population's total held by its largest members, or an equivalent concentration
+    index.
+  original_examples:
+  - What share of NIH funding goes to the top 10 universities?
+  - How concentrated is federal contracting among the largest vendors?
+  routes:
+  - pattern: reduce.streaming
+    when: Sum/count/mean/range/variance/stddev, paired weighted mean, conditional counts or HHI from sum(x^2)/sum(x)^2;
+      required values and weights/predicates co-delivered. IQR/quantiles, top-N share, Gini and distinct counts
+      use other templates.
+  - pattern: reduce.top-share
+    when: Concentration requested as top-N share.
+  - pattern: reduce.gini
+    when: Concentration requested as Gini; negative-value convention must be supplied.
+- original_id: aggregate.count-distinct
+  original_asks: A count in which several records naming the same real-world entity must be collapsed to one.
+  original_examples:
+  - How many organisations received federal funding, counting chapters of the same charity once?
+  - How many distinct companies filed, across all their subsidiaries?
+  routes:
+  - pattern: reduce.distinct
+    when: Identity resolution is explicit input contract; dedup keys are not raw row IDs unless requested.
+- original_id: filter.threshold
+  original_asks: The population members whose measure lies on one side of a value stated in the question.
+  original_examples:
+  - Nonprofits with revenue over $10M
+  - Counties where the uninsured rate exceeds 15%
+  routes:
+  - pattern: records.select
+    when: All tested fields are co-delivered. Owner/topic are predicate bindings; eligibility only when already
+      materialized. Explicit negative values support absence claims, missing rows do not.
+- original_id: filter.range
+  original_asks: The population members whose measure falls inside a stated interval, bounded at both ends.
+  original_examples:
+  - Nonprofits with revenue between $1M and $5M
+  - Counties with obesity between 25% and 30%
+  routes:
+  - pattern: records.select
+    when: All tested fields are co-delivered. Owner/topic are predicate bindings; eligibility only when already
+      materialized. Explicit negative values support absence claims, missing rows do not.
+- original_id: filter.conjunction-all
+  original_asks: Population members satisfying every stated predicate, including membership in separately named
+    sets. This entry tests level, category, or membership predicates; explicit change computations use the
+    corresponding multi-change shape.
+  original_examples:
+  - Nonprofits in Texas with revenue over $5M and more than 50 employees
+  - Counties that are both high-poverty and high-uninsured
+  - Which nonprofits receive both NIH and NSF funding?
+  - Companies that are both federal contractors and SEC registrants
+  routes:
+  - pattern: records.select
+    when: All tested fields are co-delivered. Owner/topic are predicate bindings; eligibility only when already
+      materialized. Explicit negative values support absence claims, missing rows do not.
+  - pattern: join.enrich
+    when: Equijoin kernel with explicit inner/left mode. Intersection projects unique shared keys. Cross-input
+      conjunction applies predicate to joined fields.
+- original_id: filter.disjunction-any
+  original_asks: Population members satisfying at least one stated level, category, or set-membership predicate.
+    Return each entity once even when several predicates match. Explicit change computations use multi.change-disjunction-any.
+  original_examples:
+  - Counties that are either high-poverty or high-uninsured
+  - Nonprofits in health or education with revenue over $1M
+  - All organisations that are either federal contractors or SEC registrants
+  - Every county covered by either survey
+  routes:
+  - pattern: records.select
+    when: All tested fields are co-delivered. Owner/topic are predicate bindings; eligibility only when already
+      materialized. Explicit negative values support absence claims, missing rows do not.
+  - pattern: set.union
+    when: Disjunction whose alternatives are separately enumerated; do not require a match in both sets.
+- original_id: filter.negation-closed
+  original_asks: Population members for which a property is known to be absent, because the source records
+    both presence and absence.
+  original_examples:
+  - Nonprofits that reported zero government grants
+  - Companies explicitly recorded as not tax-exempt
+  routes:
+  - pattern: records.select
+    when: All tested fields are co-delivered. Owner/topic are predicate bindings; eligibility only when already
+      materialized. Explicit negative values support absence claims, missing rows do not.
+- original_id: filter.negation-open
+  original_asks: Members of a specified candidate population for which no matching record is found in a specified
+    relation or collection. A second publisher or named population is an operand, not another shape. This establishes
+    record absence, not that the real-world fact is false.
+  original_examples:
+  - Companies with no reported lobbying spending
+  - NSF-funded universities with no matching NIH award record
+  - Which SEC registrants have no record in the federal contractor registry?
+  routes:
+  - pattern: join.membership
+    when: Existence-index probe per candidate; match polarity is bound. Anti-match supports scoped record absence;
+      authoritative non-membership requires completeness evidence.
+- original_id: filter.categorical
+  original_asks: Population members selected by an attribute whose values are labels rather than quantities.
+  original_examples:
+  - All 501(c)(4) organisations
+  - Federal contracts classified under NAICS 541511
+  routes:
+  - pattern: records.select
+    when: All tested fields are co-delivered. Owner/topic are predicate bindings; eligibility only when already
+      materialized. Explicit negative values support absence claims, missing rows do not.
+- original_id: filter.temporal-active
+  original_asks: Population members whose existence or activity overlaps a stated interval, which is an overlap
+    test rather than a date match.
+  original_examples:
+  - Grants that were open during 2022
+  - Nonprofits that operated at any point between 2015 and 2020
+  routes:
+  - pattern: records.select
+    when: All tested fields are co-delivered. Owner/topic are predicate bindings; eligibility only when already
+      materialized. Explicit negative values support absence claims, missing rows do not.
+- original_id: filter.existence
+  original_asks: Population members for which at least one related record exists, with no condition on how
+    many or how large.
+  original_examples:
+  - Universities that received any NIH funding
+  - Companies that have filed at least one 8-K
+  routes:
+  - pattern: join.membership
+    when: Existence-index probe per candidate; match polarity is bound. Anti-match supports scoped record absence;
+      authoritative non-membership requires completeness evidence.
+- original_id: filter.count-predicate
+  original_asks: Population members whose count of related records meets a stated number.
+  original_examples:
+  - Nonprofits with more than three federal grants
+  - Companies that filed at least five patents last year
+  routes:
+  - pattern: reduce.grouped
+    when: Disjoint/co-delivered groups; sum/count/mean etc. Related counts may be filtered afterward. Grouped
+      distinct/quantile and bridge allocation are separate.
+  - pattern: join.related-count
+    when: Predicate may accept zero, so enumerate candidates independently and retain zero-match members. Positive-count-only
+      predicates can use reduce.grouped.
+- original_id: quantifier.universal
+  original_asks: A yes/no answer about a whole population, which is false if a single member fails and therefore
+    requires complete coverage.
+  original_examples:
+  - Do all states report obesity data?
+  - Is every 501(c)(3) required to file a 990?
+  routes:
+  - pattern: quantify.witness
+    when: ANY(predicate) or NOT ANY(NOT predicate); bind three-valued/null and empty-population semantics.
+      Negative witness search requires coverage.
+- original_id: quantifier.existential
+  original_asks: Whether at least one member of a population meets a condition, where finding one is sufficient
+    and finding none requires complete coverage.
+  original_examples:
+  - Is there any county with an obesity rate above 50%?
+  - Has any university received more than $2B from NIH?
+  routes:
+  - pattern: quantify.witness
+    when: ANY(predicate) or NOT ANY(NOT predicate); bind three-valued/null and empty-population semantics.
+      Negative witness search requires coverage.
+- original_id: multi.change-conjunction-all
+  original_asks: Population members whose changes on two measures each satisfy their own stated threshold,
+    both conditions required.
+  original_examples:
+  - Which companies' stock price rose over 20% in 2025 while consumer complaints fell at least 15%?
+  - Counties where income grew over 10% and uninsured rates dropped over 5%
+  routes:
+  - pattern: join.double-change
+    when: Four endpoint populations; same or independent windows, AND/OR or sign relation are bindings. Outer
+      alignment for OR uses unknown semantics, never coerces missing to zero.
+- original_id: multi.change-disjunction-any
+  original_asks: Population members whose change satisfies at least one of two stated thresholds.
+  original_examples:
+  - Companies whose revenue rose 20% or whose headcount rose 10%
+  - Counties where either poverty or uninsured rates improved by 5%
+  routes:
+  - pattern: join.double-change
+    when: Four endpoint populations; same or independent windows, AND/OR or sign relation are bindings. Outer
+      alignment for OR uses unknown semantics, never coerces missing to zero.
+- original_id: multi.change-plus-level
+  original_asks: Population members meeting a movement condition on one measure and a standing condition on
+    another.
+  original_examples:
+  - Companies whose revenue grew 20% and that have over 10,000 employees
+  - Counties where obesity fell 3% and poverty is above 20%
+  routes:
+  - pattern: join.change-and-level
+    when: 'Three acquisitions: two change endpoints plus one level; independently bound windows do not add
+      another shape.'
+- original_id: multi.threshold-then-rank
+  original_asks: A population narrowed by a condition on one measure and then ordered by a different one.
+  original_examples:
+  - Among nonprofits with over $10M revenue, which spend the most on programmes?
+  - Of counties with high poverty, which have the best life expectancy?
+  routes:
+  - pattern: join.filter-rank
+    when: Two population inputs followed by alignment, filtering and ordering; N=1 is a limit binding.
+- original_id: multi.direction-relation
+  original_asks: Population members selected by whether the signs of two measure changes agree or oppose each
+    other; no magnitude thresholds are requested.
+  original_examples:
+  - Companies whose revenue rose while headcount fell
+  - Counties where spending increased but outcomes worsened
+  - Counties where both poverty and uninsured rates rose
+  - Companies that grew revenue and headcount together
+  routes:
+  - pattern: join.double-change
+    when: Four endpoint populations; same or independent windows, AND/OR or sign relation are bindings. Outer
+      alignment for OR uses unknown semantics, never coerces missing to zero.
+- original_id: multi.independent-windows
+  original_asks: Population members meeting conditions on two measures whose periods are stated separately
+    and need not coincide.
+  original_examples:
+  - Companies whose 2024 revenue rose 20% and whose 2022-2023 complaints fell 15%
+  - Counties where income grew since 2015 and obesity fell since 2020
+  routes:
+  - pattern: join.double-change
+    when: Four endpoint populations; same or independent windows, AND/OR or sign relation are bindings. Outer
+      alignment for OR uses unknown semantics, never coerces missing to zero.
+  - pattern: join.change-and-level
+    when: 'Three acquisitions: two change endpoints plus one level; independently bound windows do not add
+      another shape.'
+- original_id: multi.ratio-threshold
+  original_asks: Population members selected by a derived quantity formed from two of their own measures.
+  original_examples:
+  - Nonprofits spending more than 30% of revenue on overhead
+  - Companies with debt above twice their equity
+  routes:
+  - pattern: join.derived-filter
+    when: Both population measures are acquired explicitly; row formula cannot acquire new data.
+- original_id: multi.constrained-optimum
+  original_asks: The single member maximising one measure among those satisfying a condition on another.
+  original_examples:
+  - Which university with under 5,000 students gets the most NIH funding?
+  - The cheapest county with life expectancy above 80
+  routes:
+  - pattern: join.filter-rank
+    when: Two population inputs followed by alignment, filtering and ordering; N=1 is a limit binding.
+- original_id: relation.hierarchy-rollup
+  original_asks: One measure for a named entity combined with the same measure for the entities beneath it
+    in a hierarchy.
+  original_examples:
+  - Total revenue of the American Red Cross including all its chapters
+  - Alphabet's headcount across all subsidiaries
+  routes:
+  - pattern: hierarchy.rollup
+    when: Include named root and requested descendants without double counting consolidated parent totals.
+- original_id: relation.hierarchy-exclusive
+  original_asks: One measure for a named entity alone, where records for its subordinate entities must be excluded
+    rather than summed.
+  original_examples:
+  - Revenue of the national Red Cross organisation itself, not its chapters
+  - Harvard University proper, excluding its affiliated hospitals
+  routes:
+  - pattern: hierarchy.exclusive
+    when: Parent-only reported value uses lookup.scalar; otherwise hierarchy scope and reporting basis must
+      support subtraction.
+  - pattern: lookup.scalar
+    when: Publisher directly reports parent-only scope.
+- original_id: relation.geographic-disaggregation
+  original_asks: A measure for a geography that the question asks to be derived from a coarser geography containing
+    it, where the derivation and its assumptions are part of what is requested.
+  original_examples:
+  - Estimate Palo Alto's uninsured rate from Santa Clara County's
+  - Apportion the state total across its counties by population
+  routes:
+  - pattern: lookup.binary
+    when: Two supplied values; annualized means endpoint CAGR; period-over-period uses supplied period totals;
+      geographic allocation weight is supplied. Derived operands and raw windows route separately.
+  - pattern: spatial.allocate
+    when: 'Weight not supplied: obtain geometries, intersect and apply a specified allocation model.'
+- original_id: relation.entity-to-population-share
+  original_asks: A named entity's measure expressed as a fraction of the total across its whole population.
+  original_examples:
+  - What share of all NIH funding goes to Johns Hopkins?
+  - What percentage of US federal contracting does Lockheed hold?
+  routes:
+  - pattern: reduce.entity-share
+    when: Denominator requires aggregation of raw population values, not a supplied scalar.
+  - pattern: lookup.scalar
+    when: Requested share is already supplied and question does not ask to derive it.
+  - pattern: lookup.binary
+    when: Both entity value and authoritative population total are supplied.
+- original_id: relation.existence
+  original_asks: Whether two named entities stand in a particular relation to each other.
+  original_examples:
+  - Is Instagram a subsidiary of Meta?
+  - Is Cook County inside the Chicago metro area?
+  routes:
+  - pattern: lookup.scalar
+    when: One scalar or direct edge assertion; freshness metadata is co-delivered. A latest-period discovery
+      dependency uses lookup.event-bound instead.
+- original_id: assoc.correlation-over-time
+  original_asks: Whether two of one entity's measures move together across periods.
+  original_examples:
+  - Do Apple's R&D spending and revenue track each other?
+  - Has Ohio's unemployment moved with its opioid deaths?
+  routes:
+  - pattern: assoc.series
+    when: Lag zero is contemporaneous; specified lag is a time-coordinate binding. Searching many lags is not
+      implicit. This kernel is Pearson, not hidden rank correlation.
+  - pattern: assoc.series-ranks
+    when: Explicit rank transform over paired observations; lag zero remains a legal binding.
+- original_id: assoc.group-difference
+  original_asks: Whether the members of one group score differently on a measure than the members of another.
+  original_examples:
+  - Do rural counties have higher obesity than urban ones?
+  - Do larger nonprofits pay executives more?
+  routes:
+  - pattern: assoc.group-statistic
+    when: Question requests a difference between fixed-state group summaries, not a significance test.
+  - pattern: assoc.group-test
+    when: A statistical hypothesis test is requested; method, assumptions and threshold must be bound.
+- original_id: assoc.outlier
+  original_asks: The population members whose measure deviates most from what the rest of the population would
+    predict.
+  original_examples:
+  - Which counties have far better outcomes than their spending suggests?
+  - Which nonprofits report unusually low overhead for their size?
+  routes:
+  - pattern: assoc.fitted-outliers
+    when: Prediction baseline must be estimated from the acquired population.
+  - pattern: assoc.baseline-outliers
+    when: Baseline model already supplied; no training or fitting may be hidden in evaluation.
+- original_id: assoc.lagged
+  original_asks: Whether a measure in one period is associated with a different measure in a later period.
+  original_examples:
+  - Does research funding in one year predict patents in the next?
+  - Do complaint spikes precede stock declines?
+  routes:
+  - pattern: assoc.series
+    when: Lag zero is contemporaneous; specified lag is a time-coordinate binding. Searching many lags is not
+      implicit. This kernel is Pearson, not hidden rank correlation.
+  - pattern: assoc.series-ranks
+    when: Explicit rank transform over paired observations; lag zero remains a legal binding.
+- original_id: assoc.conditional-rate
+  original_asks: 'The fraction of a qualifying subgroup that also satisfies a second predicate: count(A and
+    B) / count(A). A numeric mean or median within a filtered subgroup uses aggregate.mean or aggregate.median.'
+  original_examples:
+  - What share of high-poverty counties are also high-uninsured?
+  - Among federal contractors, what fraction are small businesses?
+  routes:
+  - pattern: reduce.streaming
+    when: Sum/count/mean/range/variance/stddev, paired weighted mean, conditional counts or HHI from sum(x^2)/sum(x)^2;
+      required values and weights/predicates co-delivered. IQR/quantiles, top-N share, Gini and distinct counts
+      use other templates.
+- original_id: source.agreement
+  original_asks: Whether two named publishers report consistent values for one entity, where agreement itself
+    is the measure and no single publisher can answer.
+  original_examples:
+  - Do the SEC and the IRS agree on the Gates Foundation's assets?
+  - Does USAspending match the agency's own grant totals?
+  routes:
+  - pattern: lookup.binary
+    when: Two supplied values; annualized means endpoint CAGR; period-over-period uses supplied period totals;
+      geographic allocation weight is supplied. Derived operands and raw windows route separately.
+- original_id: source.vintage
+  original_asks: The value a source carried at a stated past release, as distinct from the value it carries
+    now for the same period.
+  original_examples:
+  - What did the BLS report for June 2023 before the revision?
+  - Has this nonprofit's 2021 revenue figure been restated?
+  routes:
+  - pattern: lookup.version
+    when: Version-addressable scalar input; do not substitute the present release.
+  - pattern: lookup.version-comparison
+    when: Question asks whether a value was revised, not simply its value in one release.
+- original_id: meta.availability
+  original_asks: Whether any source carries a stated measure for a stated entity, where the answer may correctly
+    be no.
+  original_examples:
+  - Is there data on lobbying spending by private universities?
+  - Can I get county-level obesity rates for 2024?
+  routes:
+  - pattern: meta.available
+    when: Search resource descriptions, not publisher data; negative answer scoped to the searched catalog.
+- original_id: topical.eligibility
+  original_asks: Records matching a topic and open to an actor described by attributes rather than named.
+  original_examples:
+  - What grants can a small nonprofit apply for in mental health?
+  - Which federal programmes is a rural clinic eligible for?
+  routes:
+  - pattern: records.select
+    when: All tested fields are co-delivered. Owner/topic are predicate bindings; eligibility only when already
+      materialized. Explicit negative values support absence claims, missing rows do not.
+  - pattern: eligibility.evaluate
+    when: 'Eligibility is not materialized: rule retrieval and actor-specific evaluation are explicit.'
+- original_id: meta.definition
+  original_asks: The definition, basis or units a publisher uses for a measure, where the answer is documentation
+    rather than data.
+  original_examples:
+  - What does the IRS count as programme expenses?
+  - How does the Census define household income?
+  routes:
+  - pattern: meta.definition
+    when: Descriptor field is directly available; documentation crawling is not silently a scalar lookup.
+- original_id: join.inner-enrichment
+  original_asks: Entities with matches in both inputs, returned with requested values from each input. Unmatched
+    entities are excluded. Returning only common entity identities is filter.conjunction-all.
+  original_examples:
+  - For counties with both published figures, show obesity rate and health spending
+  - For nonprofits with both records, report revenue alongside federal grants
+  routes:
+  - pattern: join.enrich
+    when: Equijoin kernel with explicit inner/left mode. Intersection projects unique shared keys. Cross-input
+      conjunction applies predicate to joined fields.
+- original_id: join.outer-enrichment
+  original_asks: Every member of one population with the second population's measure where it exists, so an
+    absent match is reported rather than hidden.
+  original_examples:
+  - All nonprofits with federal grant totals where published, retaining missing values
+  - Every county with its spending figure where one is published
+  routes:
+  - pattern: join.enrich
+    when: Equijoin kernel with explicit inner/left mode. Intersection projects unique shared keys. Cross-input
+      conjunction applies predicate to joined fields.
+- original_id: join.division
+  original_asks: The members of one population that are related to all members of a second, so a single missing
+    relation disqualifies a candidate.
+  original_examples:
+  - Companies that operate in all 50 states
+  - Nonprofits that received grants from every federal health agency
+  routes:
+  - pattern: join.division
+    when: Preserve zero-match candidates and empty-required-set semantics; relation and required set have independent
+      coverage.
+- original_id: join.multi-hop
+  original_asks: A population reached only by traversing two or more relations in sequence, where each hop
+    can lose or multiply members.
+  original_examples:
+  - Counties where companies that received NIH funding are headquartered
+  - The states of the universities whose researchers hold NSF awards
+  routes:
+  - pattern: join.path
+    when: Path is an ordered list of relation types, minimum two, traversed by the same bounded loop; no arbitrary
+      recursive subplans or unbounded transitive closure.
+- original_id: join.aggregate-each-side
+  original_asks: For each matching group, return two independently aggregated measures, each computed over
+    its own contributing records at the specified grain. Each contribution counts once within its own measure.
+    Sources may supply precomputed totals or raw contributions.
+  original_examples:
+  - Total NIH funding per county against total federal spending per county
+  - Each nonprofit's grant total beside its reported revenue
+  routes:
+  - pattern: join.grouped-measures
+    when: Protect each input's contribution grain before joining. Already-published aggregates may use join.enrich
+      as a physical substitution.
+  - pattern: join.enrich
+    when: Both independent group aggregates are supplied with documented contribution grain.
+- original_id: set.difference
+  original_asks: Members of a first set that are not members of an authoritative second set. The requested
+    claim is non-membership in that set, rather than merely no matching record in an incomplete collection.
+  original_examples:
+  - States covered by the survey but excluded from the complete official register
+  - Programmes on the 2023 list absent from the complete 2024 list
+  routes:
+  - pattern: join.membership
+    when: Existence-index probe per candidate; match polarity is bound. Anti-match supports scoped record absence;
+      authoritative non-membership requires completeness evidence.
+- original_id: set.symmetric-difference
+  original_asks: The members appearing in one of two populations but not in both, in either direction.
+  original_examples:
+  - Entities the two registries disagree about including
+  - Counties covered by one survey but not the other, either way
+  routes:
+  - pattern: set.symmetric-difference
+    when: Both directional differences, not one anti-match with a direction binding.
+- original_id: temporal.as-of
+  original_asks: Each record matched to the version of a second measure that was current at that record's own
+    date, rather than to the latest one.
+  original_examples:
+  - Each grant valued at the exchange rate on its award date
+  - Each filing beside the population estimate current that year
+  routes:
+  - pattern: temporal.match
+    when: One temporal-neighbor kernel with backward/forward/either direction; as-of is backward. Interval-version
+      validity and tie policies remain enforced.
+- original_id: temporal.nearest
+  original_asks: Each record matched to the temporally nearest observation of another measure, which may fall
+    after it.
+  original_examples:
+  - Each award matched to the nearest census estimate
+  - Complaints matched to the closest quarterly filing
+  routes:
+  - pattern: temporal.match
+    when: One temporal-neighbor kernel with backward/forward/either direction; as-of is backward. Interval-version
+      validity and tie policies remain enforced.
+- original_id: temporal.interval-overlap
+  original_asks: Pairs of records from two populations whose time ranges intersect, where both sides carry
+    an interval rather than an instant.
+  original_examples:
+  - Grants whose funding periods overlapped a given contract
+  - Officers whose terms overlapped at the same organisation
+  routes:
+  - pattern: temporal.overlap
+    when: Both sides contribute intervals, rather than a single relation filtered against a constant window.
+- original_id: temporal.event-sequence
+  original_asks: Members where a record of one kind occurs before a record of another, with the ordering itself
+    being the condition.
+  original_examples:
+  - Companies whose complaint spike preceded a recall
+  - Nonprofits that lost status after a late filing
+  routes:
+  - pattern: temporal.sequence
+    when: Entity-aligned event pairs plus ordering test; existence projection deduplicates qualifying entities.
+- original_id: spatial.containment
+  original_asks: Population members whose location falls inside a named administrative or geographic boundary.
+  original_examples:
+  - Nonprofits located in Cook County
+  - Federal facilities within the state of Oregon
+  routes:
+  - pattern: spatial.contains
+    when: Boundary geometry is acquired explicitly; stored region codes are a guarded filter optimization.
+- original_id: spatial.proximity
+  original_asks: Population members lying within a stated distance of a point, where the qualifying set changes
+    with the radius.
+  original_examples:
+  - Grants awarded within 50 miles of Atlanta
+  - Clinics within 10 km of a superfund site
+  routes:
+  - pattern: spatial.radius
+    when: Metric and coordinate system specified; computed distance precedes radius test.
+- original_id: spatial.nearest
+  original_asks: The member of a population nearest to a stated location, where exactly one is wanted and no
+    distance is given.
+  original_examples:
+  - The nearest federally qualified health centre to this address
+  - Which national laboratory is closest to Denver?
+  routes:
+  - pattern: spatial.nearest
+    when: Extremum selection, not radius filtering; N=1 is the original request.
+example_review_flags:
+- original_id: rank.neighbors
+  finding: Closest obesity values are not necessarily adjacent ordinal ranks; rank.reference-distance covers
+    that original example.
+- original_id: source.vintage
+  finding: Has a figure been restated needs two release reads; lookup.version-comparison retains that original
+    example.
+- original_id: time.cumulative-to-date
+  finding: Since Maria may need date resolution before acquisition; series.event-bound-reduction retains the
+    dependency.
+- original_id: quantifier.universal
+  finding: Is every 501(c)(3) required to file a 990 asks about a rule, not merely observed filing records.
+    Rule input or clarification is required; never infer legal obligation from observed compliance.
+- original_id: relation.geographic-disaggregation
+  finding: Estimating a finer-area rate from a coarse rate is not uniquely determined. Require an allocation
+    model; do not multiply a rate by a population share by default.

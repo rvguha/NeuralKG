@@ -25,6 +25,17 @@ def extracted(**overrides):
 
 
 class ThreeRoundTests(unittest.IsolatedAsyncioTestCase):
+    async def test_entity_attribute_interpretations_survive_extraction(self):
+        alternatives=[{'entity':'Microsoft Corporation','attribute':a,'description':a}
+                      for a in ('revenue','number of employees')]
+        async def reply(system,user,**kw):
+            if kw['stage']!='understand-extract':return json.dumps({'shapes':['s0']})
+            self.assertIn('interpretations',system)
+            return json.dumps(extracted(interpretations=alternatives))
+        with mock.patch.object(qu,'load_catalog',return_value=(catalog(1),'hash')),mock.patch.object(llm,'chat_async',side_effect=reply):
+            result=await qu.understand('How big is Microsoft?',context=QueryContext())
+        self.assertEqual(result['candidates'][0]['interpretations'],alternatives)
+
     async def test_nested_missing_slot_is_preserved(self):
         async def reply(system,user,**kw):
             if kw['stage']!='understand-extract':return json.dumps({'shapes':['s0']})

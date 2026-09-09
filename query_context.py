@@ -90,6 +90,8 @@ class QueryContext:
     budget: QueryBudget = field(default_factory=QueryBudget)
     memo: dict = field(default_factory=dict)
     execution_mode: str = 'template'
+    interpretation_bound: bool = False
+    defer_render: bool = False
 
     @classmethod
     def with_timeout(cls, seconds: float, **kwargs):
@@ -118,7 +120,8 @@ class QueryContext:
                             llm_client=self.llm_client, http_client=self.http_client,
                             sec_client=self.sec_client, bigquery_client=self.bigquery_client,
                             grant_pool=self.grant_pool, permits=self.permits, budget=self.budget,
-                            execution_mode=self.execution_mode)
+                            execution_mode=self.execution_mode,
+                            interpretation_bound=self.interpretation_bound, defer_render=self.defer_render)
 
     async def provider_call(self, name: str, factory: Callable[[], Awaitable[T]]) -> T:
         if self.permits is None:

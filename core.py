@@ -4,6 +4,12 @@ import json
 
 
 _SYNTHESIS_SYSTEM = (
+    "If data contains interpretation_answers, answer each supplied entity/attribute interpretation "
+    "separately from its FULL result data and evidence, labeling the exact entity and measure, "
+    "source, unit and period. These are multiple answers, not a request for the user to choose. "
+    "Never add values across interpretations or substitute one entity/attribute for another. "
+    "Report unavailable interpretations honestly. Branch answer text may be empty because only "
+    "you render the collected JSON. Do not invent answers for missing evidence. "
     "When data includes execution_plan, computed_result and inputs, inspect the FULL retrieved_data "
     "and input payloads, not only computed_result or a generic value field. The execution plan is "
     "context, not proof that its projection answers the question. For a direct lookup, answer the "
@@ -77,6 +83,8 @@ class Toolkit:
     async def synthesize_async(self, question, data, *, context):
         """Synthesize an answer through the query-owned async LLM client."""
         import llm
+        if context.defer_render:
+            return ''  # Parent renders all complete branch results in one call.
         return await llm.chat_async(
             _SYNTHESIS_SYSTEM, json.dumps({"question": question, "data": data}),
             context=context, model=llm.synthesis_model(), stage="synthesize")

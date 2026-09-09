@@ -2,7 +2,7 @@
 
 ## Abstract
 
-Neural KG answers natural-language questions over independently published data sources without prior integration. Given a question, a language model interprets it into a structured intent; the system queries an ARD index for sources capable of supplying the required data, constructs a plan over the sources it returns, queries those sources directly, performs the requisite ETL just in time, and composes an answer from the records returned. Every answer is validated against the interpreted question before it is emitted, and questions whose required operation lies outside the available access paths are refused rather than approximated. Interpretation is deliberately blind to the corpus: nothing in it names a source, so the same engine answers over a different ARD without a code change. This document walks through the execution of a single query, characterizes the boundary of the answerable query class, and reports where the current implementation falls short of the guarantees the architecture admits.
+Neural KG answers natural-language questions over independently published data sources without prior integration. Given a question, a language model interprets it into a structured intent; the system queries an ARD index for sources capable of supplying the required data, constructs a plan over the sources it returns, queries those sources directly, performs the requisite ETL just in time, and composes an answer from the records returned. Each retrieved input is validated before it is admitted, and questions whose required operation lies outside the available access paths are refused rather than approximated. (The whole-answer check against the user's original wording is currently applied to the planner's generated sub-question instead; see §7.) Interpretation is deliberately blind to the corpus: nothing in it names a source, so the same engine answers over a different ARD without a code change. This document walks through the execution of a single query, characterizes the boundary of the answerable query class, and reports where the current implementation falls short of the guarantees the architecture admits.
 
 Two properties are worth stating at the outset, because they are easily confused. The system is **model-directed but not model-grounded**. A language model decides what the question means, which entity it names, which measure it asks for, and what shape of operation would answer it; a model also writes the final sentence the caller reads. No model supplies a number. Every figure in an answer comes from a publisher's response that survived deterministic validation, and no model may overturn a deterministic rejection.
 
@@ -36,31 +36,47 @@ A distinction inside the first list carries most of the architecture. Two differ
 
 The consequence is that a model failure degrades into a refusal or a clarification, not into a wrong number. A misclassified shape routes to an ineligible source and the plan is refused. A misidentified entity fails the entity check at validation. What a model cannot do is put a figure into an answer that no publisher returned.
 
-## 2. Query shapes and required access paths
+## 2. Query templates and required access paths
 
 An **access path** is a way of getting at data that a source actually implements — a specific operation with specific parameters, such as "look up one company by CIK and one concept" or "list the counties in a state with one variable each." Access paths matter because published APIs are narrow. Census, SEC, IRS, and Treasury all expose HTTP endpoints, and those endpoints fall far short of SQL: there is generally no join, no arbitrary predicate, no grouping, and often no ordering. Whether a question can be answered therefore depends on the expressiveness of the exposed API as much as on the data behind it.
 
-The operations a question requires are determined by its *shape*, and the shape is assigned by the classifying model. Eleven shapes are currently implemented. The list is not exhaustive — it reflects the question classes encountered so far, and new shapes are added as new access paths make them answerable.
+The operations a question requires are determined by its *shape*. Shapes are no longer an
+enumeration in code. They are a **versioned catalog of query templates**, loaded as data from
+`shapes/query-shapes.replacement-codex.yaml` — 76 entries at the time of writing — and the
+SHA-256 of the file that was loaded is recorded with every query, so a result can be tied to
+the catalog that produced it. The path is configurable per instance, which is what lets one
+deployment extend the template set without forking the engine.
 
-| Shape | Example | Required access path |
+Each entry declares what it asks, worked examples including negative ones, typed `slots`, a
+`plan` (a small DAG of operators such as `ReadScalar`, `MapReadScalarPairs`, `StreamReduce`),
+and `requires` — the semantic conditions a source must satisfy for a binding to be admissible.
+The plan is what makes an entry actionable: it states the acquisition graph, so an entry that
+leaves a plan-changing choice open is a family heading rather than a template.
+
+| Template | Example | Required access path |
 | :-- | :-- | :-- |
-| Point | What was Apple's total revenue in 2023? | Keyed or native read |
-| Status | Is the Sierra Club a 501(c)(3)? | Relevant status field |
-| Entity list | Show NSF awards received by MIT. | Keyed records-by-entity |
-| Comparison | Which had more revenue in 2023, Apple or Microsoft? | Comparable keyed reads |
-| Timeseries | How did Apple's revenue change from 2019 to 2024? | Period-addressable read |
-| Ranking | Which states have the highest poverty rate? | Entity-grain population |
-| Aggregate | How many active 501(c)(3) organizations are there? | Entity-grain population |
-| Filtered subset | Which nonprofits granted more than $100 million? | Determined by quantifier |
-| Ratio | What share of a nonprofit's revenue came from federal awards? | Compatible keyed measures |
-| Correlation | Is county poverty associated with diabetes prevalence? | Joinable complete populations |
-| Topical | Find education grant opportunities. | Predicate or search operation |
+| `lookup.scalar` | What was Apple's total revenue in 2023? | One keyed read |
+| `lookup.binary` | Apple's R&D as a share of its revenue | Two keyed reads, pure formula |
+| `compare.values` | Revenue for Apple and Microsoft, 2023 | Comparable keyed reads |
+| `compare.winner` | Which had more revenue in 2023, Apple or Microsoft? | Comparable keyed reads, ordering |
+| `compare.derived-values` | Nonprofit revenue per capita, by state | Two reads per entity, shared formula |
+| `compare.derived-winner` | Which state has the highest revenue per capita? | As above, plus ordering |
+| `compare.derived-difference` | How much higher is A's rate than B's? | Exactly two pairs, subtraction |
 
-Shape assignment is consequential and is made before any source is examined. The classifier is given the distinctions that matter operationally rather than grammatically: *comparison* compares the same measure across different named entities, while *ratio* combines different measures, usually of one entity; if the entities being compared are named in the question it is a comparison, and if the engine must find them from a whole population it is a ranking or a filtered subset. These distinctions are stated to the model because they determine which *access paths* the question requires — a ranking needs an operation that returns a whole population — not because they are linguistically natural. Which sources offer such a path is settled later, against the index; the classifier is told nothing about the corpus and could not apply such a fact if it were.
+Those seven are the templates the engine currently **executes**. The other 69 are understood,
+bound and reported, and then refused at planning: an unsupported operator produces an explicit
+refusal rather than degrading into a legacy shape. That is a deliberate boundary, not an
+oversight — the failure this project has paid for repeatedly is a question quietly answered by
+a mechanism that could not answer it.
 
-Grant-graph questions follow a specialized route, since the direction of the relationship being traversed determines the query.
-
-The point query is the least demanding shape: one entity, one measure, one period, satisfiable by a single keyed read. Section 3 walks through one in full; Section 6 describes the divergences introduced by the remaining shapes.
+Selection over the catalog is done by the model, not by embedding retrieval, and that choice
+was measured. Embedding a question against 102 template descriptions gave 24.2% recall at rank
+1 and 76.8% at rank 12: a question's surface text is about its subject matter — Apple, counties,
+obesity — while a template's text is about structure, so the nearest-neighbour signal keys on
+exactly the part of the question that does not determine the answer. Source retrieval does not
+have this problem because both sides are topical. Presenting the whole catalog to a model and
+asking it to choose scored 90.5% on the same corpus. The two catalogs share a format, not a
+retrieval strategy.
 
 ## 3. Walking through a simple point query
 
@@ -72,16 +88,32 @@ What was Apple's total revenue in 2023?
 
 ### 3.1 Interpretation
 
-Two model calls read the question and return a structured intent between them. This is the most consequential stage in the system: everything downstream is conditioned on it, and no later stage re-derives what it decides.
+Understanding runs in **three rounds** and returns up to three independent approaches, not one
+shape. It is the most consequential stage in the system: everything downstream is conditioned
+on it, and no later stage re-derives what it decides.
 
-The split is not arbitrary, and the line falls in a specific place:
-
-| Call | Returns | Why together |
+| Round | Call | Returns |
 |---|---|---|
-| `understand-structure` | `shape`, `entity`, `entities`, `type`, `entity_status`, `entity_candidates` | Six of the eleven shapes are *defined* by how many entities the question names. A comparison is two named entities and one measure; a ranking is a population the engine must find. Deciding shape without deciding entity count is deciding half a question. |
-| `understand-measure` | `attribute`, `interpretations`, `period`, `periods`, `quantifier`, `threshold` | Which quantity, over which span. Independent of how many entities carry it. |
+| 1 | `understand-batch` | The catalog is split into batches of 30 and each batch is read in parallel, each proposing at most three plausible templates. |
+| 2 | `understand-shortlist` | The union of those proposals is read once more, yielding at most three finalists in preference order. |
+| 3 | `understand-extract` | Each finalist is analysed independently and in parallel against its own full entry, returning its `bindings`, `entities`, `measures`, `periods`, `missing`, `acquisition_queries`, `applicability` and `reason`. |
 
-This was measured rather than assumed. Splitting shape and entity into separate calls cost 10.1 points of shape accuracy — one shape, *topical*, fell from 10/10 to 0/10, because a call shown only the question and asked for a shape has no way to know whether a subject was named. Merging them and moving measure second gives 98.7% over the 308-case corpus, correct in every one of three full passes with no case flipping between runs.
+Three properties of this design are load-bearing.
+
+**The engine does not commit to one shape.** Different approaches can answer the same question
+depending on which APIs exist, so up to three survive understanding and the choice is deferred
+to planning, which is the first stage that knows what the corpus offers.
+
+**Extraction is source-blind.** Each finalist is analysed without being told what sources exist,
+and an unknown source capability is recorded as a requirement for later planning rather than
+grounds to declare the approach inapplicable.
+
+**A missing parameter and missing data are different things.** `missing` records unknown slot
+bindings and genuine clarification needs; `acquisition_queries` requests the external data the
+plan needs, and must be non-empty for any plausible plan containing a read — knowing an entity,
+a measure and a period does not supply the value. That distinction was added against a measured
+failure: plans with a complete binding set were emitting no acquisition queries at all, and
+those queries are what discovery searches on.
 
 ```
 {
@@ -346,7 +378,18 @@ The purpose is diagnostic, and the standard for these messages is that they must
 
 ## 4. Ambiguity resolution
 
-A question can be well-formed, and still fail to designate one answer. Several distinct kinds of ambiguity arise, and they are resolved at different stages.
+A question can be well-formed, and still fail to designate one answer. Several distinct kinds of
+ambiguity arise, and they are resolved at different stages.
+
+> **Status, as of the template-execution commits.** The clarification flow described in this
+> section is **not currently reachable**. `discover_async` always returns template candidates,
+> so `harness.run` dispatches every query to the template executor and the branch that raised a
+> `ClarificationRequest` never executes; `on_ambiguity` is normalised and then never read. A
+> question with two defensible readings is now answered under one of them without asking. The
+> understanding stage still detects the ambiguity and records it — each candidate carries
+> `missing` and `reason`, and up to three approaches survive — so the information needed to ask
+> is present; nothing consumes it yet. This is a regression against the behaviour described
+> below, not a design change, and it is the largest single gap in the current implementation.
 
 **Entity ambiguity.** The name designates more than one entity. Three organizations are plausibly "Sierra Club"; "Apple" may be the registrant or one of its subsidiaries. This is now decided at interpretation: the classifier reports `entity_status: ambiguous` and enumerates 2–5 real-world candidates in `entity_candidates`, each a full name in the same form as `canonical_entity`, most likely first. The registry is not consulted to make this determination — a name lookup cannot know which entity a question means, and the model has the question.
 
@@ -490,9 +533,36 @@ Neural KG builds it: 7.8 million funder-to-recipient edges extracted from the bu
 
 This is the general remedy of Section 8 applied to a concrete case, and the cost is the one warehouses pay: the index is a copy, it goes stale, and it must be rebuilt as filings are released. It is paid for exactly one source, and only because the questions asked of that source fall outside what its publisher exposes.
 
-## 6. Execution by shape
+## 6. Execution by template
 
-The control loop is invariant across shapes. The shape determines the access path required and the mechanism interposed between planning and evidence.
+Execution is now driven by the selected template's plan rather than by a shape name. The
+executor compiles one candidate into an explicit read list, admits it, runs the reads, and
+computes the result deterministically:
+
+1. **Compile.** One model call turns the chosen candidate plus the discovered resources into a
+   plan: a list of reads, each naming a source identifier copied from the supplied resources,
+   and a finite expression tree over those reads.
+2. **Admit.** The plan is validated before anything is fetched. Every read must name a source
+   that discovery actually returned; periods must be a four-digit year or `latest`, never an
+   inferred range; the expression must reference every read; derived templates must pair reads
+   two per entity and use the same formula for each pair.
+3. **Read.** Each read runs through the existing verified single-input fetch as an adapter, with
+   period fallback disabled — a read that asks for 2023 and receives another period is refused
+   rather than substituted.
+4. **Compute.** The expression is evaluated over the fetched values by a small interpreter with
+   no `eval`: eight operators, finite arity, refusal on non-numeric operands, on a zero
+   denominator, and on operands whose units do not reconcile.
+
+The model chooses the plan; it does not compute the answer, and it does not render it in a way
+that could change the computed value.
+
+### 6.1 The legacy shape paths
+
+> **These paths are currently unreachable.** They are retained here because they describe the
+> mechanisms the template executor must eventually re-implement — fan-out, series admission,
+> population scans, correlation — and because the boundaries they document are real. As of the
+> template-execution commits, every query dispatches to the template executor before reaching
+> them.
 
 **Point** — *What is Chicago's poverty rate?*
 
@@ -625,20 +695,57 @@ discover the "who funds an organization" descriptor → select reverse traversal
 
 ## 7. Current implementation boundaries
 
-The point and status paths implement the connector, validation, evidence, and answer boundaries in full. The composed paths do not yet meet the same standard:
+The template executor is new, and its boundaries are different from the ones the legacy paths
+had. Stating them precisely matters more than the count of templates implemented.
 
-  - **Comparison** relies on a common attribute across child queries and does not establish that their results share units and periods. *Revenue in thousands from one source compared against revenue in units from another is reported as a comparison, not refused.*
-  - **Timeseries** fetches through the resolved strategy and does not admit independent evidence per observation. *A 2019–2024 revenue series is admitted as one object, so a single restated year cannot be rejected without discarding the series.*
-  - **Aggregate** planning admits a broader class than the source-native aggregate executors implement. *A count the planner accepts as feasible can reach an executor with no server-side aggregate, which then enumerates a population it was not sized for.*
-  - **Ratio** emits warnings where incompatible units, currency, grain, or entity keys should produce refusal. *A numerator matched by organization name against a denominator matched by EIN returns a percentage with a warning attached, rather than a refusal.*
-  - **Correlation** enforces county grain and shared keys, and does not enforce common period basis or unit semantics. *A 2019 poverty series correlated against a 2022 prevalence series is computed and reported; absent a resolved state, the scope silently defaults to California.* The correlation path also assumes an HTTP accessor, and a measure best served by a warehouse-backed descriptor is routed into it incorrectly.
+**Seven of 76 templates execute.** Everything else is understood, bound, and refused. A refusal
+here is correct behaviour, but it means the answerable class is currently much narrower than the
+catalog implies.
 
-Two further shortcomings follow from the expanded role of the model and are properties of the current implementation rather than of the architecture:
+**Clarification is gone.** See the note in §4. Every query dispatches to the executor, so the
+ambiguity branch is dead code and a two-reading question is answered under one reading.
 
-  - **Refusal messages report the exhaustion of choice points rather than the cause of the last failure.** A query blocked by an unset third-party credential reports "no viable hit (no viable entity …)", which points a reader at entity resolution. The underlying status — a 429, a missing key — is known at the point of failure and is not carried into the message.
-  - **A model judgment and a system defect are not distinguishable from the outside.** A question the classifier declines to decompose, a measure it misreads as a percentage, and a genuinely unsupported access path all present as a refusal. The progress trace (§3.11) exists to make the distinction visible, and it is the only thing that does.
+**Final verification checks the planner's sub-question, not the user's.** Each read is fetched
+through the single-input adapter using the read's own generated question, so the answer
+adjudicator is asked whether the data answers a string the planning model wrote — not what the
+user typed. The composed result is never re-checked against the original wording. This is the
+failure class the whole-answer verification was added to prevent: a question about officer pay
+whose plan asks for "salaries and wages" is validated against "salaries and wages" and returns
+total payroll.
 
-These are addressable within the existing validation ladder and message paths.
+**Comparison templates do not check their own arity.** `compare.values` and `compare.winner`
+accept any number of reads, so a plan that finds only one entity's source can declare that
+entity the winner of a comparison it was the only member of.
+
+**Unit reconciliation passes when units are unknown.** The non-derived path compares
+`(unit, currency)` tuples, and 2,346 of 10,442 descriptors declare no unit — so two unitless
+reads collapse to one signature and are combined. The derived path has the stronger check the
+non-derived path needs.
+
+**Fiscal and calendar years are conflated.** A request for 2023 accepts a source period of
+`FY2023`. For an issuer whose fiscal year is offset — Nvidia's FY2023 ended in January 2023 —
+this returns a different year's figure under the requested label. `Evidence.period_basis`
+carries the distinction and is not consulted.
+
+**Rendering is unfinished.** Only a numeric `lookup.scalar` produces prose, and it labels the
+computed value with the first read's raw unit, so an expression that divides by a billion is
+described in the units it no longer has. Every other template returns its result as JSON — a
+yes/no comparison renders as the single word `false`.
+
+**Reads are sequential and uncharged.** The executor loops over reads rather than using the
+existing concurrent branch helper, so latency is the sum of the reads rather than the maximum,
+the per-query fan-out budget is never charged, and the shared progress trace retains only the
+last read's attempts.
+
+Two shortcomings carried over unchanged from the legacy implementation:
+
+  - **Refusal messages report the exhaustion of choice points rather than the cause of the last
+    failure.** A query blocked by an unset third-party credential reports "no viable hit", which
+    points a reader at entity resolution.
+  - **A model judgment and a system defect are not distinguishable from the outside.** A
+    question the model declines to bind, a measure it misreads, and a genuinely unsupported
+    access path all present as a refusal. The progress trace (§3.11) is the only thing that
+    makes the distinction visible.
 
 ## 8. Extending the answerable class
 
@@ -650,6 +757,18 @@ The converse also holds, and is the more common case now that interpretation is 
 
 ## 9. Summary
 
-Neural KG is a bounded query planner over the access paths that published APIs expose. A language model interprets the question into a structured intent — entity, measure, shape, period, and the ambiguities it can detect — naming no source, because interpretation runs before discovery and must be answerable from the question alone; semantic discovery then proposes candidates; declared capabilities constrain them deterministically; resolution parameterizes the selected path, using an identity registry solely to obtain source-specific identifiers; retrieval obtains facts; execution searches the remaining choice points concurrently under an explicit per-query context; deterministic validation admits or rejects, and no model may overturn a rejection; ambiguity is resolved against fetched values; a model composes the final answer from admitted evidence alone; and refusal reports the boundary that was reached.
+Neural KG is a bounded query planner over the access paths that published APIs expose. A
+versioned catalog of query templates, loaded as data rather than enumerated in code, states what
+question structures the engine can express and what each one requires. A language model reads
+the question against that catalog in three rounds and returns up to three independent
+approaches — naming no source, because understanding runs before discovery and must be
+answerable from the question alone. Semantic discovery then proposes candidate sources from the
+acquisition queries each approach declares; a second model call compiles one approach into an
+explicit plan whose reads must name sources discovery actually returned; deterministic admission
+rejects a plan that invents a source, an unsupported period, or an expression that ignores an
+operand; the reads run through verified single-input retrieval with period substitution
+disabled; and a small interpreter with no `eval` computes the result, refusing on non-numeric
+operands, a zero denominator, or units that do not reconcile. An unsupported template refuses
+rather than degrading into a mechanism that cannot answer it.
 
 The model decides what is being asked and how to say the answer. It does not decide what is true.

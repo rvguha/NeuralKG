@@ -1,0 +1,979 @@
+meta:
+  author: claude
+  baseline: shapes/query-shapes.yaml
+  baseline_sha256: fb7de52ee9b2adcb3740b74754ec6e144ddaa2b9e089d450f97150897c4a11f3
+  baseline_entries: 98
+  templates: 58
+  criterion: Parameterized plan templates with explicit capability guards (Codex's formulation, accepted
+    20260908T034500). Two originals share a template when they share the acquisition graph and the computation
+    kernel class, and every difference between them is expressible as a binding whose admissibility a
+    guard states. A guard may not conceal a read, a join, a sort or a model fit.
+  not_claimed:
+  - minimality
+  - classification accuracy
+  - end-to-end answer accuracy
+  - that these templates are executable; they are proposed skeletons, not implementations
+templates:
+- id: lookup.value
+  title: One value or record for one named key
+  plan:
+    acquire:
+    - LOOKUP(key, measure, period)
+    compute:
+    - PROJECT(field|record)
+  params:
+    projection: field|record
+    measure_type: number|boolean|category
+  guards:
+  - source addresses the entity by key
+  routes:
+    point.value:
+      projection: field
+      measure_type: number
+    point.status:
+      projection: field
+      measure_type: boolean
+    point.categorical:
+      projection: field
+      measure_type: category
+    point.record:
+      projection: record
+- id: lookup.test
+  title: One keyed value tested against a supplied constant
+  plan:
+    acquire:
+    - LOOKUP(key, measure, period)
+    compute:
+    - FORMULA(compare)
+  params:
+    comparator: gt|gte|lt|lte|eq
+  guards:
+  - source addresses the entity by key
+  routes:
+    point.threshold-check: {}
+- id: lookup.derived
+  title: Two measures of one key combined by a pure formula
+  plan:
+    acquire:
+    - LOOKUP(key, measure_a, period)
+    - LOOKUP(key, measure_b, period)
+    compute:
+    - FORMULA(f)
+  params:
+    f: a/b | a/(a+b) | a-b
+    denominator_scope: sibling-measure|entity-total
+  guards:
+  - both measures addressable for the same key at the same period
+  routes:
+    point.ratio:
+      f: a/b
+    point.component-share:
+      denominator_scope: entity-total
+- id: lookup.event-anchored
+  title: A keyed value at a period fixed by a named event
+  plan:
+    acquire:
+    - RESOLVE_EVENT(event) -> period
+    - LOOKUP(key, measure, period)
+    compute:
+    - PROJECT(field)
+  params: {}
+  guards:
+  - the event date is obtainable; source addresses that historical period
+  routes:
+    time.level-at-event: {}
+  note: 'RESOLVE_EVENT is a real acquisition node, not a binding: it is why this is not lookup.value.'
+- id: lookup.versioned
+  title: A keyed value as of a named data release
+  plan:
+    acquire:
+    - VERSION(key, measure, release)
+    compute:
+    - PROJECT(value + as_of)
+  params:
+    release: latest|named
+    projection: value|value+as_of
+  guards:
+  - publisher retains prior releases (required only when release=named)
+  routes:
+    time.latest-vintage:
+      release: latest
+      projection: value+as_of
+    source.vintage:
+      release: named
+- id: records.of-entity
+  title: The records related to one named key
+  plan:
+    acquire:
+    - LOOKUP_RECORDS(key, relation)
+    compute:
+    - PROJECT(records)
+  params: {}
+  guards:
+  - source returns the entity's related records
+  routes:
+    records.for-entity: {}
+- id: records.by-predicate
+  title: Records matching predicates with no owning key
+  plan:
+    acquire:
+    - ENUM_PRED(predicates)
+    compute:
+    - PROJECT(records)
+  params:
+    predicates: topic|attribute|eligibility
+  guards:
+  - source supports non-key predicate search
+  routes:
+    records.matching: {}
+    topical.eligibility:
+      predicates: eligibility
+- id: descriptor.definition
+  title: A measure's definition, basis or units
+  plan:
+    acquire:
+    - DESCRIPTOR_LOOKUP(measure)
+    compute:
+    - PROJECT(documentation)
+  params: {}
+  guards:
+  - publisher documents the measure
+  routes:
+    meta.definition: {}
+- id: catalog.availability
+  title: Whether any resource carries a measure for an entity
+  plan:
+    acquire:
+    - CATALOG_SEARCH(measure, entity)
+    compute:
+    - WITNESS(any)
+  params: {}
+  guards:
+  - a searchable resource catalog exists
+  routes:
+    meta.availability: {}
+  note: 'Not a projection of descriptor.definition: searching a scoped catalog is a different acquisition
+    (Codex correction 7).'
+- id: change.endpoints
+  title: One key, one measure, two periods, combined by a pure formula
+  plan:
+    acquire:
+    - LOOKUP(key, measure, t0)
+    - LOOKUP(key, measure, t1)
+    compute:
+    - FORMULA(f)
+  params:
+    f: b-a | (b-a)/a | sign(b-a)
+    alignment: arbitrary|calendar-matched
+  guards:
+  - source addresses both periods
+  - source exposes calendar-matched positions (required only when alignment=calendar-matched)
+  routes:
+    change.absolute:
+      f: b-a
+    change.percent:
+      f: (b-a)/a
+    change.direction:
+      f: sign(b-a)
+    change.period-over-period:
+      alignment: calendar-matched
+  note: period-over-period is a binding with a guard, not a separate shape (Codex correction 5).
+- id: compare.named-candidates
+  title: K explicitly named keys on one measure
+  plan:
+    acquire:
+    - LOOKUP_SET(keys[K], measure, period)
+    compute:
+    - FORMULA(f)
+  params:
+    K: 2..8
+    f: values | b-a | argmax | equal_within(tol)
+    operand_role: entity|publisher
+  guards:
+  - each named key is addressable
+  - cross-source entity reconciliation when operands span publishers
+  routes:
+    comparison.values:
+      f: values
+    comparison.difference:
+      f: b-a
+    comparison.which:
+      f: argmax
+    source.agreement:
+      operand_role: publisher
+      f: equal_within(tol)
+  note: Publisher is an operand role, not a shape (Codex correction 6). K may exceed 2, so this is a fan-out,
+    not a two-read template.
+- id: series.values
+  title: One key's measure at each of several periods
+  plan:
+    acquire:
+    - SERIES(key, measure, periods)
+    compute:
+    - PROJECT(series)
+  params:
+    keys: 1|K
+  guards:
+  - source addresses each requested period
+  routes:
+    timeseries.single-entity:
+      keys: '1'
+    timeseries.multi-entity:
+      keys: K
+- id: series.stream-reduce
+  title: A fixed-state reduction over one key's series
+  plan:
+    acquire:
+    - SERIES(key, measure, periods)
+    compute:
+    - STREAM_REDUCE(op)
+  params:
+    op: sum|count_where|sd|range|min|max
+  guards:
+  - source addresses each period in the window
+  routes:
+    time.cumulative-to-date:
+      op: sum
+    time.duration-above:
+      op: count_where
+    time.volatility:
+      op: sd|range
+  note: 'time.volatility SPLIT-CANDIDATE: it does not name its dispersion statistic; if IQR is meant it
+    belongs in pop.order-statistic instead.'
+- id: series.growth-rate
+  title: Per-period growth from a series
+  plan:
+    acquire:
+    - SERIES(key, measure, periods)
+    compute:
+    - FORMULA(cagr|mean_delta)
+  params:
+    method: cagr|mean_delta
+  guards:
+  - endpoints addressable (cagr) or every period (mean_delta)
+  routes:
+    change.rate-annualized: {}
+  note: 'SPLIT: the original does not say CAGR or arithmetic mean of per-period change; the two need different
+    acquisitions.'
+- id: series.shape
+  title: A verdict about the trajectory of a series
+  plan:
+    acquire:
+    - SERIES(key, measure, periods)
+    compute:
+    - FORMULA(second_difference)
+  params: {}
+  guards:
+  - every period in the window addressable
+  routes:
+    trend.acceleration: {}
+- id: series.locate-period
+  title: The period at which a series meets a condition
+  plan:
+    acquire:
+    - SERIES(key, measure, periods)
+    compute:
+    - SCAN(argext|first_crossing)
+  params:
+    target: argext|first_crossing
+  guards:
+  - every period addressable in order
+  routes:
+    time.extremum:
+      target: argext
+    time.first-crossing:
+      target: first_crossing
+- id: series.pair-fit
+  title: Association between two of one key's series
+  plan:
+    acquire:
+    - SERIES(key, measure_a, periods)
+    - SERIES(key, measure_b, periods)
+    compute:
+    - FIT(model)
+  params:
+    model: pearson|spearman
+    lag: 0|n
+  guards:
+  - both series addressable over the same periods
+  routes:
+    assoc.correlation-over-time: {}
+- id: compare.named-growth
+  title: K named keys ordered by change rather than level
+  plan:
+    acquire:
+    - SERIES(keys[K], measure, [t0,t1])
+    compute:
+    - FORMULA(b-a)
+    - SELECT(argmax)
+  params:
+    K: 2..8
+  guards:
+  - both endpoints addressable for every named key
+  routes:
+    comparison.growth: {}
+- id: pop.stream-reduce
+  title: A fixed-state reduction over a population
+  plan:
+    acquire:
+    - ENUM(population, measure)
+    compute:
+    - STREAM_REDUCE(op)
+  params:
+    op: sum|count|mean|sd|range|min|max
+  guards:
+  - population enumerable, or the source computes the reduction server-side
+  routes:
+    aggregate.sum:
+      op: sum
+    aggregate.count:
+      op: count
+    aggregate.mean:
+      op: mean
+    aggregate.spread:
+      op: sd|range
+  note: 'aggregate.spread SPLIT: sd and range stream; IQR does not. See pop.order-statistic.'
+- id: pop.order-statistic
+  title: A value at an ordered position in a population
+  plan:
+    acquire:
+    - ENUM(population, measure)
+    compute:
+    - ORDER_STAT(op)
+  params:
+    op: median|quantile|iqr
+  guards:
+  - the WHOLE population is retrievable; a prefix scan yields a wrong answer, not a partial one
+  routes:
+    aggregate.median:
+      op: median
+    aggregate.percentile-value:
+      op: quantile
+  note: Separated from pop.stream-reduce because order statistics cannot stream (Codex correction 3).
+- id: pop.locate-member
+  title: A named member's position within its population
+  plan:
+    acquire:
+    - ENUM(population, measure)
+    - LOOKUP(key, measure, period)
+    compute:
+    - LOCATE(key)
+    - PROJECT(ordinal|window|share_below)
+  params:
+    projection: ordinal|window|share_below
+    window: n
+  guards:
+  - ordered traversal, or a server-side count of members beyond the reference value
+  routes:
+    rank.of-named-entity:
+      projection: ordinal
+    rank.neighbors:
+      projection: window
+    rank.percentile-of-entity:
+      projection: share_below
+  note: The reference LOOKUP is an extra acquisition; this is why these are not pop.top-n (Codex correction
+    4).
+- id: pop.top-n
+  title: An ordered prefix of a population
+  plan:
+    acquire:
+    - ENUM(population, measure)
+    compute:
+    - SORT_LIMIT(dir, n, offset)
+  params:
+    dir: desc|asc
+    n: 1..N|unbounded
+  guards:
+  - ordered traversal with adequate coverage; partial coverage must refuse, not caveat
+  routes:
+    rank.top-n: {}
+    rank.extremum-single:
+      n: '1'
+- id: pop.rank-movement
+  title: Movement between two rankings of one population
+  plan:
+    acquire:
+    - ENUM(population, measure, t0)
+    - ENUM(population, measure, t1)
+    compute:
+    - SORT_LIMIT(dir)
+    - SORT_LIMIT(dir)
+    - FORMULA(rank_delta)
+    - SORT_LIMIT(dir, n)
+  params: {}
+  guards:
+  - the population is orderable at both periods with the same membership basis
+  routes:
+    rank.change: {}
+- id: pop.dedup-count
+  title: A count of distinct real entities rather than records
+  plan:
+    acquire:
+    - ENUM(population, identity_key)
+    compute:
+    - DEDUP(identity_key)
+    - STREAM_REDUCE(count)
+  params: {}
+  guards:
+  - an identity key exists that collapses repeated registrations
+  routes:
+    aggregate.count-distinct: {}
+- id: pop.histogram
+  title: Population members counted into bands of a measure
+  plan:
+    acquire:
+    - ENUM(population, measure)
+    compute:
+    - BUCKET(bands)
+    - STREAM_REDUCE(count)
+  params:
+    bands: spec
+  guards:
+  - population enumerable
+  routes:
+    aggregate.histogram: {}
+- id: pop.filter
+  title: Population members satisfying a row-local predicate
+  plan:
+    acquire:
+    - ENUM(population, measure)
+    compute:
+    - FILTER(predicate)
+  params:
+    predicate: threshold|range|category|interval_overlap
+  guards:
+  - source evaluates the predicate, or the population is enumerable for local filtering
+  routes:
+    filter.threshold:
+      predicate: threshold
+    filter.range:
+      predicate: range
+    filter.categorical:
+      predicate: category
+    filter.temporal-active:
+      predicate: interval_overlap
+- id: pop.witness
+  title: A yes/no verdict about a whole population
+  plan:
+    acquire:
+    - ENUM(population, measure)
+    compute:
+    - WITNESS(quantifier)
+  params:
+    quantifier: any|all
+  guards:
+  - a decisive witness ends the scan; the OPPOSITE verdict requires complete coverage
+  routes:
+    quantifier.existential:
+      quantifier: any
+    quantifier.universal:
+      quantifier: all
+  note: 'MERGED after Codex correction 2: ALL(P) = NOT ANY(NOT P). One counterexample settles ALL just
+    as one witness settles ANY; my earlier asymmetry claim was false.'
+- id: pop.share-of-total
+  title: One named member's measure as a fraction of the population total
+  plan:
+    acquire:
+    - ENUM(population, measure)
+    - LOOKUP(key, measure, period)
+    compute:
+    - STREAM_REDUCE(sum)
+    - FORMULA(a/total)
+  params: {}
+  guards:
+  - the population total is COMPLETE; a partial total inflates the share
+  routes:
+    relation.entity-to-population-share: {}
+- id: pop.concentration-prefix
+  title: The share of a total held by the largest N members
+  plan:
+    acquire:
+    - ENUM(population, measure)
+    compute:
+    - SORT_LIMIT(desc, n)
+    - STREAM_REDUCE(sum)
+    - FORMULA(prefix/total)
+  params:
+    n: 1..N
+  guards:
+  - ordered traversal AND a complete total; the numerator and denominator have different coverage needs
+  routes:
+    aggregate.concentration:
+      index: topn_share
+  note: 'SPLIT from pop.concentration-index: a prefix share needs ordering, HHI does not.'
+- id: pop.concentration-index
+  title: A concentration index computed by streaming reduction
+  plan:
+    acquire:
+    - ENUM(population, measure)
+    compute:
+    - STREAM_REDUCE(sum, sumsq)
+    - FORMULA(index)
+  params:
+    index: hhi|gini
+  guards:
+  - population enumerable; no ordering required for hhi
+  routes:
+    aggregate.concentration:
+      index: hhi|gini
+  note: 'aggregate.concentration is SPLIT across this and pop.concentration-prefix: the original names
+    no index.'
+- id: group.reduce
+  title: A named statistic for every group of a partitioned population
+  plan:
+    acquire:
+    - ENUM_GROUPED(population, measure, group_key)
+    compute:
+    - GROUP(group_key)
+    - STREAM_REDUCE(op)
+  params:
+    op: sum|count|mean|min|max (REQUIRED)
+    overlapping_groups: true|false
+  guards:
+  - the grouping key is available on each member
+  routes:
+    aggregate.by-group: {}
+  note: 'SPLIT-CANDIDATE: the original says ''a specified aggregate statistic'' without naming it; op
+    must be required, and an order-statistic op would route to a different template.'
+- id: group.share
+  title: Each group's reduction as a fraction of the whole
+  plan:
+    acquire:
+    - ENUM_GROUPED(population, measure, group_key)
+    compute:
+    - GROUP(group_key)
+    - STREAM_REDUCE(sum)
+    - FORMULA(part/total)
+  params: {}
+  guards:
+  - complete coverage, since the parts must sum to the whole
+  routes:
+    aggregate.share-by-group: {}
+- id: group.extremum
+  title: The top member within each group
+  plan:
+    acquire:
+    - ENUM_GROUPED(population, measure, group_key)
+    compute:
+    - GROUP(group_key)
+    - SORT_LIMIT(dir, 1)
+  params: {}
+  guards:
+  - per-group ordering; a single global ordering returns many members of one group and none of others
+  routes:
+    rank.within-group: {}
+- id: entity.breakdown
+  title: One key's measure split across its components
+  plan:
+    acquire:
+    - LOOKUP_RECORDS(key, components)
+    compute:
+    - GROUP(component)
+    - STREAM_REDUCE(sum)
+  params: {}
+  guards:
+  - the source reports the measure at component grain
+  routes:
+    point.breakdown: {}
+- id: pop2.filter
+  title: Population members satisfying combined row-local predicates
+  plan:
+    acquire:
+    - ENUM(population, measure_a, measure_b)
+    compute:
+    - FILTER(combine(p_a, p_b))
+  params:
+    combine: all|any
+  guards:
+  - BOTH predicates evaluable on ONE enumeration; when an operand is membership of a separately enumerable
+    set the graph is align.inner or probe.semi, not this
+  routes:
+    filter.conjunction-all:
+      combine: all
+    filter.disjunction-any:
+      combine: any
+  note: 'CONDITIONAL, unresolved between us: which reading a question intends is not stated by the question.
+    Accepted-label-set case.'
+- id: pop2.derived-filter
+  title: Members selected by a formula over two of their own measures
+  plan:
+    acquire:
+    - ENUM(population, measure_a, measure_b)
+    compute:
+    - FORMULA(f)
+    - FILTER(threshold)
+  params:
+    f: a/b|a-b
+  guards:
+  - both measures available per member
+  routes:
+    multi.ratio-threshold: {}
+- id: pop2.change-filter
+  title: Members selected by conditions on TWO measure changes
+  plan:
+    acquire:
+    - ENUM(population, measure_a, t0)
+    - ENUM(population, measure_a, t1)
+    - ENUM(population, measure_b, t0)
+    - ENUM(population, measure_b, t1)
+    compute:
+    - FORMULA(delta_a, delta_b)
+    - FILTER(combine)
+  params:
+    combine: all|any
+    relation: thresholds|same_sign|opposite_sign
+    windows: shared|independent
+  guards:
+  - all four endpoint reads available; per-operand period addressing when windows=independent
+  routes:
+    multi.change-conjunction-all:
+      combine: all
+      relation: thresholds
+    multi.change-disjunction-any:
+      combine: any
+      relation: thresholds
+    multi.direction-relation:
+      relation: same_sign|opposite_sign
+    multi.independent-windows:
+      windows: independent
+- id: pop2.change-level-filter
+  title: Members selected by ONE change and ONE level
+  plan:
+    acquire:
+    - ENUM(population, measure_a, t0)
+    - ENUM(population, measure_a, t1)
+    - ENUM(population, measure_b, t1)
+    compute:
+    - FORMULA(delta_a)
+    - FILTER(all)
+  params: {}
+  guards:
+  - three reads; the second measure needs no history
+  routes:
+    multi.change-plus-level: {}
+  note: 'SEPARATED from pop2.change-filter after Codex correction 1: three reads against four. Answerable
+    where employee history is unavailable.'
+- id: pop2.filter-then-rank
+  title: A population narrowed by one measure and ordered by another
+  plan:
+    acquire:
+    - ENUM(population, measure_a, measure_b)
+    compute:
+    - FILTER(p_a)
+    - SORT_LIMIT(dir, n)
+  params:
+    n: 1..N
+  guards:
+  - ordering applied AFTER the restriction; the unrestricted extremum is a different answer
+  routes:
+    multi.threshold-then-rank: {}
+    multi.constrained-optimum:
+      n: '1'
+- id: pop2.paired-reduce
+  title: A reduction in which members are weighted by a second measure
+  plan:
+    acquire:
+    - ENUM(population, measure_a, measure_b)
+    compute:
+    - PAIRED_REDUCE(op)
+  params:
+    op: weighted_mean
+  guards:
+  - both measures aligned per member
+  routes:
+    aggregate.weighted-mean: {}
+- id: pop2.conditional-rate
+  title: A proportion whose denominator is a qualifying subgroup
+  plan:
+    acquire:
+    - ENUM(population, measure_a, measure_b)
+    compute:
+    - FILTER(p_a)
+    - STREAM_REDUCE(count)
+    - FORMULA(count_ab/count_a)
+  params: {}
+  guards:
+  - the qualifying subgroup is completely enumerable, since it is the denominator
+  routes:
+    assoc.conditional-rate: {}
+- id: pop2.fit
+  title: Association between two measures across a population
+  plan:
+    acquire:
+    - ENUM(population, measure_a, measure_b)
+    compute:
+    - FIT(model)
+  params:
+    model: pearson|spearman
+    lag: 0|n
+  guards:
+  - paired values per member; spearman additionally requires a ranking stage
+  routes:
+    assoc.correlation-population:
+      lag: '0'
+    assoc.lagged:
+      lag: n
+- id: pop2.residual-select
+  title: Members deviating from a fitted relationship
+  plan:
+    acquire:
+    - ENUM(population, measure_a, measure_b)
+    compute:
+    - FIT(model)
+    - FORMULA(residual)
+    - SELECT(threshold)
+  params:
+    model: REQUIRED
+    residual: REQUIRED
+    threshold: REQUIRED
+  guards:
+  - complete population; an outlier set computed on a biased subset is wrong, not partial
+  routes:
+    assoc.outlier: {}
+  note: 'SPLIT-CANDIDATE: the original names no expectation model, residual definition or selection rule.'
+- id: pop2.group-contrast
+  title: Whether two groups differ on a measure
+  plan:
+    acquire:
+    - ENUM_GROUPED(population, measure, group_key)
+    compute:
+    - GROUP(group_key)
+    - STREAM_REDUCE(op)
+    - FORMULA(contrast)
+  params:
+    op: mean|median
+    contrast: difference|test_verdict
+  guards:
+  - both groups enumerable at comparable coverage
+  routes:
+    assoc.group-difference: {}
+  note: 'SPLIT-CANDIDATE: mean difference, median difference and a hypothesis-test verdict are different
+    answers.'
+- id: probe.semi
+  title: Members having at least one matching related record
+  plan:
+    acquire:
+    - ENUM(population)
+    - MEMBERSHIP(related_set)
+    compute:
+    - JOIN(semi)
+  params: {}
+  guards:
+  - the related set is probeable by the population's key
+  routes:
+    filter.existence: {}
+- id: probe.semi-count
+  title: Members whose count of related records meets a number
+  plan:
+    acquire:
+    - ENUM(population)
+    - MEMBERSHIP(related_set)
+    compute:
+    - JOIN(semi)
+    - STREAM_REDUCE(count)
+    - FILTER(threshold)
+  params: {}
+  guards:
+  - related records countable per member, including zero
+  routes:
+    filter.count-predicate: {}
+- id: probe.anti
+  title: Members with no match on the other side
+  plan:
+    acquire:
+    - ENUM(population)
+    - MEMBERSHIP(other_set)
+    compute:
+    - JOIN(anti)
+  params:
+    evidence: open_world|recorded_absence|authoritative_membership
+  guards:
+  - recorded_absence requires the source to record absence as a value
+  - authoritative_membership requires the second set to be complete
+  - open_world may only report that no record was found, never that the fact is false
+  routes:
+    filter.negation-open:
+      evidence: open_world
+    filter.negation-closed:
+      evidence: recorded_absence
+    set.difference:
+      evidence: authoritative_membership
+  note: One graph, three EVIDENCE bindings with different guards and different admissible claims.
+- id: probe.anti-symmetric
+  title: Members in exactly one of two sets, either direction
+  plan:
+    acquire:
+    - MEMBERSHIP(set_a)
+    - MEMBERSHIP(set_b)
+    compute:
+    - JOIN(anti)
+    - JOIN(anti)
+    - UNION
+  params: {}
+  guards:
+  - BOTH sets enumerable, since unmatched rows must be discovered on each side
+  routes:
+    set.symmetric-difference: {}
+  note: 'Kept separate after Codex correction 8: a one-sided anti-join emits unmatched LEFT rows only;
+    ''direction=both'' hid a second anti-join and a union.'
+- id: probe.division
+  title: Members related to every element of a named set
+  plan:
+    acquire:
+    - ENUM(population)
+    - MEMBERSHIP(required_set)
+    compute:
+    - JOIN(division)
+  params: {}
+  guards:
+  - the required set is completely enumerable; one missing relation disqualifies a candidate
+  routes:
+    join.division: {}
+- id: align.match
+  title: Two populations matched on a key, carrying values from each
+  plan:
+    acquire:
+    - ENUM(population_a, measures_a)
+    - ENUM(population_b, measures_b)
+    compute:
+    - JOIN(mode)
+  params:
+    mode: inner|left_outer
+    cardinality: one_to_one|one_to_many
+  guards:
+  - a shared identity key; left_outer additionally requires the left population to be complete
+  routes:
+    join.inner-enrichment:
+      mode: inner
+    join.outer-enrichment:
+      mode: left_outer
+  note: Emission mode is a parameter with a guard; unmatched members retained or dropped changes the row
+    set but not the graph.
+- id: align.reduce-then-match
+  title: Each side reduced per key before matching
+  plan:
+    acquire:
+    - ENUM_GROUPED(population_a, measure_a, key)
+    - ENUM_GROUPED(population_b, measure_b, key)
+    compute:
+    - GROUP+STREAM_REDUCE
+    - GROUP+STREAM_REDUCE
+    - JOIN(inner)
+  params: {}
+  guards:
+  - both sides groupable by the shared key BEFORE matching; matching first multiplies rows and inflates
+    totals
+  routes:
+    join.aggregate-each-side: {}
+- id: align.temporal
+  title: Records matched to another population by time
+  plan:
+    acquire:
+    - ENUM(population_a, dates)
+    - ENUM(population_b, measure, dates)
+    compute:
+    - JOIN(temporal, comparator)
+  params:
+    comparator: as_of|nearest|interval_overlap|strict_order
+  guards:
+  - the second population is addressable at or around each reference date
+  - interval_overlap requires both sides to carry intervals, not instants
+  routes:
+    temporal.as-of:
+      comparator: as_of
+    temporal.nearest:
+      comparator: nearest
+    temporal.interval-overlap:
+      comparator: interval_overlap
+    temporal.event-sequence:
+      comparator: strict_order
+- id: align.traverse
+  title: A population reached through a chain of relations
+  plan:
+    acquire:
+    - ENUM(population)
+    - TRAVERSE(relation) x hops
+    compute:
+    - JOIN(inner)
+  params:
+    hops: 2..n
+  guards:
+  - each hop traversable; every hop may lose or multiply members
+  routes:
+    join.multi-hop: {}
+- id: relation.rollup
+  title: A measure for a key with or without its subordinates
+  plan:
+    acquire:
+    - LOOKUP(key, measure)
+    - TRAVERSE(hierarchy) -> subordinate keys
+    - LOOKUP(subordinate keys, measure)
+    compute:
+    - STREAM_REDUCE(sum)
+  params:
+    scope: inclusive|exclusive
+  guards:
+  - the hierarchy is enumerable; exclusive additionally requires subordinates to be IDENTIFIABLE so their
+    records can be withheld
+  routes:
+    relation.hierarchy-rollup:
+      scope: inclusive
+    relation.hierarchy-exclusive:
+      scope: exclusive
+- id: relation.allocate
+  title: A finer-grained value derived from a coarser total
+  plan:
+    acquire:
+    - LOOKUP(coarse_key, measure)
+    - TRAVERSE(containment) -> allocation basis
+    compute:
+    - FORMULA(allocate)
+  params:
+    allocation_model: REQUIRED
+  guards:
+  - an allocation basis exists; without a stated model the question has no determinate answer
+  routes:
+    relation.geographic-disaggregation: {}
+- id: relation.assert
+  title: Whether a stated relation holds between two named keys
+  plan:
+    acquire:
+    - RELATION_READ(key_a, relation, key_b)
+    compute:
+    - PROJECT(boolean)
+  params: {}
+  guards:
+  - the relation is published, not inferred from co-occurrence
+  routes:
+    relation.existence: {}
+  note: I had mis-skeletoned this as two measure reads in REDUCTION-claude.md; it is a relation read.
+- id: spatial.filter
+  title: Population members selected by location
+  plan:
+    acquire:
+    - ENUM(population, geometry)
+    compute:
+    - JOIN(spatial, predicate)
+  params:
+    predicate: containment|radius
+  guards:
+  - containment needs boundaries; radius needs point coordinates and a distance metric
+  routes:
+    spatial.containment:
+      predicate: containment
+    spatial.proximity:
+      predicate: radius
+- id: spatial.nearest
+  title: The single member closest to a location
+  plan:
+    acquire:
+    - ENUM(population, geometry)
+    compute:
+    - JOIN(spatial, distance)
+    - SORT_LIMIT(asc, 1)
+  params:
+    tie_rule: REQUIRED
+  guards:
+  - point coordinates; no radius is supplied so the whole population is in scope
+  routes:
+    spatial.nearest: {}

@@ -19,8 +19,14 @@ sys.path.insert(0, str(ROOT))
 import llm
 
 SYSTEM = '''Classify the requested query structure using the supplied catalog. Return JSON
-{"requested_result": "what the answer contains", "candidate_scope": "one named entity / explicitly named candidates / unenumerated population", "computation": "required operations", "shape": "an exact catalog id", "reason": "brief structural reason"}, or shape:null
-for a request outside the catalog. Select the most specific definition justified by the
+{"requested_result": "what the answer contains", "candidate_scope": "one named entity / explicitly named candidates / unenumerated population", "computation": "required operations", "shape": "an exact catalog id", "reason": "brief structural reason", "missing": "" }, or shape:null
+for a request outside the catalog.
+Set "missing" to the name of a plan-changing parameter the question leaves unstated — the
+concentration index, the dispersion statistic, the aggregate operator, the expectation model,
+the measure, the entity, the threshold, the period. Naming one means the shape is identified
+but the computation is not determined, and guessing it would answer a different question.
+Leave "missing" empty when the question determines its own computation. Do not populate it
+merely because a value must be looked up. Select the most specific definition justified by the
 words of the question. Determine the result requested first, then required computations.
 
 A stored metric named rate, percentage, median, earnings per share, or exchange rate is
@@ -121,7 +127,9 @@ Check in this order, and state which explicit words settle the choice:
 For any case not settled above use the exact catalog definition. Preserve common-point rules,
 record lists versus amounts, named-candidate comparisons versus population rankings, requested
 measure transformations, and result projection. Do not invent operations or additional inputs.
-Return JSON {"evidence": "decisive query words and operator", "shape": "exact id or null"}.
+Carry forward any unstated plan-changing parameter as "missing" (see the classifier contract);
+do not silently resolve it.
+Return JSON {"evidence": "decisive query words and operator", "shape": "exact id or null", "missing": ""}.
 '''
 
 def review(question, initial, entries, ids):
@@ -136,7 +144,8 @@ def review(question, initial, entries, ids):
             result = json.loads(raw) if raw else {}
             if 'shape' not in result or (result['shape'] is not None and result['shape'] not in ids):
                 raise ValueError('invalid review output')
-            return {'pick':result['shape'], 'reason':result.get('evidence',''), 'initial_pick':initial.get('pick'), 'attempts':attempt+1}
+            return {'pick':result['shape'], 'reason':result.get('evidence',''), 'missing':result.get('missing',''),
+                    'initial_pick':initial.get('pick'), 'attempts':attempt+1}
         except Exception as exc:
             errors.append(type(exc).__name__+': '+str(exc)[:160])
     return {'pick':'ERROR','errors':errors,'initial_pick':initial.get('pick')}
@@ -160,6 +169,31 @@ def score_rows(rows):
             hit = sum(r['correct'] for r in group)
             metrics[name] = dict(correct=hit, total=len(group), accuracy=hit/len(group),
                                  errors=sum(r['pick']=='ERROR' for r in group), target=.95 if name=='rest' else .99)
+    neg = [r for r in rows if r['cohort'] == 'negatives']
+    pos = [r for r in rows if r['cohort'] != 'negatives']
+    if neg:
+        by_kind = {}
+        for kind in sorted({r['negative_kind'] for r in neg}):
+            g = [r for r in neg if r['negative_kind'] == kind]
+            by_kind[kind] = dict(correct=sum(r['correct'] for r in g), total=len(g),
+                                 accuracy=sum(r['correct'] for r in g)/len(g))
+        refuse = [r for r in neg if r.get('expect') == 'refuse']
+        # Precision/recall of the refusal decision itself, over every case that was scored:
+        # recall = refusals we should have made and did; precision = refusals we made that
+        # were warranted. A harness that only counts negatives cannot see the second.
+        tp = sum(r['pick'] is None for r in refuse)
+        fp = sum(r['pick'] is None for r in pos)
+        attract = {}
+        for r in refuse:
+            if r.get('false_accept'):
+                attract[r['pick']] = attract.get(r['pick'], 0) + 1
+        metrics['negatives'] = dict(
+            by_kind=by_kind,
+            no_shape_recall=tp/len(refuse) if refuse else None,
+            no_shape_precision=tp/(tp+fp) if (tp+fp) else None,
+            false_accepts=sum(r.get('false_accept', False) for r in neg),
+            false_clarifies=sum(r.get('false_clarify', False) for r in pos),
+            attractors=dict(sorted(attract.items(), key=lambda kv: -kv[1])))
     return metrics
 
 def classify(question, catalog, ids):
@@ -174,14 +208,15 @@ def classify(question, catalog, ids):
             result = json.loads(raw)
             if 'shape' not in result or (result['shape'] is not None and result['shape'] not in ids):
                 raise ValueError('invalid shape output')
-            return {'pick': result['shape'], 'reason': result.get('reason', ''), 'attempts': attempt + 1}
+            return {'pick': result['shape'], 'reason': result.get('reason', ''),
+                    'missing': result.get('missing', ''), 'attempts': attempt + 1}
         except Exception as exc:
             reasons.append(type(exc).__name__ + ': ' + str(exc)[:160])
     return {'pick': 'ERROR', 'errors': reasons}
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--cohort', choices=['common', 'rest', 'all'], default='all')
+    parser.add_argument('--cohort', choices=['common', 'rest', 'negatives', 'all'], default='all')
     parser.add_argument('--output', required=True)
     parser.add_argument('--workers', type=int, default=5)
     parser.add_argument('--limit', type=int)
@@ -193,11 +228,13 @@ def main():
     entries = yaml.safe_load(catalog_bytes)['shapes']
     ids = {e['id'] for e in entries}
     corpus = []
-    for name, file in [('common', 'shape_common_queries.json'), ('rest', 'shape_queries.json')]:
+    for name, file in [('common', 'shape_common_queries.json'), ('rest', 'shape_queries.json'),
+                       ('negatives', 'shape_negatives.json')]:
         if args.cohort not in (name, 'all'):
             continue
         cases = json.loads((ROOT / 'tests' / file).read_text())['cases']
-        corpus.extend(dict(case, cohort=name) for case in cases)
+        corpus.extend(dict(case, cohort=name) for case in cases
+                      if case.get('stage', 'classification') == 'classification')
     if args.limit:
         corpus = corpus[:args.limit]
     assert all(set(accepted(c)) <= ids for c in corpus), 'Dangling expected labels'
@@ -212,8 +249,25 @@ def main():
         if args.review and not prior:
             result = review(case['q'], result, entries, ids)
         expected = accepted(case)
-        correct = result['pick'] in expected if expected else result['pick'] is None
-        return dict(case, accepted=expected, **result, correct=correct)
+        missing = (result.get('missing') or '').strip()
+        expect = case.get('expect')
+        if expect == 'refuse':
+            # A refusal is only correct as a refusal. Naming a shape is a false accept even
+            # when the shape is a defensible reading of the words.
+            correct = result['pick'] is None
+        elif expect == 'clarify':
+            # The shape IS identifiable; the failure mode is silently choosing a parameter.
+            # Both halves are required: right shape AND an admission that something is unstated.
+            # `missing` here is the MODEL's answer; case['missing_expected'] is the corpus label,
+            # deliberately differently named after the two collided in dict(case, **result).
+            correct = result['pick'] in expected and bool(missing)
+        else:
+            # A positive answered with a clarification request is not correct either; it is a
+            # false clarify, and is tracked separately below rather than hidden in the total.
+            correct = (result['pick'] in expected if expected else result['pick'] is None) and not missing
+        return dict(case, accepted=expected, **result, correct=correct,
+                    false_accept=(expect == 'refuse' and result['pick'] not in (None, 'ERROR')),
+                    false_clarify=(expect not in ('refuse', 'clarify') and bool(missing)))
     with concurrent.futures.ThreadPoolExecutor(max_workers=args.workers) as pool:
         for row in pool.map(run, corpus):
             rows.append(row)

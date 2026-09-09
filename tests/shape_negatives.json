@@ -1,0 +1,681 @@
+{
+ "n": 70,
+ "kinds": {
+  "not-a-data-request": 25,
+  "no-source": 25,
+  "underdetermined": 20
+ },
+ "note": "Kinds B (out-of-catalog structures) and E (adversarial near-misses) are Codex's per board 20260908T141500. `no-source` cases carry stage=retrieval: a shape classifier sees no source inventory and CANNOT refuse them \u2014 naming the shape is correct there. They are scored against discovery, not against classification.",
+ "cases": [
+  {
+   "q": "How do I file a Form 990?",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "procedural instruction, not a request for a value",
+   "stage": "classification"
+  },
+  {
+   "q": "What are the filing deadlines for a 501(c)(3)?",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "asks about a rule, not published data",
+   "stage": "classification"
+  },
+  {
+   "q": "Write me a grant proposal for a food bank.",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "records.matching",
+   "why": "writing task",
+   "stage": "classification"
+  },
+  {
+   "q": "Draft an email to my board about our funding gap.",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "records.matching",
+   "why": "writing task",
+   "stage": "classification"
+  },
+  {
+   "q": "Should we apply for NIH or NSF funding?",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "comparison.which",
+   "why": "advice; no measure is requested",
+   "stage": "classification"
+  },
+  {
+   "q": "Is now a good time to buy Nvidia stock?",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "investment advice",
+   "stage": "classification"
+  },
+  {
+   "q": "Explain what a 501(c)(3) is.",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "meta.definition",
+   "why": "general concept, not a publisher's measure definition",
+   "stage": "classification"
+  },
+  {
+   "q": "What does EIN stand for?",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "meta.definition",
+   "why": "acronym expansion, not a measure definition",
+   "stage": "classification"
+  },
+  {
+   "q": "What is machine learning?",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "meta.definition",
+   "why": "general concept unrelated to any catalogued measure",
+   "stage": "classification"
+  },
+  {
+   "q": "How does NIH peer review work?",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "meta.definition",
+   "why": "process description, not a measure definition",
+   "stage": "classification"
+  },
+  {
+   "q": "Translate 'nonprofit' into Spanish.",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "point.categorical",
+   "why": "translation task",
+   "stage": "classification"
+  },
+  {
+   "q": "Summarise the Inflation Reduction Act.",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "records.matching",
+   "why": "document summarisation",
+   "stage": "classification"
+  },
+  {
+   "q": "What sources do you have access to?",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "meta.availability",
+   "why": "question about the tool, not about an entity's data",
+   "stage": "classification"
+  },
+  {
+   "q": "Which of your datasets is most reliable?",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "source.agreement",
+   "why": "asks for a judgement about sources themselves",
+   "stage": "classification"
+  },
+  {
+   "q": "Can you export this to Excel?",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "records.matching",
+   "why": "tool operation",
+   "stage": "classification"
+  },
+  {
+   "q": "Who is the president of the United States?",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "point.categorical",
+   "why": "general knowledge, no catalogued measure",
+   "stage": "classification"
+  },
+  {
+   "q": "What time does the IRS office in Denver close?",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "opening hours are not a published measure here",
+   "stage": "classification"
+  },
+  {
+   "q": "Give me the phone number for Feeding America.",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "point.categorical",
+   "why": "contact detail, not a measure",
+   "stage": "classification"
+  },
+  {
+   "q": "What's the weather in Chicago?",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "no meteorological source in this instance",
+   "stage": "classification"
+  },
+  {
+   "q": "Recommend a book about philanthropy.",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "records.matching",
+   "why": "recommendation task",
+   "stage": "classification"
+  },
+  {
+   "q": "Are you able to file my taxes for me?",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "point.status",
+   "why": "capability question",
+   "stage": "classification"
+  },
+  {
+   "q": "Why did my last query fail?",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "meta.availability",
+   "why": "question about the system's behaviour",
+   "stage": "classification"
+  },
+  {
+   "q": "How do I apply to Stanford?",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "records.matching",
+   "why": "procedural instruction",
+   "stage": "classification"
+  },
+  {
+   "q": "Is the stock market open on Juneteenth?",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "point.status",
+   "why": "calendar fact, no source",
+   "stage": "classification"
+  },
+  {
+   "q": "Tell me a joke about accountants.",
+   "accepted": [],
+   "negative_kind": "not-a-data-request",
+   "expect": "refuse",
+   "nearest": "records.matching",
+   "why": "conversation",
+   "stage": "classification"
+  },
+  {
+   "q": "What was Apple's closing stock price on 3 March 2024?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "no market-price source in this instance",
+   "stage": "retrieval"
+  },
+  {
+   "q": "Which companies' stock price rose over 20% in 2025?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "rank.top-n",
+   "why": "no market-price source; the canonical example's first operand is uncarried",
+   "stage": "retrieval"
+  },
+  {
+   "q": "How many consumer complaints did Wells Fargo receive in 2023?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "no CFPB complaints source",
+   "stage": "retrieval"
+  },
+  {
+   "q": "Which banks had complaints fall by 15% last year?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "filter.threshold",
+   "why": "no complaints source; the example's second operand is uncarried",
+   "stage": "retrieval"
+  },
+  {
+   "q": "How much did Pfizer spend on lobbying in 2023?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "no lobbying-disclosure source",
+   "stage": "retrieval"
+  },
+  {
+   "q": "How many patents did IBM file last year?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "no patent source",
+   "stage": "retrieval"
+  },
+  {
+   "q": "What is the obesity rate in ZIP code 94301?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "no source carries ZIP grain; CDC PLACES is county here",
+   "stage": "retrieval"
+  },
+  {
+   "q": "What is the uninsured rate in Palo Alto?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "city grain; the finest health grain available is county",
+   "stage": "retrieval"
+  },
+  {
+   "q": "Median income for census tract 5089.01?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "no tract grain",
+   "stage": "retrieval"
+  },
+  {
+   "q": "What is the obesity rate in the Bay Area?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "informal region matches no published geography",
+   "stage": "retrieval"
+  },
+  {
+   "q": "How much revenue did SpaceX report in 2023?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "private company; SEC carries registrants only",
+   "stage": "retrieval"
+  },
+  {
+   "q": "What was Toyota's revenue in yen last year?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "no foreign-filer source",
+   "stage": "retrieval"
+  },
+  {
+   "q": "What is the graduation rate at Lincoln High School?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "K-12; college-scorecard is higher education",
+   "stage": "retrieval"
+  },
+  {
+   "q": "How much did the Ford Foundation pay its median employee?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "990 carries officer compensation, not median employee pay",
+   "stage": "retrieval"
+  },
+  {
+   "q": "What was federal spending in 1890?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "period predates every source",
+   "stage": "retrieval"
+  },
+  {
+   "q": "How much NIH funding did Stanford get in 1975?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "predates RePORTER coverage",
+   "stage": "retrieval"
+  },
+  {
+   "q": "What will NIH's budget be in 2030?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "future period; no source carries it",
+   "stage": "retrieval"
+  },
+  {
+   "q": "How many volunteers does the Red Cross have?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "not a 990 line item",
+   "stage": "retrieval"
+  },
+  {
+   "q": "What is the average salary of a nonprofit accountant?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "aggregate.mean",
+   "why": "occupational wage data is not a source here",
+   "stage": "retrieval"
+  },
+  {
+   "q": "Which counties have the highest rate of long COVID?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "rank.top-n",
+   "why": "not a PLACES measure",
+   "stage": "retrieval"
+  },
+  {
+   "q": "What is Harvard's endowment return last year?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "returns are not carried; 990 has balances",
+   "stage": "retrieval"
+  },
+  {
+   "q": "How many people are homeless in Seattle?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "no homelessness count source",
+   "stage": "retrieval"
+  },
+  {
+   "q": "What share of Alphabet's revenue came from the UK?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.component-share",
+   "why": "geographic segment detail is not in the XBRL concepts carried",
+   "stage": "retrieval"
+  },
+  {
+   "q": "Which nonprofits are under IRS investigation?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "filter.threshold",
+   "why": "enforcement status is not published data",
+   "stage": "retrieval"
+  },
+  {
+   "q": "What is the crime rate in Cook County?",
+   "accepted": [],
+   "negative_kind": "no-source",
+   "expect": "refuse",
+   "nearest": "point.value",
+   "why": "no crime source",
+   "stage": "retrieval"
+  },
+  {
+   "q": "How concentrated is federal contracting?",
+   "accepted": [
+    "aggregate.concentration"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "top-N share, HHI and Gini give different answers",
+   "missing_expected": "index",
+   "stage": "classification"
+  },
+  {
+   "q": "How much do county obesity rates vary?",
+   "accepted": [
+    "aggregate.spread"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "range, standard deviation and IQR are different answers",
+   "missing_expected": "statistic",
+   "stage": "classification"
+  },
+  {
+   "q": "Which counties are outliers on health spending?",
+   "accepted": [
+    "assoc.outlier"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "no expectation model or residual threshold is stated",
+   "missing_expected": "model",
+   "stage": "classification"
+  },
+  {
+   "q": "Do rural and urban counties differ on obesity?",
+   "accepted": [
+    "assoc.group-difference"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "mean difference, median difference or a test verdict",
+   "missing_expected": "contrast",
+   "stage": "classification"
+  },
+  {
+   "q": "Give me a statistic for NIH funding by state.",
+   "accepted": [
+    "aggregate.by-group"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "the aggregate operator is not named",
+   "missing_expected": "statistic",
+   "stage": "classification"
+  },
+  {
+   "q": "What is Nvidia's growth rate?",
+   "accepted": [
+    "change.rate-annualized"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "CAGR or mean per-period change, over an unstated window",
+   "missing_expected": "method",
+   "stage": "classification"
+  },
+  {
+   "q": "How volatile is Chesapeake's revenue?",
+   "accepted": [
+    "time.volatility"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "dispersion statistic unnamed",
+   "missing_expected": "statistic",
+   "stage": "classification"
+  },
+  {
+   "q": "How big is Nvidia?",
+   "accepted": [
+    "point.value"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "revenue, assets, employees or market value",
+   "missing_expected": "measure",
+   "stage": "classification"
+  },
+  {
+   "q": "How is Harvard doing?",
+   "accepted": [
+    "point.value"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "no measure is identifiable at all",
+   "missing_expected": "measure",
+   "stage": "classification"
+  },
+  {
+   "q": "What were Amazon's earnings?",
+   "accepted": [
+    "point.value"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "net income, operating income, EBITDA or gross profit",
+   "missing_expected": "measure",
+   "stage": "classification"
+  },
+  {
+   "q": "What is Apple's revenue?",
+   "accepted": [
+    "point.value"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "Apple Inc or Apple Bank; both are resolvable entities",
+   "missing_expected": "entity",
+   "stage": "classification"
+  },
+  {
+   "q": "How much did Delta receive?",
+   "accepted": [
+    "point.value"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "Delta Air Lines or Delta Dental",
+   "missing_expected": "entity",
+   "stage": "classification"
+  },
+  {
+   "q": "What is the Red Cross's revenue?",
+   "accepted": [
+    "point.value"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "national organisation alone or including chapters",
+   "missing_expected": "scope",
+   "stage": "classification"
+  },
+  {
+   "q": "Compare Harvard and MIT.",
+   "accepted": [
+    "comparison.values"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "no measure is named",
+   "missing_expected": "measure",
+   "stage": "classification"
+  },
+  {
+   "q": "Show me the top universities.",
+   "accepted": [
+    "rank.top-n"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "ranked by what",
+   "missing_expected": "measure",
+   "stage": "classification"
+  },
+  {
+   "q": "Which nonprofits are large?",
+   "accepted": [
+    "filter.threshold"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "no cut-off is supplied and no default is defensible",
+   "missing_expected": "threshold",
+   "stage": "classification"
+  },
+  {
+   "q": "How has NIH funding changed?",
+   "accepted": [
+    "change.absolute"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "for whom, and between which periods",
+   "missing_expected": "entity+period",
+   "stage": "classification"
+  },
+  {
+   "q": "What percentage of grants went to research?",
+   "accepted": [
+    "aggregate.share-by-group"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "share of all federal grants, or of one agency's",
+   "missing_expected": "denominator",
+   "stage": "classification"
+  },
+  {
+   "q": "Which company grew the most?",
+   "accepted": [
+    "comparison.growth"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "grew on what measure, among which candidates",
+   "missing_expected": "measure+population",
+   "stage": "classification"
+  },
+  {
+   "q": "What is the ratio for Stanford?",
+   "accepted": [
+    "point.ratio"
+   ],
+   "negative_kind": "underdetermined",
+   "expect": "clarify",
+   "why": "neither operand is named",
+   "missing_expected": "measure",
+   "stage": "classification"
+  }
+ ]
+}
