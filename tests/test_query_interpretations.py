@@ -21,6 +21,36 @@ class InterpretationTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(await harness._validate_interpretations('How big is Microsoft?',
                              {'candidates':[c]},context=self.context()),self.choices())
 
+    async def test_malformed_interpretation_verdict_is_repaired_once(self):
+        c={'status':'ok','applicability':'plausible','interpretations':self.choices()}
+        chat=AsyncMock(side_effect=['{"independent_readings": tru',
+                                    '{"independent_readings":true}'])
+        with patch.object(harness.llm,'chat_async',chat):
+            got=await harness._validate_interpretations(
+                'How big is Microsoft?',{'candidates':[c]},context=self.context())
+        self.assertEqual(got,self.choices())
+        self.assertEqual(chat.await_count,2)
+        self.assertIn('repair',chat.call_args.args[1])
+
+    async def test_single_partial_reading_is_completed_or_discarded(self):
+        partial=[{'entity':'City of Miami, Florida','attribute':'median age','description':'city'}]
+        completed=[*partial,{'entity':'Miami-Dade County, Florida','attribute':'median age','description':'county'}]
+        candidate={'status':'ok','applicability':'plausible','interpretations':partial}
+        with patch.object(harness.llm,'chat_async',AsyncMock(return_value=json.dumps({'readings':completed}))):
+            got=await harness._validate_interpretations(
+                'What is the median age in Miami, Florida?',{'candidates':[candidate]},context=self.context())
+        self.assertEqual(got,completed)
+
+    async def test_single_partial_reading_repairs_malformed_json(self):
+        partial=[{'entity':'Texas','attribute':'people with diabetes','description':'count'}]
+        candidate={'status':'ok','applicability':'plausible','interpretations':partial}
+        chat=AsyncMock(side_effect=['{"readings":[', '{"readings":[]}'])
+        with patch.object(harness.llm,'chat_async',chat):
+            got=await harness._validate_interpretations(
+                'How many people in Texas have diabetes?',{'candidates':[candidate]},context=self.context())
+        self.assertEqual(got,[])
+        self.assertIn('repair',json.loads(chat.call_args_list[1].args[1]))
+
     def context(self):
         return QueryContext(usage_ledger=harness.llm.Ledger(),discovery_ledger=harness.ard_client.DiscoveryUsage())
 
@@ -37,11 +67,12 @@ class InterpretationTests(unittest.IsolatedAsyncioTestCase):
             result=await harness._answer_interpretations('How big was Microsoft in 2023?',self.choices(),sites=['allowed'],context=context)
         self.assertEqual(len(seen),2)
         for question,kw in seen:
-            self.assertIn('How big was Microsoft in 2023?',question)
+            self.assertEqual(question,'How big was Microsoft in 2023?')
             self.assertEqual(kw['sites'],['allowed'])
             self.assertTrue(kw['context'].interpretation_bound)
             self.assertTrue(kw['context'].defer_render)
             self.assertIs(kw['context'].budget,context.budget)
+            self.assertIn(kw['context'].memo['forced_interpretation'],self.choices())
         render.assert_awaited_once()
         self.assertEqual(result['data']['interpretation_answers'][0]['result']['data']['nested'],{'detail':[1,2]})
         self.assertFalse(context.defer_render)

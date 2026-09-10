@@ -27,15 +27,23 @@ def messages(text):
 async def run(args):
     config = instance.config()
     rows = []
+    ordinal = 0
     for section in config.get('examples', []):
         for query in section.get('queries', []):
+            ordinal += 1
             question = query['q'] if isinstance(query, dict) else query
+            if ordinal < args.start_at:
+                continue
             if args.match and args.match.casefold() not in question.casefold():
                 continue
-            rows.append({'id': f'example-{len(rows)+1:02}', 'question': question,
+            rows.append({'id': f'example-{ordinal:02}', 'question': question,
                          'cohort': section['label']})
     run_id = args.run_id or datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ-web-examples')
     directory = stage_reports.results_root() / run_id
+    rerun_ids = {f'example-{int(value):02}' for value in args.rerun_ids.split(',') if value.strip()}
+    if args.resume and (directory / 'results.json').exists():
+        previous={row['id']:row for row in json.loads((directory / 'results.json').read_text())}
+        rows=[row if row['id'] in rerun_ids else {**row,**previous.get(row['id'],{})} for row in rows]
     manifest = {'run_id': run_id, 'instance': instance.path(),
                 'model': config.get('query_understanding', {}).get('selection_model', 'configured'),
                 'scope': 'Homepage examples through /ask. Answers require semantic review.',
@@ -76,7 +84,7 @@ async def run(args):
                     row['execution'] = {'status': 'error', 'summary': str(exc)}
                 stage_reports.publish(directory, manifest, rows)
                 print(row['id'], row['execution']['status'], row['question'], flush=True)
-        await asyncio.gather(*(one(row) for row in rows))
+        await asyncio.gather(*(one(row) for row in rows if not row.get('execution')))
     manifest['finished_at'] = datetime.now(timezone.utc).isoformat()
     stage_reports.publish(directory, manifest, rows)
     print(args.server.rstrip('/') + '/tests/' + run_id + '/execution.html', flush=True)
@@ -88,6 +96,12 @@ if __name__ == '__main__':
     parser.add_argument('--server', required=True)
     parser.add_argument('--run-id')
     parser.add_argument('--match')
+    parser.add_argument('--start-at', type=int, default=1,
+                        help='First one-based homepage example to run')
+    parser.add_argument('--resume', action='store_true',
+                        help='Keep completed rows from an interrupted run and execute the rest')
+    parser.add_argument('--rerun-ids', default='',
+                        help='With --resume, rerun comma-separated one-based example numbers')
     parser.add_argument('--concurrency', type=int, default=2)
     args = parser.parse_args()
     if args.concurrency < 1:

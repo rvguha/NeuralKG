@@ -65,6 +65,8 @@ def _question_currency(intent):
 
 def _question_grain(intent):
     q = intent.question.lower()
+    # The country's name does not request a subnational state-grain answer.
+    q = re.sub(r'\bunited states(?: of america)?\b', '', q)
     for word, grain in (("counties", "county"), ("county", "county"), ("states", "state"),
                         ("state", "state"), ("cities", "city"), ("city", "city")):
         if re.search(rf"\b{word}\b", q):

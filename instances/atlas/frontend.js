@@ -293,16 +293,20 @@
       if (row && typeof row === "object") return row;
       return { value: row };
     });
-    var columns = Object.keys(normalized[0]).slice(0, 8);
+    var columns = Object.keys(normalized[0]).filter(function (key) {
+      return normalized[0][key] === null || typeof normalized[0][key] !== "object";
+    }).slice(0, 8);
     return '<div class="answer-table-wrap"><table class="answer-table"><thead><tr>' +
       columns.map(function (column) { return "<th>" + esc(column) + "</th>"; }).join("") +
-      "</tr></thead><tbody>" + normalized.slice(0, 10).map(function (row) {
+      "</tr></thead><tbody>" + normalized.map(function (row) {
         return "<tr>" + columns.map(function (column) { return "<td>" + esc(valueText(row[column])) + "</td>"; }).join("") + "</tr>";
       }).join("") + "</tbody></table></div>";
   }
 
   function answerRows(data) {
     var body = data.data || {};
+    if (Array.isArray(body.result)) return body.result;
+    if (Array.isArray(body.rows)) return body.rows;
     if (Array.isArray(body.ranking)) return body.ranking;
     if (Array.isArray(body.series)) return body.series;
     if (Array.isArray(body.interpretations)) return body.interpretations;
@@ -320,7 +324,12 @@
       return '<span class="citation" title="' + esc(item.identifier || item.source_id || "") + '"><span class="trust-dot"></span>' +
         esc(item.name || item.title || item.identifier || "Source") + " · " + label + "</span>";
     }).join("");
-    answer.innerHTML = '<p class="answer-narrative">' + esc(data.answer) + '</p>' + table(answerRows(data)) +
+    var rows = answerRows(data);
+    var narrative = data.answer;
+    if (rows.length) narrative = narrative.split("\n").filter(function (line) {
+      return line.trim().charAt(0) !== "|";
+    }).join("\n");
+    answer.innerHTML = '<p class="answer-narrative">' + esc(narrative).replace(/\n/g, "<br>") + '</p>' + table(rows) +
       (citations ? '<div class="citation-list">' + citations + '</div>' : '') +
       '<div class="answered-in">Answered in ' + secondsElapsed() + 's</div>';
     answer.hidden = false;

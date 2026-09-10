@@ -53,6 +53,8 @@ class DCTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.data[0]['source'],'Census')
         self.assertEqual(result.provenance['resolved']['variable_dcid'],'Median_Income_Household')
         self.assertEqual(result.provenance['payload']['rows'],result.data)
+        self.assertEqual(result.grain,'city')
+        self.assertEqual(dc.place_grain([{'dcid':'country/USA'},{'dcid':'country/JPN'}]),'country')
     async def test_mapped_series_returns_one_relation_per_place(self):
         read=extensions.Read({},'dc',node={'operator':'MapReadSeries'},parameters={'params':{
             'places':['Miami','Miami'],'indicator':'median_household_income','year_from':2020}})

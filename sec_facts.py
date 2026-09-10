@@ -61,6 +61,22 @@ async def read(request, *, context):
             {'entity':company,'type':'company','question':p.get('question') or str(company)},context=context)
         matches={str(entity['keys']['cik']):entity for entity in entities
                  if entity and (entity.get('keys') or {}).get('cik')}
+        # An operating-company identity may carry a subsidiary CIK while its
+        # consolidated financials are filed by a declared parent.  Keep the
+        # direct identity first, then try only Wikidata-declared parent/owner
+        # relationships; do not maintain company-name aliases here.
+        import resolver
+        for entity in entities:
+            if not entity or not entity.get('qid'):continue
+            try:
+                parents=await resolver.reporting_parents_async(entity['qid'],context=context)
+            except (runtime.QueryCancelled,):
+                raise
+            except Exception:
+                parents=[]
+            for parent in parents:
+                cik=(parent.get('keys') or {}).get('cik')
+                if cik:matches.setdefault(str(cik),parent)
         if not matches:
             # Match source-native identifiers/names supplied in the binding;
             # parenthesized canonical names are separate names, not a ticker.
@@ -72,10 +88,11 @@ async def read(request, *, context):
                 if cik:matches[str(cik)]={'label':title,'keys':{'cik':cik}}
                 if matches:break
         if not matches:raise runtime.Refused('No canonical SEC identifier for '+str(company))
+        answered=False
         for cik,entity in matches.items():
             payload=await client.company_facts(cik,context)
             if not isinstance(payload,dict):
-                raise runtime.Refused('SEC has no company-facts record for CIK '+str(cik))
+                continue
             series=[]; tags=[]
             for component in components:
                 taxonomy=component.get('taxonomy','us-gaap'); unit=component.get('unit','USD')
@@ -109,6 +126,13 @@ async def read(request, *, context):
             if not company_rows:raise runtime.Refused('No annual facts cover the requested fiscal period')
             all_rows.append(company_rows)
             receipts.append({'cik':cik,'entity':entity,'concepts':tags})
+            answered=True
+            # A direct filer wins.  A parent is only a fallback when the named
+            # operating-company identity has no company-facts record.
+            break
+        if not answered:
+            raise runtime.Refused('SEC has no company-facts record for resolved CIKs: '+
+                                  ', '.join(matches))
     flat=[row for rows in all_rows for row in rows]
     return synth.Input(all_rows if (request.node or {}).get('operator')=='MapReadSeries' else flat,
         True,{'source':request.source,'provider':'SEC EDGAR','entities':receipts,

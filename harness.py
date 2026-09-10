@@ -1048,8 +1048,17 @@ async def discover_async(question, sites=None, assumptions=None, *, context, _un
         # the complete original question.
         queries = list(dict.fromkeys([question, *queries]))
         await _asay(context, 'discovery_started', queries=queries)
-        hits = await ard_client.search_many_async(queries, k=12, sources=sites,
+        discovered = await ard_client.search_many_async(queries, k=24, sources=sites,
                                                   rerank_query=question, context=context)
+        # A marketplace can contain many vintages of one schema. Preserve the
+        # strongest dozen, then one representative of every additional access
+        # path so duplicate vintages cannot crowd a callable alternative out of
+        # planning and execution fallback.
+        hits=list(discovered[:12]);accessors={str((h.get('metadata') or {}).get('accessor') or '') for h in hits}
+        for hit in discovered[12:]:
+            accessor=str((hit.get('metadata') or {}).get('accessor') or '')
+            if accessor and accessor not in accessors:
+                hits.append(hit);accessors.add(accessor)
         context.memo['resources'] = hits
         await _asay(context, 'discovery_completed', resources=hits)
         return ctx, hits
@@ -2226,35 +2235,78 @@ def _extracted_interpretations(understanding):
     return []
 
 
+def _partial_interpretations(understanding):
+    """Return a single extracted reading, which violates the 0-or-many contract."""
+    for candidate in understanding.get('candidates',[]):
+        if candidate.get('status')!='ok' or candidate.get('applicability')!='plausible':
+            continue
+        items=candidate.get('interpretations',[])
+        if len(items)==1:return items
+    return []
+
+
 async def _validate_interpretations(question,understanding,*,context):
     proposed=_extracted_interpretations(understanding)
+    partial=_partial_interpretations(understanding) if not proposed else []
+    if partial:
+        system=('The extractor returned exactly one alternative reading, which is incomplete: a question '
+            'has either one ordinary meaning (return no readings) or multiple readings that must each be '
+            'answered. Return JSON {"readings":[...]}; every reading has string entity, attribute and '
+            'description. Expand genuine entity/attribute ambiguity, otherwise return []. A place name '
+            'such as Miami, Florida can denote the city or its containing county unless the question says '
+            'city/county explicitly. A comparison of named operands is not ambiguity. Preserve every '
+            'explicit measure, period and constraint. Do not consider source availability or identifiers.')
+        payload={'question':question,'partial_reading':partial};last=None
+        for attempt in range(2):
+            raw=await llm.chat_async(system,json.dumps(payload,ensure_ascii=False),context=context,
+                json_mode=True,stage='understand-interpretations',max_tokens=900)
+            try:
+                readings=json.loads(raw).get('readings')
+                if not isinstance(readings,list) or any(not isinstance(i,dict) or
+                    not all(isinstance(i.get(k),str) and i[k].strip() for k in ('entity','attribute','description'))
+                    for i in readings):raise ValueError('readings must be a list of complete reading objects')
+                unique={(i['entity'].casefold(),i['attribute'].casefold()):i for i in readings}
+                return list(unique.values()) if len(unique)>1 else []
+            except (ValueError,TypeError,KeyError) as exc:
+                last=exc
+                payload={**payload,'repair':{'error':str(exc),'previous_output':raw,
+                    'instruction':'Return a corrected complete JSON object with a readings list.'}}
+        raise runtime.Refused('Invalid interpretation completion: '+str(last))
     if not proposed:return []
-    raw=await llm.chat_async(
-        'Check whether these proposed readings are genuine alternative meanings of the QUESTION. '
+    system=('Check whether these proposed readings are genuine alternative meanings of the QUESTION. '
         'Return JSON {"independent_readings":true|false}. A comparison of Japan and the US has '
         'two required operands, NOT two alternative readings. Population and prevalence used to '
         'derive a count are inputs, NOT alternative requested attributes. Never split these apart. '
         'City versus county for an unqualified place, organization versus its foundation, or '
         'revenue versus employees for "how big" ARE independent readings. Each reading must '
-        'preserve all other explicit question constraints. Do not consider source availability.',
-        json.dumps({'question':question,'readings':proposed}),context=context,
-        json_mode=True,stage='understand-interpretations',max_tokens=500)
-    verdict=json.loads(raw).get('independent_readings')
-    if not isinstance(verdict,bool):raise runtime.Refused('Invalid interpretation validation')
-    return proposed if verdict else []
+        'preserve all other explicit question constraints. Do not consider source availability.')
+    payload={'question':question,'readings':proposed}
+    last=None
+    for attempt in range(2):
+        raw=await llm.chat_async(system,json.dumps(payload),context=context,
+            json_mode=True,stage='understand-interpretations',max_tokens=500)
+        try:
+            verdict=json.loads(raw).get('independent_readings')
+            if not isinstance(verdict,bool):raise ValueError('independent_readings must be Boolean')
+            return proposed if verdict else []
+        except (ValueError,TypeError) as exc:
+            last=exc
+            payload={**payload,'repair':{'error':str(exc),'previous_output':raw,
+                'instruction':'Return only a complete JSON object with one Boolean independent_readings field.'}}
+    raise runtime.Refused('Invalid interpretation validation: '+str(last))
 
 
 async def _answer_interpretations(question, interpretations, *, sites, context):
     async def answer(item, child):
         child.interpretation_bound=True
         child.defer_render=True
-        scoped=question+'\nFor this answer, interpret the entity and attribute as: '+json.dumps(item,ensure_ascii=False)+'. Preserve every other constraint in the original question.'
+        child.memo['forced_interpretation']=item
         try:
-            result=await run(scoped,sites=sites,on_ambiguity='all',context=child)
+            result=await run(question,sites=sites,on_ambiguity='all',context=child)
             return {'interpretation':item,'result':result}
         except (runtime.QueryCancelled,runtime.QueryBudgetExceeded):
             raise
-        except (runtime.Refused,ard_client.DiscoveryError) as exc:
+        except (runtime.Refused,runtime.AccessDenied,ard_client.DiscoveryError) as exc:
             return {'interpretation':item,'status':'unavailable','error':str(exc)}
     await _asay(context,'status',icon='🔎',msg=f'Answering {len(interpretations)} entity/attribute interpretations separately…')
     answers=await _ordered(context,[lambda child,item=item:answer(item,child) for item in interpretations])

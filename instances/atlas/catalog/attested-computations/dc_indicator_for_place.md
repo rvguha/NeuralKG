@@ -3,8 +3,8 @@ id: ac.dc_indicator_for_place
 type: AttestedComputation
 title: Reported statistic for a place — point value, trend or comparison (Data Commons)
 description: >
-  Any reported statistic Data Commons holds — population, median household
-  income, unemployment rate, GDP, life expectancy, CO2 emissions, health
+  Any reported statistic Data Commons holds — population, median age, median
+  household income, unemployment rate, GDP, life expectancy, CO2 emissions, health
   prevalence rates and ~250,000 more — for one or more named places
   (countries, states, counties, cities), as the latest value, one year, a
   year range, or the full history. "What is the population of India?",
@@ -22,6 +22,12 @@ version: "1"
 lifecycle: active
 citation_template: "Data Commons (datacommons.org) REST v2 observation API; place and variable resolved by Data Commons' resolvers; a single source facet (named per row as `source`, with its provenance URL, measurement method and observation period) is used for the whole answer."
 tags: [datacommons, places, population, "population of a country", "population of a state", "population of a city", "median household income", "median income", "unemployment rate", "poverty rate", gdp, "gdp per capita", "life expectancy", "co2 emissions", "diabetes prevalence", "obesity", "median age", households, "housing units", "foreign born", "education attainment", statistic, "what is the", "how many people", trend, "over the last 10 years", "since 2010", compare, versus, country, state, county, city, "India", "Japan", "United States", "California", "Texas"]
+representativeQueries:
+  - What is the median age in Miami, Florida?
+  - What is the population of India?
+  - How has median household income in Santa Clara County changed over the last 10 years?
+  - Compare life expectancy in Japan and the United States.
+  - What is the diabetes prevalence in Texas?
 source:
   kind: datacommons
   api: observation
@@ -38,20 +44,21 @@ computation:
           The statistic the question asks about, in the question's own words
           ("median household income", "unemployment rate", "life expectancy",
           "CO2 emissions per capita", "population"). Prefer one of these
-          curated keys when one fits exactly: population,
+          curated keys when one fits exactly: population, adult_population
+          (people age 18 and older; use this denominator with diabetes_prevalence),
           median_household_income, median_age, unemployment_rate, labor_force,
           poverty_count, households, housing_units, gdp, gdp_per_capita,
           life_expectancy, fertility_rate, co2_emissions,
-          co2_emissions_per_capita, diabetes_prevalence, obesity_prevalence,
+          co2_emissions_per_capita, diabetes_prevalence (adult prevalence), obesity_prevalence,
           crime_count, foreign_born_population, bachelors_or_higher. Otherwise
           pass the phrase as written — never a Data Commons variable id.
-      - name: place
-        type: STRING
+      - name: places
+        type: ARRAY<STRING>
         required: true
         description: >
-          The place or places named in the question, as written, separated by
-          commas when there are several to compare ("California, Texas",
-          "Japan, United States", "Santa Clara County, CA"). Never a DCID.
+          Array of separately named places, e.g. ["Japan", "United States"] or
+          ["Santa Clara County, CA"]. Keep a qualified place name together.
+          Never a comma-separated string and never a DCID.
       - name: place_type
         type: STRING
         required: false

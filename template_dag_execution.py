@@ -67,7 +67,29 @@ for alias,base in {'LeftJoin':'Join','AntiJoin':'Join','AlignEntity':'Join','Gro
     ARGUMENTS[alias]=ARGUMENTS[base]+(' Also output:result column.' if alias in ('GroupStreamReduce','GroupOrderStatistics') else '')
 
 
-def normalize_plan(plan,candidates,templates):
+def _source_aliases(hits):
+    """Map identifiers co-delivered by ARD back to its opaque source-document ID.
+
+    ARD returns both its resource URN and the source-document identifier.  Models
+    occasionally copy the URN (or the OKF id visible in metadata) even though the
+    executor needs the source-document identifier.  This is a wire-format
+    normalization, not source invention: only unambiguous aliases present on the
+    same supplied hit are accepted.
+    """
+    candidates={}
+    for hit in hits:
+        canonical=hit.get('identifier')
+        metadata=hit.get('metadata') or {}
+        aliases=(canonical,hit.get('urn'),metadata.get('id'),metadata.get('@id'),
+                 metadata.get('okf:id'))
+        for alias in aliases:
+            if isinstance(alias,str) and alias:
+                candidates.setdefault(alias,set()).add(canonical)
+    return {alias:next(iter(values)) for alias,values in candidates.items()
+            if len(values)==1 and next(iter(values))}
+
+
+def normalize_plan(plan,candidates,templates,hits=()):
     """Normalize unambiguous wire-format aliases/defaults without changing the chosen DAG."""
     if not isinstance(plan,dict):return plan
     ids=[candidate['shape'] for candidate in candidates]
@@ -80,10 +102,42 @@ def normalize_plan(plan,candidates,templates):
     parameters=plan.get('parameters')
     if not isinstance(parameters,dict):return plan
     candidate=next(item for item in candidates if item['shape']==shape)
-    entity_keys=((candidate.get('bindings') or {}).get('entity_keys') or [])
+    bindings=candidate.get('bindings') or {}
+    entity_keys=bindings.get('entity_keys') or []
+    aliases=_source_aliases(hits)
+    try:
+        supplied_sources={item['identifier']:item for item in available_sources(hits)} if hits else {}
+    except (OSError,ValueError,TypeError):
+        # Source validation below remains authoritative.  Optional default
+        # inference must not turn a missing/local-only descriptor into a crash.
+        supplied_sources={}
+    source_fields={identifier:item.get('output_fields') or []
+                   for identifier,item in supplied_sources.items()}
     for node in templates[shape]['plan']['nodes']:
         p=parameters.get(node['id'])
         if not isinstance(p,dict):continue
+        # A frequent JSON wire spelling wraps the actual operator parameters as
+        # {op:"order", args:[{input:0},{by:...}]}.  The DAG already fixes the
+        # operator and dependencies, so the trailing object is exactly the same
+        # binding in a redundant envelope.  Strip it; never execute the supplied
+        # op or input reference.
+        if (node['operator'] not in synth.READS and isinstance(p.get('args'),list)
+                and len(p['args'])>=2):
+            pieces=[item for item in p['args'][1:] if isinstance(item,dict)]
+            if pieces:
+                merged={}
+                for item in pieces:merged.update(item)
+                p=parameters[node['id']]=merged
+        if node['operator'] in synth.READS|{'RepeatTraverse'} and p.get('source') in aliases:
+            p['source']=aliases[p['source']]
+        if node['operator'] in synth.READS and isinstance(p.get('params'),dict):
+            declared={spec.get('name') for spec in
+                      supplied_sources.get(p.get('source'),{}).get('accessor_parameters',[])}
+            periods=bindings.get('periods')
+            if isinstance(periods,dict):
+                for coordinate,key in (('start','year_from'),('end','year_to')):
+                    match=re.match(r'(\d{4})',str(periods.get(coordinate) or ''))
+                    if key in declared and match:p['params'].setdefault(key,int(match.group(1)))
         if node['operator'] in ('Order','TimeOrder','GroupOrder','Rank','StreamReduce','GroupStreamReduce','OrderStatistics','GroupOrderStatistics'):
             p.setdefault('nulls','error')
         if 'params' not in p and isinstance(p.get('accessor_parameters'),dict):
@@ -98,8 +152,36 @@ def normalize_plan(plan,candidates,templates):
                 preceding=parameters.get((node.get('inputs') or [''])[0],{})
                 if preceding.get('by'):
                     p['tie_keys']=[item['field'] for item in preceding['by']]
-        if node['operator']=='AlignTime' and len(entity_keys)<=1 and 'joins' not in p:
-            p['joins']=[]
+        if node['operator']=='AlignTime' and 'joins' not in p and 'layout' not in p:
+            acquisition=parameters.get((node.get('inputs') or [''])[0],{})
+            fields=source_fields.get(acquisition.get('source'),[])
+            time=next((field for field in ('year','fiscal_year','date') if field in fields),None)
+            if time:
+                p.update(layout='long',time=time)
+            elif len(entity_keys)<=1:
+                p['joins']=[]
+    read_sources={parameters.get(node['id'],{}).get('source')
+                  for node in templates[shape]['plan']['nodes'] if node['operator'] in synth.READS}
+    field_sets=[set(source_fields.get(source,[])) for source in read_sources if source]
+    if len(field_sets)==1:
+        declared=field_sets[0]
+        def canonical_field(field):
+            if field in declared:return field
+            lowered=str(field).casefold()
+            if 'place' in declared and any(word in lowered for word in ('country','state','county','city','place','name')):
+                return 'place'
+            if 'value' in declared:return 'value'
+            return field
+        for node in templates[shape]['plan']['nodes']:
+            if node['operator'] in synth.READS:continue
+            p=parameters.get(node['id'])
+            if not isinstance(p,dict):continue
+            if isinstance(p.get('field'),str):p['field']=canonical_field(p['field'])
+            if isinstance(p.get('fields'),list):p['fields']=[canonical_field(field) for field in p['fields']]
+            if isinstance(p.get('tie_keys'),list):p['tie_keys']=[canonical_field(field) for field in p['tie_keys']]
+            for item in p.get('by') or []:
+                if isinstance(item,dict) and isinstance(item.get('field'),str):
+                    item['field']=canonical_field(item['field'])
     return plan
 
 
@@ -223,7 +305,7 @@ Expressions use {field:"column"}, {input:0}, {input:0,field:"path"}, bare consta
         raw=await llm.chat_async(system,json.dumps(payload),context=context,json_mode=True,stage='plan',max_tokens=7000,reasoning_effort='low')
         record={'system':system,'user':json.dumps(payload),'raw':raw};trace.append(record)
         try:
-            plan=normalize_plan(json.loads(raw),candidates,templates)
+            plan=normalize_plan(json.loads(raw),candidates,templates,hits)
             if not isinstance(plan,dict) or plan.get('candidate') not in {c['shape'] for c in candidates}:raise runtime.Refused(str(plan.get('reason','No executable plan') if isinstance(plan,dict) else 'Invalid plan'))
             shape=plan['candidate'];parameters=plan['parameters'];synth._template(shape,parameters)
             for node in templates[shape]['plan']['nodes']:
@@ -240,8 +322,15 @@ Expressions use {field:"column"}, {input:0}, {input:0,field:"path"}, bare consta
             output=await synth.execute(shape,parameters,reader,context=context)
             import harness
             output['inputs']=acquired
+            # ``acquired`` contains each complete normalized source JSON.  Passing
+            # ``output`` as well duplicated that evidence recursively under every
+            # computed node and pushed modest multi-series answers past the model's
+            # context limit.  The renderer still receives the whole source JSON,
+            # the full plan, result, and lossless node outputs—just not a second
+            # copy of the same provenance tree.
             answer=await harness.TK.synthesize_async(question,{'execution_plan':plan,
-                'computed_result':output['result'],'retrieved_data':acquired,'execution':output},context=context)
+                'computed_result':output['result'],'retrieved_data':acquired,
+                'node_outputs':output['nodes'],'template':output['template']},context=context)
             return {'question':question,'shape':shape,'answer':answer,'answer_renderer':'template-llm',
                     'plan':plan,'data':output,'evidence':output['evidence'],'candidates':hits,'template_candidates':understanding['candidates'],
                     'attempts':trace,'usage':context.usage_ledger.snapshot(),'discovery_usage':context.discovery_ledger.snapshot()}

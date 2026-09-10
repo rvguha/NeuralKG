@@ -23,6 +23,9 @@ def checks_by_name(verdict):
 
 
 class QuestionConstraintTests(unittest.TestCase):
+    def test_country_name_does_not_impose_state_grain(self):
+        self.assertIsNone(validation._question_grain(intent('Compare Japan and the United States')))
+        self.assertEqual(validation._question_grain(intent('Rank states in the United States')),'state')
     def test_unit_constraints_are_narrow_and_explicit(self):
         cases = {
             "Apple's diluted earnings per share": "per-share",

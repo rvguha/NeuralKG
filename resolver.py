@@ -89,6 +89,35 @@ async def claims_async(qid, *, context):
     return _claim_values(data["entities"][qid])
 
 
+async def reporting_parents_async(qid, *, context):
+    """Return parent/owner organizations that carry source crosswalk keys.
+
+    A familiar operating-company name can resolve to a legal subsidiary that
+    does not file consolidated statements (Google LLC is the motivating case).
+    Wikidata's parent-organization/owned-by edges provide the relationship; this
+    function merely follows those declared edges and returns their normal
+    crosswalk keys.  It contains no company aliases.
+    """
+    data = await _get_async(
+        f"{WD}?action=wbgetentities&ids={qid}&props=claims&format=json", context=context)
+    entity=(data.get('entities') or {}).get(qid) or {}
+    parent_ids=[]
+    for prop in ('P749','P127'):
+        for claim in (entity.get('claims') or {}).get(prop,[]):
+            try:
+                parent=claim['mainsnak']['datavalue']['value']['id']
+            except (KeyError,TypeError):
+                continue
+            if parent not in parent_ids:parent_ids.append(parent)
+    parents=[]
+    for parent in parent_ids:
+        label,keys=await claims_async(parent,context=context)
+        if keys:
+            parents.append({'qid':parent,'label':label or parent,'keys':keys,
+                            'relationship':'reporting-parent'})
+    return parents
+
+
 async def instance_of_async(qid, *, context):
     ck = f"p31|{qid}"
     if ck in _cache:

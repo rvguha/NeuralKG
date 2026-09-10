@@ -40,6 +40,50 @@ class AsyncTemplateTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ranked['parameters']['c']['ties'],'all')
         self.assertEqual(ranked['parameters']['d']['fields'],'*')
 
+        # Both identifiers were supplied in the same ARD hit.  Copying the resource
+        # URN or OKF id is therefore an unambiguous wire alias, not an invented source.
+        hits=[{'identifier':'catalog/table.md','urn':'urn:air:atlas:table',
+               'metadata':{'id':'bq.public.dataset.table'}}]
+        for alias in ('urn:air:atlas:table','bq.public.dataset.table'):
+            ranking={'candidate':'rank.population','parameters':{
+                'a':{'source':alias},'b':{},'c':{},'d':{}}}
+            ranked=dag.normalize_plan(ranking,[{'shape':'rank.population','bindings':{}}],templates,hits)
+            self.assertEqual(ranked['parameters']['a']['source'],'catalog/table.md')
+
+        series={'candidate':'series.values','parameters':{
+            'a':{'source':'catalog/place.md','params':{}},'b':{},'c':{}}}
+        with patch.object(dag,'available_sources',return_value=[
+                {'identifier':'catalog/place.md','output_fields':['place','year','value'],
+                 'accessor_parameters':[{'name':'year_from'},{'name':'year_to'}]}]):
+            normalized=dag.normalize_plan(series,[{'shape':'series.values',
+                'bindings':{'entity_keys':['Nigeria','Germany'],'periods':{
+                    'start':'2006-01-01','end':'2025-12-31'}}}],templates,
+                [{'identifier':'catalog/place.md'}])
+        self.assertEqual(normalized['parameters']['b'],{'layout':'long','time':'year'})
+        self.assertEqual(normalized['parameters']['a']['params'],{'year_from':2006,'year_to':2025})
+
+        wrapped={'candidate':'rank.population','parameters':{
+            'a':{},'b':{'op':'order','args':[{'input':0},{'by':[{'field':'value','direction':'desc'}],
+                                             'nulls':'last'}]},
+            'c':{'op':'take','args':[{'input':0},{'limit':'all'},{'ties':'all'}]},
+            'd':{'op':'project','args':[{'input':0},{'fields':'*'}]}}}
+        normalized=dag.normalize_plan(wrapped,[{'shape':'rank.population','bindings':{}}],templates)
+        self.assertEqual(normalized['parameters']['b']['by'][0]['field'],'value')
+        self.assertEqual(normalized['parameters']['c']['limit'],'all')
+        self.assertEqual(normalized['parameters']['d']['fields'],'*')
+
+        semantic_fields={'candidate':'rank.population','parameters':{
+            'a':{'source':'catalog/dc.md'},
+            'b':{'by':[{'field':'co2_emissions_per_capita','direction':'desc'}]},
+            'c':{'limit':'all','ties':'all'},
+            'd':{'fields':['country_name','co2_emissions_per_capita']}}}
+        with patch.object(dag,'available_sources',return_value=[
+                {'identifier':'catalog/dc.md','output_fields':['place','value']} ]):
+            normalized=dag.normalize_plan(semantic_fields,
+                [{'shape':'rank.population','bindings':{}}],templates,[{'identifier':'catalog/dc.md'}])
+        self.assertEqual(normalized['parameters']['b']['by'][0]['field'],'value')
+        self.assertEqual(normalized['parameters']['d']['fields'],['place','value'])
+
     async def test_all_76_async_graphs_match_fixed_input_execution(self):
         for name,case in cases().items():
             with self.subTest(template=name):

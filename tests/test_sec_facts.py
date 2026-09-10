@@ -29,6 +29,21 @@ class AnnualTests(unittest.TestCase):
 
 
 class ReadTests(unittest.IsolatedAsyncioTestCase):
+    async def test_nonfiling_subsidiary_uses_declared_reporting_parent(self):
+        ctx=QueryContext(sec_client=AsyncMock())
+        ctx.sec_client.company_facts.side_effect=[None,{'entityName':'Parent Corp','facts':{'us-gaap':{
+            'Revenues':{'units':{'USD':[fact(2023,'2023-12-31',100,'2024-02-01','2023-01-01')]}}}}}]
+        request=extensions.Read({'title':'revenue','xbrl':{'concepts':['Revenues'],'unit':'USD'}},'s',
+            parameters={'params':{'companies':['Operating Company'],'fiscal_year':2023}})
+        child={'qid':'Q1','label':'Operating Company','keys':{'cik':'11'}}
+        parent={'qid':'Q2','label':'Parent Corp','keys':{'cik':'22'},'relationship':'reporting-parent'}
+        with patch.object(harness,'_link_entity_async',AsyncMock(return_value=[child])), \
+             patch('resolver.reporting_parents_async',AsyncMock(return_value=[parent])):
+            got=await sec_facts.read(request,context=ctx)
+        self.assertEqual(got.data[0]['company'],'Parent Corp')
+        self.assertEqual(got.data[0]['cik'],'22')
+        self.assertEqual(got.provenance['entities'][0]['entity']['relationship'],'reporting-parent')
+
     async def test_ratio_uses_both_year_end_balances(self):
         ctx=QueryContext(sec_client=AsyncMock())
         ctx.sec_client.company_facts.return_value={'entityName':'A','facts':{'us-gaap':{

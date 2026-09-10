@@ -68,14 +68,71 @@ class TemplateExecutionTests(unittest.TestCase):
         for value in ('__import__("os")', {'read':-1}, {'op':'eval','args':[1,2]}, {'op':'divide','args':[1,0]}):
             with self.assertRaises(runtime.Refused):te.expression(value,[1])
 
+    def test_percent_product_uses_fraction_scale_but_difference_does_not(self):
+        evidence=[{'unit':'count'},{'unit':'percent'}]
+        product={'op':'multiply','args':[{'read':0},{'read':1}]}
+        self.assertEqual(te.expression(te.normalize_percent_product(product,evidence),[1000,12]),120)
+        difference={'op':'subtract','args':[{'read':0},{'read':1}]}
+        self.assertIs(te.normalize_percent_product(difference,evidence),difference)
+
+    def test_population_scope_comes_from_full_source_receipt(self):
+        self.assertEqual(te.population_scope({'payload':{'variable':'Adult Population With Diabetes'}}),'adult')
+        self.assertEqual(te.population_scope({'payload':{'variable_dcid':'Count_Person'}}),'all-persons')
+
     def test_plan_cannot_invent_sources_or_change_read_count(self):
         p={'candidate':'lookup.scalar','reads':[{'source':'invented'}]}
         with self.assertRaises(runtime.Refused):te.validate(p,[{'shape':'lookup.scalar'}],[{'identifier':'actual'}])
         p['reads']=[]
         with self.assertRaises(runtime.Refused):te.validate(p,[{'shape':'lookup.scalar'}],[])
 
+    def test_adult_prevalence_rejects_total_population_denominator(self):
+        base={'source':'s','entity':'Texas','type':'state','period':'latest','question':'q'}
+        plan={'candidate':'lookup.binary','reads':[
+            {**base,'measure':'total population'},
+            {**base,'measure':'adult diabetes prevalence'}],
+            'expression':{'op':'multiply','args':[{'read':0},{'read':1}]}}
+        with self.assertRaisesRegex(runtime.Refused,'adult population denominator'):
+            te.validate(plan,[{'shape':'lookup.binary'}],[{'identifier':'s'}])
+        plan['reads'][0]['measure']='adult population age 18 and older'
+        te.validate(plan,[{'shape':'lookup.binary'}],[{'identifier':'s'}])
+
 
 class WiringTests(unittest.IsolatedAsyncioTestCase):
+    async def test_failed_source_replans_against_another_accessor(self):
+        context=QueryContext(); seen=[]
+        async def selected(question,understanding,hits,*,context,excluded):
+            seen.append([h['identifier'] for h in hits])
+            if len(seen)==1:
+                context.memo['template_plan']={'candidate':'lookup.scalar'}
+                context.memo['template_active_source']='bq'
+                raise runtime.Refused('BigQuery table acquisition requires an input question')
+            return {'shape':'lookup.scalar','source':hits[0]['identifier']}
+        understood={'candidates':[{'shape':'lookup.scalar','status':'ok','applicability':'plausible'}]}
+        hits=[{'identifier':'bq','metadata':{'accessor':'atlas_bigquery'}},
+              {'identifier':'dc','metadata':{'accessor':'atlas_datacommons'}}]
+        with patch.object(te,'_run_selected',side_effect=selected):
+            got=await te.run('median age',understood,hits,context=context)
+        self.assertEqual(got['source'],'dc')
+        self.assertEqual(seen,[['bq','dc'],['dc']])
+
+    async def test_failed_direct_plan_tries_other_understood_api_shape(self):
+        context=QueryContext(); calls=[]
+        async def selected(question,understanding,hits,*,context,excluded):
+            calls.append(set(excluded))
+            if not excluded:
+                context.memo['template_plan']={'candidate':'lookup.scalar'}
+                context.memo['template_active_source']='s'
+                raise runtime.Refused('source returned a rate, not a count')
+            return {'shape':'lookup.binary','data':{'result':10}}
+        understood={'candidates':[
+            {'shape':'lookup.scalar','status':'ok','applicability':'plausible'},
+            {'shape':'lookup.binary','status':'ok','applicability':'plausible'}]}
+        with patch.object(te,'_run_selected',side_effect=selected):
+            got=await te.run('How many?',understood,[{'identifier':'s'}],context=context)
+        self.assertEqual(got['shape'],'lookup.binary')
+        self.assertEqual(calls,[set(),{'lookup.scalar'}])
+        self.assertEqual(context.memo['plan_execution_failures'][0]['candidate'],'lookup.scalar')
+
     async def test_latest_rebind_preserves_original_question_for_renderer(self):
         original='How many people in Texas have diabetes?'
         reads=[

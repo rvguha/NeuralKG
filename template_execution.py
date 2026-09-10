@@ -18,6 +18,8 @@ Expressions are finite trees: {"read":0} references a zero-based read; numeric l
 SYSTEM += '\nThe currently supported period bindings are a four-digit year (e.g. "2023") or "latest". Do not expand a year into a date range or invent a calendar/fiscal convention. Copy source identifiers exactly from the provided resources.'
 SYSTEM += '\nARD resources are descriptors of callable data sources, NOT fetched values. Your reads WILL be executed after planning. A company/year scalar accessor is sufficient to plan reading AMD or Intel revenue even though neither value appears in the descriptor. Do not refuse because data has not been fetched yet or because executing the plan needs external requests; that is the purpose of the reads. Refuse only if the descriptors do not support the required inputs or intent is unresolved.'
 SYSTEM += '\nDerived templates require exactly TWO reads per named entity, consecutive in reads. Use pair_expression (the SAME expression for every pair, with local read indices 0 and 1) to calculate the requested measure. compare.derived-values displays calculated values; compare.derived-winner chooses max/min; compare.derived-difference requires exactly two pairs and subtracts the second calculated value from the first. Order pairs accordingly. Both reads in each pair must name the same entity. Include every operand; never substitute a supplied derived value for its two-input computation. Only the finite expression operators above are implemented; unsupported formulas must be refused.'
+SYSTEM += '\nChoose the simplest candidate only when a supplied descriptor supports the EXACT requested measure and unit. A prevalence/rate source does not directly supply a requested count. If the supplied candidates include lookup.binary and a source supplies population plus a prevalence percentage, use lookup.binary; percentages are reported on a 0-100 scale, so converting to a count requires population * percentage / 100. The population operand must match the prevalence denominator: an adult prevalence requires an adult population, not total population.'
+SYSTEM += '\nWhen forced_interpretation is supplied, every read must use that exact entity and attribute reading. The original wording remains only to supply the other constraints; do not collapse a county reading back to its similarly named city or vice versa.'
 
 
 def expression_references(node, count):
@@ -69,6 +71,35 @@ def expression_units(node, evidence):
     result=dict(a)
     for unit,power in b.items():result[unit]=result.get(unit,0)+(power if op=='multiply' else -power)
     return {unit:power for unit,power in result.items() if power}
+
+
+def normalize_percent_product(node,evidence):
+    """Apply the declared 0-100 percent scale to a dimensional product.
+
+    Models sometimes emit population * prevalence even after describing the
+    correct formula in prose.  Percent is dimensionless for unit algebra but its
+    numeric scale is not 0-1.  Normalize only the unambiguous direct product of
+    one percent operand and one non-percent operand; percentage-point arithmetic
+    and already explicit division remain untouched.
+    """
+    if not isinstance(node,dict) or node.get('op')!='multiply' or len(node.get('args') or [])!=2:
+        return node
+    refs=[]
+    for arg in node['args']:
+        if not isinstance(arg,dict) or set(arg)!={'read'}:return node
+        refs.append(arg['read'])
+    units=[str(evidence[index].get('unit') or '').casefold() for index in refs]
+    percent=[unit in ('%','percent','percentage') for unit in units]
+    if sum(percent)!=1:return node
+    return {'op':'divide','args':[node,100]}
+
+
+def population_scope(evidence):
+    """Infer an explicitly reported denominator scope from the source receipt."""
+    text=json.dumps(evidence.get('payload') or {},ensure_ascii=False).casefold()
+    if '18ormore' in text or 'adult population' in text:return 'adult'
+    if 'count_person' in text or 'total population' in text:return 'all-persons'
+    return None
 
 
 def check_period(requested, evidence):
@@ -147,6 +178,13 @@ def validate(plan, candidates, hits):
         if read['period']!='latest' and not re.fullmatch(r'\d{4}',read['period']):raise runtime.Refused('Unsupported period binding; use an explicit year, not an inferred date range')
     if shape.startswith('lookup.'):
         if expression_references(plan.get('expression'),len(reads))!=set(range(len(reads))):raise runtime.Refused('Expression omits required inputs')
+    if shape=='lookup.binary':
+        measures=[read['measure'].casefold() for read in reads]
+        if any('adult' in measure and ('prevalence' in measure or 'rate' in measure)
+               for measure in measures):
+            populations=[measure for measure in measures if 'population' in measure]
+            if populations and any('adult' not in measure and '18' not in measure for measure in populations):
+                raise runtime.Refused('Adult prevalence requires an adult population denominator, not total population')
     if shape in DERIVED:
         if len(reads)%2 or len(reads)<2 or (shape=='compare.derived-difference' and len(reads)!=4):raise runtime.Refused('Derived plan requires pairs of reads')
         if expression_references(plan.get('pair_expression'),2)!={0,1}:raise runtime.Refused('Derived expression must use both operands')
@@ -155,13 +193,17 @@ def validate(plan, candidates, hits):
     if shape in ('compare.winner','compare.derived-winner') and plan.get('direction') not in ('max','min'):raise runtime.Refused('Missing ordering')
 
 
-async def run(question, understanding, hits, *, context):
+async def _run_selected(question, understanding, hits, *, context, excluded=()):
     import harness
-    candidates=[c for c in understanding['candidates'] if c.get('status')=='ok' and c.get('applicability')=='plausible' and c['shape'] in SUPPORTED]
+    candidates=[c for c in understanding['candidates'] if c.get('status')=='ok' and c.get('applicability')=='plausible' and c['shape'] in SUPPORTED and c['shape'] not in excluded]
     if not candidates:
         import template_dag_execution
-        return await template_dag_execution.run(question,understanding,hits,context=context)
+        remaining={**understanding,'candidates':[c for c in understanding['candidates']
+            if c.get('shape') not in excluded]}
+        return await template_dag_execution.run(question,remaining,hits,context=context)
     payload={'question':question,'reference_date':context.reference_date,'candidates':candidates,'resources':hits}
+    if context.memo.get('forced_interpretation'):
+        payload['forced_interpretation']=context.memo['forced_interpretation']
     plan = await compile_plan(payload, candidates, hits, context=context)
     if plan['candidate'] == 'lookup.scalar':
         # Check the original wording, before a bound read replaces an ambiguous
@@ -176,6 +218,7 @@ async def run(question, understanding, hits, *, context):
     for index, read in enumerate(plan['reads']):
         await harness._asay(context,'input_started', index=index, read=read)
         hit=next(h for h in hits if h['identifier']==read['source'])
+        context.memo['template_active_source']=hit['identifier']
         coords={'entity':read['entity'],'type':read['type'],'attribute':read['measure'],'period':read['period'],'strict_period':True}
         _,_,_,_,data,state=await harness._search_async(read['question'],ctx=coords,hits=[hit],context=context)
         ev=state['_evidence']
@@ -191,6 +234,7 @@ async def run(question, understanding, hits, *, context):
                 actual=harness._cite_concept_actually_used(hit,data)
                 await harness._asay(context,'input_completed',index=index,evidence=ev.to_dict())
                 await harness._asay(context,'synthesis_started',shape=plan['candidate'])
+                context.memo.pop('template_active_source',None)
                 return {'question':question,'shape':plan['candidate'],'answer':answer,'answer_renderer':renderer,
                         'plan':plan,'data':data,'evidence':ev.to_dict(),
                         'attempts':[a.to_dict() for a in state.get('_attempts',[])],
@@ -200,6 +244,7 @@ async def run(question, understanding, hits, *, context):
             raise runtime.Refused('This calculation needs the established structured-data path to preserve records, scope and ambiguity')
         if ev.value is None:raise runtime.Refused('Read did not produce a scalar; hidden aggregation is not permitted')
         evidence.append(ev.to_dict()); attempts.extend(a.to_dict() for a in state.get('_attempts',[]))
+        context.memo.pop('template_active_source',None)
         await harness._asay(context,'input_completed', index=index, evidence=evidence[-1])
     aligned_period=None
     if plan['candidate']=='lookup.binary':
@@ -228,19 +273,27 @@ async def run(question, understanding, hits, *, context):
     values=[e['value'] for e in evidence]
     shape=plan['candidate']
     calculated_units={}
+    effective_expression=plan.get('expression')
     if shape.startswith('lookup.'):
-        calculated_units=expression_units(plan['expression'], evidence)
+        if shape=='lookup.binary':
+            scopes={population_scope(item) for item in evidence}-{None}
+            if 'adult' in scopes and 'all-persons' in scopes:
+                raise runtime.Refused('Source receipts prove incompatible population scopes: adult prevalence cannot use total population')
+        effective_expression=normalize_percent_product(effective_expression,evidence)
+        calculated_units=expression_units(effective_expression, evidence)
     if len(values)>1 and shape not in DERIVED and not shape.startswith('lookup.'):
         # Conservative admission: uncertain conversions require an explicit adapter.
         if len({(e.get('unit'),e.get('currency')) for e in evidence})!=1:raise runtime.Refused('Operands need explicit unit/currency reconciliation')
     if shape in DERIVED: result=derived_result(plan,evidence)
-    elif shape.startswith('lookup.'): result=expression(plan['expression'],values)
+    elif shape.startswith('lookup.'): result=expression(effective_expression,values)
     elif shape=='compare.values':result=[{'entity':r['entity'],'measure':r['measure'],'period':e['period'],'value':e['value']} for r,e in zip(plan['reads'],evidence)]
     else:
         if any(type(v) not in (int,float) or not math.isfinite(v) for v in values):raise runtime.Refused('Ordering requires numeric scalars')
         best=(max if plan['direction']=='max' else min)(values)
         result=[{'entity':r['entity'],'value':v} for r,v in zip(plan['reads'],values) if v==best]
     data={'result':result,'inputs':evidence,'template':shape}
+    if effective_expression!=plan.get('expression'):
+        data['normalizations']=['converted a percent operand from the 0-100 reporting scale to a fraction']
     if aligned_period:data['aligned_period']=aligned_period
     result_unit=None
     if len(calculated_units)==1:
@@ -251,7 +304,7 @@ async def run(question, understanding, hits, *, context):
         periods={str(item.get('period') or '') for item in evidence}
         if len(periods)==1:result_period=next(iter(periods)) or None
     answer_contract={'value':result,'unit':result_unit,'period':result_period,
-                     'derived':len(evidence)>1,'formula':plan.get('expression'),
+                     'derived':len(evidence)>1,'formula':effective_expression,
                      'operand_count':len(evidence),'operands_are_not_the_answer':True}
     data['answer_contract']=answer_contract
     answer=await harness.TK.synthesize_async(question,{
@@ -264,6 +317,52 @@ async def run(question, understanding, hits, *, context):
             'candidates':hits,'template_candidates':understanding['candidates'],
             'usage':context.usage_ledger.snapshot(),
             'discovery_usage':context.discovery_ledger.snapshot()}
+
+
+async def run(question, understanding, hits, *, context):
+    """Try each already-understood scalar acquisition approach before giving up.
+
+    Query understanding intentionally retains multiple API-dependent ways to
+    answer one question.  A failed direct scalar read is therefore evidence
+    against that plan, not against the question or the binary/derived plans.
+    """
+    excluded=set(); excluded_sources=set(); source_retries=0
+    while True:
+        try:
+            available=[hit for hit in hits if hit['identifier'] not in excluded_sources]
+            return await _run_selected(question,understanding,available,context=context,excluded=excluded)
+        except (runtime.Refused, runtime.AccessDenied) as exc:
+            plan=context.memo.get('template_plan') or {}
+            failed=plan.get('candidate')
+            failed_source=context.memo.pop('template_active_source',None)
+            if failed_source and source_retries < 6:
+                failed_hit=next((h for h in hits if h['identifier']==failed_source),{})
+                failed_accessor=(failed_hit.get('metadata') or {}).get('accessor')
+                if ('bigquery.jobs.create' in str(exc) or 'BigQuery table acquisition' in str(exc)) and failed_accessor:
+                    newly={h['identifier'] for h in hits
+                        if (h.get('metadata') or {}).get('accessor')==failed_accessor}
+                else:
+                    newly={failed_source}
+                remaining=[h for h in hits if h['identifier'] not in excluded_sources|newly]
+                if remaining:
+                    context.memo.setdefault('plan_execution_failures',[]).append(
+                        {'candidate':failed,'source':failed_source,'error':str(exc)})
+                    excluded_sources.update(newly);source_retries+=1
+                    context.memo.pop('template_plan',None)
+                    continue
+            alternatives=[c['shape'] for c in understanding.get('candidates',[])
+                if c.get('status')=='ok' and c.get('applicability')=='plausible'
+                and c['shape'] in SUPPORTED and c['shape'] not in excluded and c['shape']!=failed]
+            if not failed or not alternatives:
+                raise
+            context.memo.setdefault('plan_execution_failures',[]).append(
+                {'candidate':failed,'error':str(exc)})
+            excluded.add(failed)
+            # Source failure is relative to the attempted acquisition shape: a
+            # source that cannot publish the requested count directly may still
+            # publish both operands needed by the next binary plan.
+            excluded_sources.clear();source_retries=0
+            context.memo.pop('template_plan',None)
 
 
 async def compile_plan(payload, candidates, hits, *, context):
@@ -285,8 +384,10 @@ async def compile_plan(payload, candidates, hits, *, context):
                 'Descriptors are callable sources, not fetched values. Do not require values to be present yet. '
                 'Do not substitute proxies or partial populations. Return JSON {"valid":true or false,"issues":[strings]}. '
                 'Use valid=true only when all required inputs and the calculation are faithful to the question. '
-                'Unspecified periods may use latest; do not invent new constraints.',
-                json.dumps({'question': payload['question'], 'plan': plan, 'resources': hits}),
+                'Unspecified periods may use latest; do not invent new constraints. When forced_interpretation '
+                'is present, validate the plan against that reading rather than reinterpreting the original name.',
+                json.dumps({'question': payload['question'], 'forced_interpretation':payload.get('forced_interpretation'),
+                            'plan': plan, 'resources': hits}),
                 context=context, json_mode=True, stage='plan-verify', max_tokens=1500, reasoning_effort='low')
             record['verification_raw'] = review
             check = json.loads(review)
@@ -296,9 +397,9 @@ async def compile_plan(payload, candidates, hits, *, context):
             return plan
         except (ValueError, TypeError, KeyError, runtime.Refused) as exc:
             record['error'] = str(exc)
-            if isinstance(locals().get('plan'), dict) and plan.get('candidate') is None:
+            if isinstance(locals().get('plan'), dict) and plan.get('candidate') is None and attempt==2:
                 raise runtime.Refused(str(exc)) from exc
             await context.emit('plan_repair', attempt=attempt+1, error=str(exc))
             payload = {**payload, 'repair': {'error': str(exc), 'previous_output': raw,
-                'instruction': 'Return the complete corrected plan. Use only the exact documented expression syntax. Numeric constants are bare numbers, e.g. 100, not objects. Do not change the question to repair a plan.'}}
+                'instruction': 'Return the complete corrected plan. Before returning candidate:null, try a different supplied candidate or resource that satisfies the same question. Use only the exact documented expression syntax. Numeric constants are bare numbers, e.g. 100, not objects. Do not change the question to repair a plan.'}}
     raise runtime.Refused('Planning failed validation after repair: '+trace[-1]['error'])

@@ -12,7 +12,7 @@ embedding key. The /search shape mirrors ARD so this is swappable for a full reg
 Set ARD_RERANK=0 to skip the second-stage LLM re-rank (much faster on slow/local models; the
 embedding prefilter alone is usually enough).
 """
-import asyncio, os, sys, glob, json, hashlib, shutil
+import asyncio, os, sys, glob, json, hashlib, shutil, re
 from datetime import datetime, timezone
 import numpy as np
 import yaml
@@ -606,6 +606,36 @@ def _adaptive_prefilter(embed_scores, floor):
     return max(floor, min(within, PREFILTER_MAX))
 
 
+def _retrieval_family(identifier):
+    """Collapse dated snapshots of the same logical table for candidate recall.
+
+    Every descriptor remains independently addressable.  This only prevents a
+    marketplace with many annual vintages from filling the rerank window with
+    one schema and hiding a different access path.
+    """
+    return re.sub(r'_(?:19|20)\d{2}(?:_[0-9]+yr)?(?=\.|/|$)', '_{vintage}', identifier)
+
+
+def _embedding_candidates(meta, scores, sources, limit):
+    candidates=[];families={};marketplace_datasets={}
+    for i in np.argsort(-scores):
+        item=meta[i]
+        if sources and _srcdir(item['identifier']) not in sources:
+            continue
+        family=_retrieval_family(item['identifier'])
+        if families.get(family,0)>=3:
+            continue
+        identifier=item['identifier']
+        dataset=identifier.rsplit('/',1)[0] if '/bigquery/' in identifier else None
+        if dataset and marketplace_datasets.get(dataset,0)>=8:
+            continue
+        families[family]=families.get(family,0)+1
+        if dataset:marketplace_datasets[dataset]=marketplace_datasets.get(dataset,0)+1
+        candidates.append({**item,'embed_score':round(float(scores[i])*100,1)})
+        if len(candidates)>=limit:break
+    return candidates
+
+
 def search_many(queries, k=5, prefilter=None, sources=None, rerank=True, rerank_query=None):
     """Retrieve several phrasings in one embedding call and rerank their union once.
 
@@ -625,14 +655,7 @@ def search_many(queries, k=5, prefilter=None, sources=None, rerank=True, rerank_
     vecs, meta = _store()
     q = normed(embed(queries))
     scores = np.max(vecs @ q.T, axis=1)
-    cand = []
-    for i in np.argsort(-scores):
-        m = meta[i]
-        if sources and _srcdir(m["identifier"]) not in sources:
-            continue
-        cand.append({**m, "embed_score": round(float(scores[i]) * 100, 1)})
-        if len(cand) >= max(prefilter, PREFILTER_MAX):
-            break
+    cand = _embedding_candidates(meta, scores, sources, max(prefilter, PREFILTER_MAX))
     if rerank:
         cand = cand[:_adaptive_prefilter([c["embed_score"] for c in cand], prefilter)]
     else:
@@ -664,14 +687,7 @@ async def search_many_async(queries, k=5, prefilter=None, sources=None, rerank=T
     q = normed(np.asarray(await llm.embed_async(queries, context=context, stage="embed-query"),
                           dtype=np.float32))
     scores = np.max(vecs @ q.T, axis=1)
-    candidates = []
-    for i in np.argsort(-scores):
-        m = meta[i]
-        if sources and _srcdir(m["identifier"]) not in sources:
-            continue
-        candidates.append({**m, "embed_score": round(float(scores[i]) * 100, 1)})
-        if len(candidates) >= max(prefilter, PREFILTER_MAX):
-            break
+    candidates = _embedding_candidates(meta, scores, sources, max(prefilter, PREFILTER_MAX))
     if not rerank:
         return [{**candidate, "score": candidate["embed_score"]}
                 for candidate in candidates[:prefilter][:k]]

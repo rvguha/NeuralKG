@@ -29,6 +29,7 @@ shapes:
     A latest-period discovery dependency uses lookup.event-bound instead.
   examples:
   - Is the Sierra Club classified as a 501(c)(3)?
+  - What is the median age in Miami, Florida?
   negative_examples:
   - question: By what percentage did Tesla's revenue grow from 2021 to 2023?
     input_condition: Two reported revenue values, with common units and reporting basis.
@@ -1325,6 +1326,10 @@ shapes:
     input_condition: Rice's reference value and a complete population for below/equal/total counts.
     why_not: Percentile rank counts around a reference value; a quantile selects an ordered population value.
     instead: rank.percentile
+  - question: What is the median age in Miami, Florida?
+    input_condition: A source directly publishes median age as one place-level statistic.
+    why_not: '"Median age" names the published measure; the question does not request computing a new median from person rows.'
+    instead: lookup.scalar
   not:
     rank.percentile: Percentile rank counts around a reference value; a quantile selects an ordered population value.
     reduce.streaming: Exact quantiles and IQR require order statistics, not bounded-state moment accumulation.

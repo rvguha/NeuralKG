@@ -11,13 +11,14 @@ import instance
 import runtime
 
 INDICATORS={
- 'population':'Count_Person','median_household_income':'Median_Income_Household','median_age':'Median_Age_Person',
+ 'population':'Count_Person','adult_population':'Count_Person_18OrMoreYears','median_household_income':'Median_Income_Household','median_age':'Median_Age_Person',
  'unemployment_rate':'UnemploymentRate_Person','gdp':'Amount_EconomicActivity_GrossDomesticProduction_Nominal',
  'gdp_per_capita':'Amount_EconomicActivity_GrossDomesticProduction_Nominal_PerCapita','life_expectancy':'LifeExpectancy_Person',
  'fertility_rate':'FertilityRate_Person_Female','diabetes_prevalence':'Percent_Person_WithDiabetes',
  'obesity_prevalence':'Percent_Person_Obesity','co2_emissions':'Amount_Emissions_CarbonDioxide',
  'co2_emissions_per_capita':'Amount_Emissions_CarbonDioxide_PerCapita'}
-SYNONYMS={'people':'population','residents':'population','median household income':'median_household_income',
+SYNONYMS={'people':'population','residents':'population','adult population':'adult_population',
+ 'population age 18 and older':'adult_population','people age 18 and older':'adult_population','median household income':'median_household_income',
  'household income':'median_household_income','median income':'median_household_income','median age':'median_age',
  'unemployment':'unemployment_rate','unemployment rate':'unemployment_rate','gdp per capita':'gdp_per_capita',
  'gross domestic product':'gdp','life expectancy':'life_expectancy','fertility':'fertility_rate',
@@ -39,6 +40,18 @@ def setup(registry):
 
 def config(): return instance.config().get('plugin_config',{}).get('atlas_datacommons',{})
 def norm(value): return re.sub(r'\s+',' ',str(value or '').strip().casefold())
+def place_grain(places,hint=None):
+    explicit=norm(hint).rstrip('s')
+    if explicit in ('country','state','county','city','continent'):return explicit
+    inferred=[]
+    for place in places:
+        dcid=str(place.get('dcid') or '')
+        if dcid.startswith('country/'):inferred.append('country')
+        elif dcid.startswith('geoId/'):
+            digits=dcid.split('/',1)[1]
+            inferred.append({2:'state',5:'county',7:'city'}.get(len(digits),'place'))
+        else:inferred.append('place')
+    return inferred[0] if inferred and len(set(inferred))==1 else 'place'
 def reported_unit(indicator, facet):
     raw=(facet or {}).get('raw') or {}
     unit=raw.get('unit')
@@ -232,7 +245,7 @@ async def place(read,*,context):
                      for item in places]
     return synth.Input(result_rows,True,{'source':read.source,'provider':'Data Commons v2','resolved':data['params'],
                        'facet':data['facet'],'payload':data},
-                       'place-observation',key_domains={'place_dcid':'datacommons-place','year':'calendar-year'},
+                       place_grain(places,p.get('place_type')),key_domains={'place_dcid':'datacommons-place','year':'calendar-year'},
                        units={'value':unit},period_basis='source-reported')
 
 
@@ -266,5 +279,5 @@ async def children(read,*,context):
                     'scope':'places with observations from the selected source facet'},
         'params':{'variable_dcid':indicator['dcid'],'child_type':child_type,'places_in_parent':len(places),'top_n':top}}
     return synth.Input(data['rows'],True,{'source':read.source,'provider':'Data Commons v2','facet':data['facet'],'payload':data},
-                       'place-ranking',key_domains={'place_dcid':'datacommons-place','year':'calendar-year'},
+                       child_type.lower(),key_domains={'place_dcid':'datacommons-place','year':'calendar-year'},
                        units={'value':unit},period_basis='source-reported')
