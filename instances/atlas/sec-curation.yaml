@@ -1,0 +1,142 @@
+metrics:
+  revenue:
+  - us-gaap
+  - - Revenues
+    - RevenueFromContractWithCustomerExcludingAssessedTax
+    - RevenueFromContractWithCustomerIncludingAssessedTax
+  - USD
+  - duration
+  net_income:
+  - us-gaap
+  - - NetIncomeLoss
+  - USD
+  - duration
+  operating_income:
+  - us-gaap
+  - - OperatingIncomeLoss
+  - USD
+  - duration
+  interest_expense:
+  - us-gaap
+  - - InterestExpense
+  - USD
+  - duration
+  income_tax_expense:
+  - us-gaap
+  - - IncomeTaxExpenseBenefit
+  - USD
+  - duration
+  net_interest_income:
+  - us-gaap
+  - - InterestIncomeExpenseNet
+    - InterestIncomeExpenseAfterProvisionForLoanLoss
+  - USD
+  - duration
+  provision_for_credit_losses:
+  - us-gaap
+  - - ProvisionForLoanLeaseAndOtherLosses
+    - ProvisionForLoanLossesExpensed
+    - ProvisionForCreditLosses
+  - USD
+  - duration
+  noninterest_expense:
+  - us-gaap
+  - - NoninterestExpense
+  - USD
+  - duration
+  noninterest_income:
+  - us-gaap
+  - - NoninterestIncome
+  - USD
+  - duration
+  eps_diluted:
+  - us-gaap
+  - - EarningsPerShareDiluted
+  - USD/shares
+  - duration
+  operating_cash_flow:
+  - us-gaap
+  - - NetCashProvidedByUsedInOperatingActivities
+  - USD
+  - duration
+  capital_expenditures:
+  - us-gaap
+  - - PaymentsToAcquirePropertyPlantAndEquipment
+  - USD
+  - duration
+  total_assets:
+  - us-gaap
+  - - Assets
+  - USD
+  - instant
+  total_liabilities:
+  - us-gaap
+  - - Liabilities
+  - USD
+  - instant
+  stockholders_equity:
+  - us-gaap
+  - - StockholdersEquity
+    - StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest
+  - USD
+  - instant
+  cash_and_equivalents:
+  - us-gaap
+  - - CashAndCashEquivalentsAtCarryingValue
+    - CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents
+  - USD
+  - instant
+  deposits:
+  - us-gaap
+  - - Deposits
+  - USD
+  - instant
+  loans:
+  - us-gaap
+  - - LoansAndLeasesReceivableNetReportedAmount
+    - NotesReceivableNet
+    - FinancingReceivableExcludingAccruedInterestAfterAllowanceForCreditLoss
+  - USD
+  - instant
+  long_term_debt:
+  - us-gaap
+  - - LongTermDebt
+    - LongTermDebtNoncurrent
+  - USD
+  - instant
+  shares_outstanding:
+  - dei
+  - - EntityCommonStockSharesOutstanding
+  - shares
+  - instant
+ratios:
+  roa:
+  - net_income
+  - total_assets
+  - true
+  - null
+  - Net income / average total assets
+  roe:
+  - net_income
+  - stockholders_equity
+  - true
+  - null
+  - Net income / average stockholders' equity
+  net_margin:
+  - net_income
+  - revenue
+  - false
+  - null
+  - Net income / revenue
+  efficiency_ratio:
+  - noninterest_expense
+  - net_interest_income
+  - false
+  - noninterest_income
+  - Noninterest expense / (net interest income + noninterest income)
+  equity_to_assets:
+  - stockholders_equity
+  - total_assets
+  - false
+  - null
+  - Stockholders' equity / total assets

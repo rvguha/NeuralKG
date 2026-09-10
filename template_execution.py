@@ -161,7 +161,7 @@ async def run(question, understanding, hits, *, context):
     if not candidates:
         import template_dag_execution
         return await template_dag_execution.run(question,understanding,hits,context=context)
-    payload={'question':question,'candidates':candidates,'resources':hits}
+    payload={'question':question,'reference_date':context.reference_date,'candidates':candidates,'resources':hits}
     plan = await compile_plan(payload, candidates, hits, context=context)
     if plan['candidate'] == 'lookup.scalar':
         # Check the original wording, before a bound read replaces an ambiguous
@@ -277,8 +277,8 @@ async def compile_plan(payload, candidates, hits, *, context):
         trace.append(record)
         try:
             plan = json.loads(raw)
-            context.memo['template_plan'] = plan
             validate(plan, candidates, hits)
+            context.memo['template_plan'] = plan
             review = await llm.chat_async(
                 'Independently check whether this data acquisition and arithmetic plan answers the question. '
                 'Check all operands, named entities, periods, formula direction and source definitions against supplied descriptors. '

@@ -7,6 +7,20 @@ from query_context import QueryContext
 
 
 class InterpretationTests(unittest.IsolatedAsyncioTestCase):
+    async def test_required_comparison_operands_are_not_fanned_out(self):
+        c={'status':'ok','applicability':'plausible','interpretations':[
+            {'entity':'Japan','attribute':'life expectancy'},
+            {'entity':'United States','attribute':'life expectancy'}]}
+        with patch.object(harness.llm,'chat_async',AsyncMock(return_value='{"independent_readings":false}')):
+            self.assertEqual(await harness._validate_interpretations('Compare Japan and the US',
+                             {'candidates':[c]},context=self.context()),[])
+
+    async def test_genuine_attribute_readings_survive_validation(self):
+        c={'status':'ok','applicability':'plausible','interpretations':self.choices()}
+        with patch.object(harness.llm,'chat_async',AsyncMock(return_value='{"independent_readings":true}')):
+            self.assertEqual(await harness._validate_interpretations('How big is Microsoft?',
+                             {'candidates':[c]},context=self.context()),self.choices())
+
     def context(self):
         return QueryContext(usage_ledger=harness.llm.Ledger(),discovery_ledger=harness.ard_client.DiscoveryUsage())
 

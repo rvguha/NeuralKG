@@ -56,6 +56,8 @@ done
 # The checked-in primary registry is a release artifact. Atlas has an independent index over its
 # imported public OKF documents and mechanically crawled table schemas. Rebuild only when that
 # corpus no longer verifies.
+"$PYTHON" scripts/prepare_atlas_tables.py
+"$PYTHON" scripts/prepare_atlas_sec.py
 if ! "$PYTHON" scripts/sync_atlas_catalog.py --verify >/dev/null 2>&1; then
   "$PYTHON" scripts/sync_atlas_catalog.py
 fi

@@ -125,6 +125,12 @@ class AsyncBigQueryClient:
                 method, "https://bigquery.googleapis.com/bigquery/v2" + path,
                 headers=headers, timeout=min(60, context.remaining() or 60), **kwargs))
             if response.status_code != 401 or attempt:
+                if response.status_code in (401,403):
+                    try:
+                        message=response.json().get('error',{}).get('message','Access denied')
+                    except ValueError:
+                        message='Access denied'
+                    raise runtime.AccessDenied(f'BigQuery project {self.project}: {message}')
                 response.raise_for_status()
                 return response.json()
             await context.wait(self.token_lock.acquire())

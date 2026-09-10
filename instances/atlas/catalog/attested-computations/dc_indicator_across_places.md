@@ -7,7 +7,7 @@ description: >
   every county in California, every state in the US, every country in
   Africa or the world — by one reported statistic (population, median
   income, unemployment rate, GDP per capita, life expectancy, health
-  prevalence, …), latest value per place or one named year. Highest,
+  prevalence, CO2 emissions per capita, fertility rate, obesity rate), latest value per place or one named year. Highest,
   lowest, top N. Only for questions that ask about ALL places of a kind
   inside a parent ("which counties in California…", "rank US states by…",
   "the ten African countries with the lowest…"); a question about one

@@ -22,7 +22,7 @@ class TwoInstanceTests(unittest.TestCase):
         self.assertNotEqual(ours['ard']['finder_url'], atlas['ard']['finder_url'])
         self.assertEqual(atlas['query_understanding']['selection_model'], 'openai/gpt-oss-120b')
         self.assertIn('plugins.atlas_accessors', atlas['extensions'])
-        self.assertIn('plugins.atlas_sec', atlas['extensions'])
+        self.assertIn('sec_facts', atlas['extensions'])
         self.assertIn('plugins.atlas_datacommons', atlas['extensions'])
 
     def test_public_atlas_catalog_is_a_separate_indexable_corpus(self):
@@ -87,7 +87,8 @@ class TwoInstanceTests(unittest.TestCase):
         installed = set(__import__('json').loads(loaded))
         for path in (ROOT / 'instances/atlas/catalog/attested-computations').glob('*.md'):
             fm = yaml.safe_load(path.read_text().split('---', 2)[1])
-            executor = ((fm.get('computation') or {}).get('runtime') or {}).get('executor')
+            import extensions
+            executor = extensions.accessor_name(fm)
             self.assertIn(executor, installed, path.name)
 
     def test_launch_scripts_are_valid_shell(self):

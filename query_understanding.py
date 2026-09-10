@@ -33,6 +33,12 @@ EXTRACT += '''
 Entity scope examples: "Obesity rate in Miami" must retain City of Miami, Florida and Miami-Dade County, Florida as separately labeled interpretations, rather than leaving both entities as "Miami". "Is the Sierra Club a 501(c)(3)?" retains Sierra Club and Sierra Club Foundation as distinct organization interpretations, with the SAME 501(c)(3) predicate. The bare organization's familiar name is not itself an explicit exclusion of its foundation. Wording such as "the city, not the county", "Sierra Club itself, excluding the foundation", or an explicit canonical identifier DOES exclude other identities. Prioritize these entity distinctions rather than manufacturing different measures while leaving an ambiguous entity unresolved. Keep the full specific measure wording, not generic eligibility or size.'''
 
 
+EXTRACT += '\nUse reference_date as today for relative periods. Never substitute a guessed latest dataset year for today. Preserve requested date boundaries even when recent data may be unavailable. For year-grain "last N years", use reference year minus N through the reference year; use the previous N completed years only when complete years are requested. State the interpreted boundaries.'
+EXTRACT += '\nDistinguish a published statistic from an operation on observations: a trend of median income requests yearly median income values, not the median across years. A trend of a rate likewise does not request a new rate calculation across those observations. Mark a shape inapplicable when it changes the requested output in this way.'
+EXTRACT += '\nEvery acquisition query must preserve the required population and grain: a ranking of counties within a state needs values for ALL counties within that state, not the value for the state itself. A comparison of named entities must retain every name. Include the requested measure and temporal scope in each independently discoverable input request.'
+SELECT += '\nAlways retain the simplest supplied approach that can produce the requested output. For a ranking of one reported measure across a population, retain the direct population-ranking approach, even when a join-based approach is also plausible. Do not keep only a more complex plan by assuming the direct input cannot exist.'
+
+
 def load_catalog():
     configured = instance.config().get('query_understanding', {}).get('catalog')
     path = Path(configured) if configured else Path(__file__).parent / 'shapes/query-shapes.replacement-codex.yaml'
@@ -78,6 +84,7 @@ async def understand(question, *, context):
     trace = []
 
     async def call(system, payload, stage, validate):
+        payload={'reference_date':context.reference_date,**payload}
         user = json.dumps({'question': question, **payload}, ensure_ascii=False)
         record = {'stage': stage, 'system': system, 'user': user, 'attempts': []}
         trace.append(record)

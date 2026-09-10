@@ -14,3 +14,4 @@ opentelemetry-instrumentation-asgi>=0.64b0  # Starlette request spans
 
 # Optional — only for the BigQuery population sources (sec-bq, irs-990-bq, census-acs-bq):
 google-cloud-bigquery>=3.0
+sqlglot>=25.0

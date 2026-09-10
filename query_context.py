@@ -9,6 +9,7 @@ import asyncio
 import inspect
 import time
 import uuid
+from datetime import datetime, timezone
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, TypeVar
 
@@ -76,6 +77,7 @@ class ProviderPermits:
 @dataclass(slots=True)
 class QueryContext:
     deadline: float | None = None
+    reference_date: str = field(default_factory=lambda: datetime.now(timezone.utc).date().isoformat())
     trace_id: str = field(default_factory=lambda: uuid.uuid4().hex)
     cancelled: asyncio.Event = field(default_factory=asyncio.Event)
     progress: asyncio.Queue = field(default_factory=asyncio.Queue)
@@ -117,7 +119,7 @@ class QueryContext:
 
     def fork(self):
         """Give a concurrent branch private scratch state and shared ownership state."""
-        return QueryContext(deadline=self.deadline, trace_id=self.trace_id,
+        return QueryContext(deadline=self.deadline, reference_date=self.reference_date, trace_id=self.trace_id,
                             cancelled=self.cancelled, progress=self.progress,
                             usage_ledger=self.usage_ledger, discovery_ledger=self.discovery_ledger,
                             llm_client=self.llm_client, http_client=self.http_client,

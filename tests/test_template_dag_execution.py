@@ -13,6 +13,33 @@ from template_operator_cases import cases, supplied
 
 
 class AsyncTemplateTests(unittest.IsolatedAsyncioTestCase):
+    def test_long_form_alignment_preserves_unequal_time_ranges(self):
+        relations=[[{'year':2023,'value':1},{'year':2024,'value':2}],
+                   [{'year':2024,'value':3},{'year':2025,'value':4}]]
+        got=synth.align_time([relations],{'layout':'long','time':'year'})
+        self.assertEqual([(row['year'],row['series_index']) for row in got],
+                         [(2023,0),(2024,0),(2024,1),(2025,1)])
+        with self.assertRaises(Refused):
+            synth.align_time([[[{'year':'unknown'}]]],{'layout':'long','time':'year'})
+    def test_lossless_plan_wire_defaults_are_normalized(self):
+        templates=synth.load_templates()
+        candidates=[{'shape':'series.values','bindings':{'entity_keys':['Santa Clara County']}}]
+        plan={'candidate':'0','parameters':{
+            'a':{'accessor_parameters':{'indicator':'median household income'}},
+            'b':{},'c':{}}}
+        normalized=dag.normalize_plan(plan,candidates,templates)
+        self.assertEqual(normalized['candidate'],'series.values')
+        self.assertEqual(normalized['parameters']['a']['params'],
+                         {'indicator':'median household income'})
+        self.assertEqual(normalized['parameters']['b']['joins'],[])
+        self.assertEqual(normalized['parameters']['c']['fields'],'*')
+
+        ranking={'candidate':'rank.population','parameters':{'a':{},'b':{},'c':{},'d':{}}}
+        ranked=dag.normalize_plan(ranking,[{'shape':'rank.population','bindings':{}}],templates)
+        self.assertEqual(ranked['parameters']['c']['limit'],'all')
+        self.assertEqual(ranked['parameters']['c']['ties'],'all')
+        self.assertEqual(ranked['parameters']['d']['fields'],'*')
+
     async def test_all_76_async_graphs_match_fixed_input_execution(self):
         for name,case in cases().items():
             with self.subTest(template=name):

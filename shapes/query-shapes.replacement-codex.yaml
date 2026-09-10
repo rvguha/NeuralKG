@@ -781,10 +781,12 @@ shapes:
     ratios.
 - id: rank.population
   title: Order an enumerable population and select an extreme prefix
-  asks: Order an enumerable population and select an extreme prefix. Includes bottom-N, N=1 and topical populations;
-    all population scores must be comparable.
+  asks: Order an enumerable population and select an extreme prefix. Includes bottom-N, N=1, unbounded plural
+    superlatives (return the complete ordered population), and topical populations; all population scores must be
+    comparable.
   examples:
   - Which ten counties have the lowest diabetes rates?
+  - Which counties in California were the hottest in July 2025?
   negative_examples:
   - question: Which of Harvard, MIT and Yale received the most NIH funding?
     input_condition: One directly supplied funding value per named candidate.

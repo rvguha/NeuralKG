@@ -123,6 +123,8 @@ def render_descriptor(project: str, dataset: str, row, columns) -> str:
         "row_count": count,
         "size_gb": round(size_gb, 2) if size_gb else None,
         "large_table": bool(size and size > LARGE_TABLE_BYTES),
+        "accessor": "bigquery_table",
+        "columns": [{"name": name, "type": kind} for name, kind in columns],
     }
     body = [
         "",
@@ -205,6 +207,11 @@ def main() -> None:
         copied.append("bigquery/covid19_open_data/table.md")
     client = bigquery.Client(project=args.project) if args.project else bigquery.Client()
     counts = crawl(client)
+    from prepare_atlas_tables import prepare
+    prepare()
+    from prepare_atlas_sec import prepare as prepare_sec
+    prepare_sec()
+    copied=[path.name for path in sorted((DESTINATION/'attested-computations').glob('*.md'))]+['bigquery/covid19_open_data/table.md']
     manifest = {
         "upstream": "https://github.com/srikanthbelwadi/atlas",
         "commit": UPSTREAM_COMMIT,

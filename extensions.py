@@ -73,6 +73,9 @@ class Registry:
 
     def __init__(self):
         self.accessors = {}
+        self.accessor_operators = {}
+        self.accessor_output_fields = {}
+        self.accessor_input_contracts = {}
         self.executors = {}
         self.template_readers = {}
         self.candidate_filters = []
@@ -81,7 +84,7 @@ class Registry:
         self.authorizers = []
         self.budget_hooks = []
 
-    def accessor(self, name):
+    def accessor(self, name, *, operators=(), output_fields=(), input_contract=''):
         """Register `async fn(read, *, context) -> answer_synthesizer.Input` under a name an OKF
         document declares as `accessor:`.
 
@@ -99,6 +102,12 @@ class Registry:
             if name in self.accessors:
                 raise ValueError(f"accessor {name!r} is already registered")
             self.accessors[name] = fn
+            declared=tuple(dict.fromkeys(operators))
+            if any(not isinstance(operator,str) or not operator for operator in declared):
+                raise ValueError(f"accessor {name!r} has invalid acquisition operators")
+            self.accessor_operators[name]=declared
+            self.accessor_output_fields[name]=tuple(output_fields)
+            self.accessor_input_contracts[name]=input_contract
             return fn
         return register
 

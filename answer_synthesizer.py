@@ -367,10 +367,19 @@ def join(xs,p):
 @operation('AlignTime')
 def align_time(xs,p):
     relations=xs[0] if len(xs)==1 else xs
-    if len(relations)<2:raise Refused('Time alignment needs at least two series')
+    if not relations:raise Refused('Time alignment needs at least one series')
+    if p.get('layout') == 'long':
+        time=need(p,'time')
+        combined=[]
+        for index,relation in enumerate(relations):
+            for row in rows(relation):
+                if 'series_index' in row:raise Refused('Reserved series_index column already exists')
+                number(get(row,time))
+                combined.append({**row,'series_index':index})
+        return sorted(combined,key=lambda row:(get(row,time),row['series_index']))
     result=relations[0]
     contracts=need(p,'joins')
-    if len(contracts)!=len(relations)-1:raise Refused('One alignment contract per additional series')
+    if len(contracts)!=len(relations)-1:raise Refused(f'{len(relations)} series need {len(relations)-1} alignment contracts; received {len(contracts)}. A long-form series display can use layout=long with a numeric time column.')
     for other,contract in zip(relations[1:],contracts):
         result=join_rows(result,other,contract)
         result=[{k:v for k,v in r.items() if k!='__matched'} for r in result]

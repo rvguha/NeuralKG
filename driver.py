@@ -226,11 +226,9 @@ class AsyncSecClient:
     async def resolve_company(self, value, context):
         """Resolve an exact ticker/name or a unique normalized name; never guess ambiguity."""
         import re
-        aliases = {'google': 'GOOGL', 'alphabet': 'GOOGL', 'facebook': 'META', 'meta': 'META'}
         text = str(value or '').strip()
         if not text: raise runtime.Refused('SEC company is required')
-        aliased = aliases.get(text.casefold(), text)
-        cik, title = await self.ticker_to_cik(aliased, context)
+        cik, title = await self.ticker_to_cik(text, context)
         if cik: return cik, title
         def norm(name):
             name = name.casefold().strip()
@@ -341,6 +339,20 @@ def pick_value(units, period, ptype, strict=False):
     """Select the annual figure by filing dates (robust to non-December fiscal years).
     With a specific year requested and `strict`, return None if that year is absent
     (so the caller can reject this concept and try the next candidate)."""
+    if any(u.get('fp') == 'FY' and u.get('fy') for u in units):
+        from sec_facts import select_annual
+        annual = select_annual(units, ptype)
+        yr = re.sub(r"\D", "", period or "")
+        if len(yr) == 4:
+            matching = [row for row in annual if row['fy'] == int(yr)]
+            if matching:
+                return matching[-1]
+            if strict:
+                return None
+        if annual:
+            return annual[-1]
+        if strict:
+            return None
     rows = [u for u in units if u.get("form") in ("10-K", "20-F")]
     if ptype != "instant":                                   # keep ~full-year durations
         rows = [u for u in rows if "start" in u and 350 <= _days(u) <= 380] or rows
@@ -419,7 +431,7 @@ def fetch_metric(metric_query, ticker=None, period="latest", k=25, log=True, cik
               if fm.get("source") else fm
         did = (src.get("trust") or {}).get("identity", src.get("resource"))
         out = {"company": data["entityName"], "metric": fm["title"].split(" — ")[0],
-               "concept": f"us-gaap:{fm['concept']}", "period": f"FY{row['end'][:4]}",
+               "concept": f"us-gaap:{fm['concept']}", "period": f"FY{row.get('fy') or row['end'][:4]}",
                "period_end": row["end"], "value": row["val"], "unit": unit, "source": f"SEC EDGAR ({did})"}
         if unit != "shares" and "/" not in unit and unit != "pure":
             out["value_usd"] = row["val"]                     # back-compat for currency amounts
@@ -511,7 +523,7 @@ async def fetch_metric_async(metric_query, ticker=None, period="latest", k=25, l
                  if metadata.get("source") else metadata
         identity = (source.get("trust") or {}).get("identity", source.get("resource"))
         result = {"company": data["entityName"], "metric": metadata["title"].split(" — ")[0],
-                  "concept": f"us-gaap:{concept_name}", "period": f"FY{row['end'][:4]}",
+                  "concept": f"us-gaap:{concept_name}", "period": f"FY{row.get('fy') or row['end'][:4]}",
                   "period_end": row["end"], "value": row["val"], "unit": unit,
                   "source": f"SEC EDGAR ({identity})"}
         if unit != "shares" and "/" not in unit and unit != "pure":

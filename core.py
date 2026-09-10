@@ -89,6 +89,16 @@ class Toolkit:
         import llm
         if context.defer_render:
             return ''  # Parent renders all complete branch results in one call.
+        system=_SYNTHESIS_SYSTEM
+        if isinstance(data,dict) and 'computed_result' in data:
+            system += (' For a template result, the following overrides brevity and plain-prose rules: '
+                       'preserve the complete requested output. For top-N/ranked lists show every '
+                       'returned row in a readable Markdown table with names, values, units and periods; '
+                       'do not report only the winner. For multi-company time series include each company '
+                       'and every requested available fiscal year. For other trends give the requested '
+                       'series plus a concise summary. Cite actual source URLs from the evidence, never '
+                       'invent citation markers. Explicitly report missing periods, coverage gaps, '
+                       'projections versus observations, and jurisdictions outside the requested scope.')
         return await llm.chat_async(
-            _SYNTHESIS_SYSTEM, json.dumps({"question": question, "data": data}),
+            system, json.dumps({"question": question, "data": data}),
             context=context, model=llm.synthesis_model(), stage="synthesize")

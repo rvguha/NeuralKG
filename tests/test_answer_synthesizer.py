@@ -11,6 +11,10 @@ class AllTemplateTests(unittest.TestCase):
         self.assertIn('operands and provenance only',core._SYNTHESIS_SYSTEM)
         self.assertIn('answer_contract value',core._SYNTHESIS_SYSTEM)
 
+    def test_one_series_alignment_is_identity(self):
+        rows=[{'date':2023,'value':7}]
+        self.assertEqual(a.align_time([[rows]],{'joins':[]}),rows)
+
     def assertDeep(self,actual,expected):
         if type(expected) is float:self.assertAlmostEqual(actual,expected,places=8)
         elif isinstance(expected,list):

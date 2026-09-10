@@ -32,8 +32,9 @@ KNOWN={'world':'Earth','earth':'Earth','global':'Earth','united states':'country
 
 
 def setup(registry):
-    registry.accessor('datacommons_place')(place)
-    registry.accessor('datacommons_children')(children)
+    fields=('place','place_dcid','date','year','value','unit','source')
+    registry.accessor('datacommons_place',operators=('ReadScalar','ReadSeries','MapReadSeries'),output_fields=fields)(place)
+    registry.accessor('datacommons_children',operators=('ReadRows',),output_fields=fields+('rank',))(children)
 
 
 def config(): return instance.config().get('plugin_config',{}).get('atlas_datacommons',{})
@@ -184,6 +185,7 @@ class Client:
                 kept.append(observation)
             if latest and kept:kept=[max(kept,key=lambda x:str(x.get('date')))]
             for observation in kept:rows.append({'place':names.get(entity,entity),'place_dcid':entity,'date':observation.get('date'),
+                'year':int(str(observation['date'])) if re.fullmatch(r'\d{4}',str(observation.get('date'))) else None,
                 'value':observation.get('value'),'unit':meta.get('unit'),'source':source,
                 'measurement_method':meta.get('measurementMethod'),'observation_period':meta.get('observationPeriod'),
                 'provenance_url':meta.get('provenanceUrl')})
@@ -222,9 +224,16 @@ async def place(read,*,context):
     data={'rows':[{'variable':indicator['name'],**r} for r in observed['rows']],
           'params':{'indicator':p.get('indicator'),'variable_dcid':indicator['dcid'],'place_dcids':[x['dcid'] for x in places]},
           'considered':indicator['considered'],'facet':observed['facet'],'facets_available':observed['facets_available']}
-    return synth.Input(data['rows'],True,{'source':read.source,'provider':'Data Commons v2','resolved':data['params'],
+    result_rows=data['rows']
+    if (read.node or {}).get('operator')=='MapReadSeries':
+        # A mapped-series acquisition returns one complete relation per requested entity.
+        # Keep the request order so the fixed AlignTime contracts bind deterministically.
+        result_rows=[[row for row in data['rows'] if row.get('place_dcid')==item['dcid']]
+                     for item in places]
+    return synth.Input(result_rows,True,{'source':read.source,'provider':'Data Commons v2','resolved':data['params'],
                        'facet':data['facet'],'payload':data},
-                       'place-observation',units={'value':unit},period_basis='source-reported')
+                       'place-observation',key_domains={'place_dcid':'datacommons-place','year':'calendar-year'},
+                       units={'value':unit},period_basis='source-reported')
 
 
 async def children(read,*,context):
@@ -248,7 +257,14 @@ async def children(read,*,context):
     rows=[{'variable':indicator['name'],**r} for r in observed['rows'] if isinstance(r.get('value'),(int,float))]
     rows.sort(key=lambda x:x['value'],reverse=norm(p.get('order','desc'))!='asc')
     for i,row in enumerate(rows,1):row['rank']=i
-    top=min(int(p.get('top_n') or 25),500);data={'rows':rows[:top],'map_rows':rows,'parent':parent,'facet':observed['facet'],
+    top=min(int(p.get('top_n') or 25),500)
+    # A DAG needs the whole input relation: the downstream Take owns top-N.
+    selected=rows if (read.node or {}).get('operator')=='ReadRows' else rows[:top]
+    missing=sorted(set(unique)-{row['place_dcid'] for row in rows})
+    data={'rows':selected,'map_rows':rows,'parent':parent,'facet':observed['facet'],
+        'coverage':{'enumerated_places':len(places),'observed_places':len(rows),'missing_place_dcids':missing,
+                    'scope':'places with observations from the selected source facet'},
         'params':{'variable_dcid':indicator['dcid'],'child_type':child_type,'places_in_parent':len(places),'top_n':top}}
     return synth.Input(data['rows'],True,{'source':read.source,'provider':'Data Commons v2','facet':data['facet'],'payload':data},
-                       'place-ranking',units={'value':unit},period_basis='source-reported')
+                       'place-ranking',key_domains={'place_dcid':'datacommons-place','year':'calendar-year'},
+                       units={'value':unit},period_basis='source-reported')

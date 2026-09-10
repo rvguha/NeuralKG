@@ -57,6 +57,13 @@ class AccessorRegistrationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             reg.accessor('x')(lambda *a, **k: None)
 
+    def test_accessor_declares_supported_acquisition_operators(self):
+        reg=extensions.Registry()
+        reg.accessor('series',operators=('ReadScalar','MapReadSeries'))(lambda *a,**k:None)
+        self.assertEqual(reg.accessor_operators['series'],('ReadScalar','MapReadSeries'))
+        with self.assertRaises(ValueError):
+            reg.accessor('bad',operators=('',))(lambda *a,**k:None)
+
 
 class BothDispatchPathsTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -115,6 +122,16 @@ class BothDispatchPathsTests(unittest.IsolatedAsyncioTestCase):
                 await dag.read({'operator': 'ReadScalar'}, {'source': 'demo/rows.md'}, [],
                                hits=HITS, context=QueryContext())
         self.assertIn('answer_synthesizer.Input', str(caught.exception))
+
+    async def test_declared_operator_contract_is_enforced_before_invocation(self):
+        reg=extensions.registry()
+        reg.accessor_operators['demo_rows']=('ReadScalar',)
+        with patch('driver.frontmatter',return_value=DESCRIPTOR):
+            with self.assertRaises(runtime.Refused) as caught:
+                await dag.read({'operator':'MapReadSeries'},{'source':'demo/rows.md'},[],
+                               hits=HITS,context=QueryContext())
+        self.assertIn('does not support MapReadSeries',str(caught.exception))
+        self.assertEqual(self.demo.CALLS,[])
 
     async def test_scalar_retains_envelope_and_checks_return_type(self):
         import harness
@@ -181,6 +198,7 @@ class AdvertisementTests(unittest.TestCase):
             advertised = dag.available_sources(HITS)
         self.assertEqual(len(advertised), 1)
         self.assertEqual(advertised[0]['accessor'], 'demo_rows')
+        self.assertEqual(advertised[0]['accessor_operators'],[])
 
 
 if __name__ == '__main__':

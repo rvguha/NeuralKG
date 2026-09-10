@@ -1,5 +1,6 @@
 import json
 import unittest
+import unittest.mock
 
 import httpx
 
@@ -52,6 +53,14 @@ class DCTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.data[0]['source'],'Census')
         self.assertEqual(result.provenance['resolved']['variable_dcid'],'Median_Income_Household')
         self.assertEqual(result.provenance['payload']['rows'],result.data)
+    async def test_mapped_series_returns_one_relation_per_place(self):
+        read=extensions.Read({},'dc',node={'operator':'MapReadSeries'},parameters={'params':{
+            'places':['Miami','Miami'],'indicator':'median_household_income','year_from':2020}})
+        with unittest.mock.patch.object(dc,'config',return_value={'api_key':'key'}):
+            result=await dc.place(read,context=self.context())
+        self.assertEqual(len(result.data),2)
+        self.assertTrue(all(isinstance(relation,list) for relation in result.data))
+        self.assertEqual(result.data[0][0]['place_dcid'],'geoId/0644000')
     async def test_children_returns_full_map_and_requested_top(self):
         with unittest.mock.patch.object(dc,'config',return_value={'api_key':'key'}):
             result=await dc.children(extensions.Read({},'dc',parameters={'params':{
@@ -59,10 +68,20 @@ class DCTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(result.data),1);self.assertEqual(len(result.provenance['payload']['map_rows']),2)
         self.assertEqual(result.data[0]['rank'],1)
     async def test_key_and_caps_fail_honestly(self):
-        with unittest.mock.patch.object(dc,'config',return_value={}):
+        # api_key_env is pointed at a name that cannot be set, because Client falls back to
+        # os.getenv() and this assertion otherwise passes or fails on whether the developer
+        # happens to have DC_API_KEY exported.
+        with unittest.mock.patch.object(dc,'config',return_value={'api_key_env':'DC_API_KEY_ABSENT_FOR_TEST'}):
             with self.assertRaises(runtime.AccessDenied):dc.Client(self.context())
         with unittest.mock.patch.object(dc,'config',return_value={'api_key':'key','max_entities':1}):
             client=dc.Client(self.context())
             with self.assertRaises(runtime.Refused):await client.observations('v',[{'dcid':'1','name':'1'},{'dcid':'2','name':'2'}])
+
+    async def test_dag_children_does_not_truncate_before_ranking(self):
+        with unittest.mock.patch.object(dc,'config',return_value={'api_key':'key'}):
+            result=await dc.children(extensions.Read({},'dc',node={'operator':'ReadRows'},parameters={'params':{
+                'parent_place':'Miami','child_type':'county','indicator':'population','top_n':1}}),context=self.context())
+        self.assertEqual(len(result.data),2)
+        self.assertEqual(result.provenance['payload']['coverage']['observed_places'],2)
 
 if __name__=='__main__':unittest.main()

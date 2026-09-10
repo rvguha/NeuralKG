@@ -28,7 +28,7 @@ class SavedDiscoveryTests(unittest.IsolatedAsyncioTestCase):
                 output, hits = await runner.harness.discover_async('q', context=QueryContext())
             self.assertEqual(output, source)
             self.assertEqual(hits, [{'identifier': 'fixed'}])
-            self.assertEqual(search.call_args.args[0], ['one', 'two', 'three'])
+            self.assertEqual(search.call_args.args[0], ['q', 'one', 'two', 'three'])
             self.assertIsNone(search.call_args.kwargs['sources'])
         finally:
             runner.saved_output.reset(token)

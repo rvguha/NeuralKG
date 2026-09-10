@@ -8,6 +8,7 @@ import datetime
 import decimal
 import json
 import os
+from pathlib import Path
 
 import answer_synthesizer as synth
 import bq
@@ -28,9 +29,18 @@ def configuration():
 def setup(registry):
     # Atlas's original OKF documents call this executor simply ``bigquery``. The newer name says
     # what the implementation guarantees; both names enter this exact same guarded code path.
-    registry.accessor('bigquery')(guarded)
-    registry.accessor('bigquery_guarded')(guarded)
-    registry.accessor('bigquery_sample_llm')(themes)
+    # ReadScalar included: a guarded reviewed query commonly returns one row and one column,
+    # and extensions.scalar_input exists to project exactly that. Omitting it made the
+    # production template test refuse with 'accessor does not support ReadScalar'.
+    acquisition=('ReadScalar','ReadRows','ReadSeries','MapReadSeries')
+    registry.accessor('bigquery',operators=acquisition)(guarded)
+    registry.accessor('bigquery_guarded',operators=acquisition)(guarded)
+    registry.accessor('bigquery_table',operators=acquisition,input_contract=(
+        'Server-side SQL acquisition over the supplied table schema supports filters, grouping, '
+        'aggregates and date extraction. ReadRows may request one aggregated score per entity, '
+        'not just raw stored rows. State the intermediate result and desired column aliases in '
+        'the acquisition question. Do not impose an unrequested row limit.'))(table)
+    registry.accessor('bigquery_sample_llm',operators=('ReadRows',))(themes)
 
 
 def parameters(specs, supplied):
@@ -69,7 +79,7 @@ def parameters(specs, supplied):
     return bound, encoded
 
 
-def validate_sql(sql, allowed_tables):
+def validate_sql(sql, allowed_tables, allowed_functions=(), allowed_assets=()):
     try:
         import sqlglot
         from sqlglot import exp
@@ -81,13 +91,29 @@ def validate_sql(sql, allowed_tables):
         if len(statements) != 1 or not isinstance(statements[0], exp.Query):
             raise ValueError('one read-only query required')
         tree = statements[0]
-        # Reject procedural/DML constructs and remote/table functions. Reviewed raster
-        # operations require a separate explicit service policy before enabling them.
+        # Reject procedural/DML constructs and remote/table functions. A reviewed raster
+        # operation such as ST_REGIONSTATS is enabled by naming it in the INSTANCE's
+        # allowed_functions -- operator-owned, alongside allowed_tables. It is deliberately not
+        # descriptor-owned: a descriptor arrives from a remote ARD, so letting it declare which
+        # functions it may call would be self-authorization.
         prohibited = {'Insert', 'Update', 'Delete', 'Merge', 'Create', 'Drop', 'Command', 'Into', 'Export'}
         if any(type(node).__name__ in prohibited for node in tree.walk()):
             raise ValueError('non-read operation')
-        if any(isinstance(node, exp.Anonymous) for node in tree.walk()):
-            raise ValueError('unrecognized or remote function')
+        permitted = {str(name).strip().upper() for name in allowed_functions if str(name).strip()}
+        for node in tree.walk():
+            if isinstance(node, exp.Anonymous):
+                called = str(node.this or '').strip().upper()
+                if called not in permitted:
+                    raise ValueError(f'unrecognized or remote function: {called or "unnamed"}')
+        # A permitted raster function still reads an external asset. Scope it the way tables are
+        # scoped, by prefix, so enabling ST_REGIONSTATS does not enable every Earth Engine asset.
+        prefixes = tuple(str(prefix) for prefix in allowed_assets if str(prefix).strip())
+        for literal in tree.find_all(exp.Literal):
+            if not literal.is_string:
+                continue
+            text = str(literal.this)
+            if '://' in text and not text.startswith(prefixes if prefixes else ('\0',)):
+                raise ValueError('external asset outside the configured allowlist: ' + text)
         actual = set()
         for scope in traverse_scope(tree):
             for selected in scope.sources.values():
@@ -116,9 +142,16 @@ async def guarded(read, *, context):
             raise runtime.Refused('Ad-hoc SQL is disabled in this instance')
         sql = read.parameters.get('sql')
     if not isinstance(sql, str) or not sql.strip(): raise runtime.Refused('No SQL supplied')
-    allowed = settings.get('allowed_tables', [])
+    allowed = list(settings.get('allowed_tables', []))
+    manifest = settings.get('allowed_tables_file')
+    if manifest:
+        path = Path(manifest)
+        if not path.is_absolute():
+            path = Path(instance.path()).resolve().parent / path
+        allowed.extend(json.loads(path.read_text()))
     if not allowed: raise runtime.Refused('Configure an explicit BigQuery table allowlist')
-    validate_sql(sql, allowed)
+    validate_sql(sql, allowed, settings.get('allowed_functions') or [],
+                 settings.get('allowed_assets') or [])
     supplied = read.parameters.get('params', {})
     if not isinstance(supplied, dict): raise runtime.Refused('SQL params must be an object')
     bound, encoded = parameters(recipe.get('parameters', []), supplied)
@@ -129,14 +162,14 @@ async def guarded(read, *, context):
     cap = min(limit, int((field(descriptor, 'cost_profile', {}) or {}).get('cap_bytes', limit)))
     if cap <= 0: raise runtime.Refused('Positive byte cap required')
     client = context.bigquery_client
-    if client is None:
-        project = settings.get('project') or os.getenv('GOOGLE_CLOUD_PROJECT')
+    project = settings.get('project') or os.getenv('GOOGLE_CLOUD_PROJECT')
+    if client is None or (project and getattr(client,'project',None)!=project):
         if not project or context.http_client is None:
             raise runtime.Refused('BigQuery project and async HTTP client are required')
         client = bq.AsyncBigQueryClient(project, context.http_client)
         context.bigquery_client = client
     event = {'source': read.source, 'operation': read.operation, 'params': bound,
-             'sql': sql, 'byte_cap': cap, 'status': 'started'}
+             'sql': sql, 'project':project,'byte_cap': cap, 'status': 'started'}
     context.operation_events.append(event)
     try:
         estimated = await client.dry_run(sql, context=context, query_parameters=encoded)
@@ -152,9 +185,43 @@ async def guarded(read, *, context):
                   'reviewed_computation': reviewed,
                   'citation': field(descriptor, 'citation_template'),
                   'review': {k: field(descriptor, k) for k in ('version', 'reviewer', 'reviewed_on', 'stale_after')}}
-    return synth.Input(result['rows'], result.get('complete') is True, provenance,
+    rows=result['rows']
+    if (read.node or {}).get('operator')=='MapReadSeries':rows=[rows]
+    return synth.Input(rows, result.get('complete') is True, provenance,
                        field(descriptor, 'grain', 'row'), units=field(descriptor, 'units', {}) or {},
                        period_basis=field(descriptor, 'periodType'))
+
+
+async def table(read, *, context):
+    """Draft only the acquisition query; never let a descriptor grant access."""
+    source = field(read.descriptor, 'source', {})
+    columns = field(read.descriptor, 'columns', [])
+    if not isinstance(source, dict) or not columns:
+        raise runtime.Refused('BigQuery table descriptor needs source coordinates and columns')
+    name = '.'.join(source[key] for key in ('project', 'dataset', 'table'))
+    question = read.parameters.get('question') or getattr(read.frame, 'question', None)
+    if not question:
+        raise runtime.Refused('BigQuery table acquisition requires an input question')
+    raw = await llm.chat_async(
+        'Return JSON {"sql":"one BigQuery SELECT"}. Query only the supplied table and columns. '
+        'Produce the requested intermediate data, not an answer narrative. Use server-side '
+        'aggregation when the input asks for grouped counts or totals. Preserve entity labels, '
+        'time coordinates and measures with meaningful column aliases. Never invent columns, '
+        'units or period coverage. Do not silently sample or impose a LIMIT not requested. '
+        'Use reference_date for relative dates. No DML, external calls, scripts or parameters.',
+        json.dumps({'question': question, 'operator': (read.node or {}).get('operator'),
+                    'table': name, 'columns': columns, 'reference_date': context.reference_date}),
+        context=context, json_mode=True, stage='accessor-sql')
+    from dataclasses import replace
+    try:
+        sql = json.loads(raw)['sql']
+    except (ValueError, KeyError, TypeError) as exc:
+        raise runtime.Refused('Invalid table acquisition SQL response') from exc
+    # Generated SQL enters the same validator and billing guard as reviewed SQL,
+    # but is never labelled human-reviewed.
+    descriptor = {**read.descriptor, 'computation': {'runtime': {'sql': sql}}}
+    return await guarded(replace(read, descriptor=descriptor, parameters={**read.parameters, 'params': {}}),
+                         context=context)
 
 
 def verify_quotes(themes, rows):

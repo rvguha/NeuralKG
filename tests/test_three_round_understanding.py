@@ -25,6 +25,16 @@ def extracted(**overrides):
 
 
 class ThreeRoundTests(unittest.IsolatedAsyncioTestCase):
+    async def test_reference_date_is_fixed_across_rounds_and_forks(self):
+        context=QueryContext(reference_date='2031-04-05')
+        self.assertEqual(context.fork().reference_date,'2031-04-05')
+        async def reply(system,user,**kw):
+            self.assertEqual(json.loads(user)['reference_date'],'2031-04-05')
+            if kw['stage']!='understand-extract':return json.dumps({'shapes':['s0']})
+            return json.dumps(extracted())
+        with mock.patch.object(qu,'load_catalog',return_value=(catalog(1),'hash')),mock.patch.object(llm,'chat_async',side_effect=reply):
+            await qu.understand('last ten years',context=context)
+
     def test_selection_prompt_requires_api_dependent_alternative_plans(self):
         self.assertIn('lookup.scalar', qu.SELECT)
         self.assertIn('lookup.binary', qu.SELECT)
@@ -161,7 +171,7 @@ class ThreeRoundTests(unittest.IsolatedAsyncioTestCase):
         with mock.patch.object(harness,'query_understanding_async',return_value=ctx),mock.patch.object(harness.ard_client,'search_many_async',return_value=[]) as search:
             result,_=await harness.discover_async('q',sites=['explicit'],context=QueryContext())
         self.assertIs(result,ctx)
-        self.assertEqual(search.await_args.args[0],['first','second'])
+        self.assertEqual(search.await_args.args[0],['q','first','second'])
         self.assertEqual(search.await_args.kwargs['sources'],['explicit'])
 
     async def test_empty_candidates_cannot_become_an_arbitrary_point_answer(self):

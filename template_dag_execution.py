@@ -28,9 +28,9 @@ ARGUMENTS = {
     'Locate':'predicate: identify exactly one row.', 'RelativeSlice':'before,after: nonnegative integer row counts.',
     'Group':'keys: grouping-field list.', 'GroupCount':'output:count column.',
     'StreamReduce':'method: sum|count|mean|min|max|variance|std|geometric_mean|pearson; field, nulls:error|drop; variance/std requires ddof:0|1; pearson requires fields:[x,y].',
-    'OrderStatistics':'field, nulls:error|drop, q:[0,1], method:linear|lower|higher|midpoint|nearest.',
+    'OrderStatistics':'field, nulls:error|drop, q: a single number between 0 and 1 inclusive (not an array), method:linear|lower|higher|midpoint|nearest.',
     'Join':'left_keys,right_keys: aligned identity-field lists; cardinality:one-to-one|one-to-many|many-to-one|many-to-many; right_prefix, right_fields; unmatched:drop|keep|error. Right columns receive prefix.',
-    'AlignTime':'joins: one Join contract for each additional series. Numeric time keys and identical temporal basis required.',
+    'AlignTime':'For a series display use layout:"long", time: numeric time column; preserves all rows and identifies series_index without joins. For side-by-side arithmetic use joins: one Join contract for each additional series ([] for one). Identical temporal basis required.',
     'AlignEndpoints':'joins: one Join contract for each additional endpoint relation.',
     'MapChanges':'expressions: {output_column:finite expression}; all endpoints are explicitly available columns.',
     'FillUnmatchedCountZero':'field: joined count column. Only unmatched rows become zero.',
@@ -67,6 +67,42 @@ for alias,base in {'LeftJoin':'Join','AntiJoin':'Join','AlignEntity':'Join','Gro
     ARGUMENTS[alias]=ARGUMENTS[base]+(' Also output:result column.' if alias in ('GroupStreamReduce','GroupOrderStatistics') else '')
 
 
+def normalize_plan(plan,candidates,templates):
+    """Normalize unambiguous wire-format aliases/defaults without changing the chosen DAG."""
+    if not isinstance(plan,dict):return plan
+    ids=[candidate['shape'] for candidate in candidates]
+    selected=plan.get('candidate')
+    if type(selected) is int and 0<=selected<len(ids):plan['candidate']=ids[selected]
+    elif isinstance(selected,str) and selected.isdigit() and int(selected)<len(ids):
+        plan['candidate']=ids[int(selected)]
+    shape=plan.get('candidate')
+    if shape not in templates:return plan
+    parameters=plan.get('parameters')
+    if not isinstance(parameters,dict):return plan
+    candidate=next(item for item in candidates if item['shape']==shape)
+    entity_keys=((candidate.get('bindings') or {}).get('entity_keys') or [])
+    for node in templates[shape]['plan']['nodes']:
+        p=parameters.get(node['id'])
+        if not isinstance(p,dict):continue
+        if node['operator'] in ('Order','TimeOrder','GroupOrder','Rank','StreamReduce','GroupStreamReduce','OrderStatistics','GroupOrderStatistics'):
+            p.setdefault('nulls','error')
+        if 'params' not in p and isinstance(p.get('accessor_parameters'),dict):
+            p['params']=p['accessor_parameters']
+        if node['operator'] in ('Project','Assemble') and 'fields' not in p:
+            p['fields']='*'
+        if node['operator']=='Take' and 'limit' not in p:
+            p['limit']='all';p.setdefault('ties','all')
+        if node['operator']=='Take':
+            p.setdefault('ties','all')
+            if p['ties']=='all' and 'tie_keys' not in p:
+                preceding=parameters.get((node.get('inputs') or [''])[0],{})
+                if preceding.get('by'):
+                    p['tie_keys']=[item['field'] for item in preceding['by']]
+        if node['operator']=='AlignTime' and len(entity_keys)<=1 and 'joins' not in p:
+            p['joins']=[]
+    return plan
+
+
 def available_sources(hits):
     import planner
     readers=extensions.registry().template_readers
@@ -81,11 +117,15 @@ def available_sources(hits):
         accessor=extensions.accessor_name(fm)
         if accessor and accessor not in extensions.registry().accessors:
             continue
+        accessor_operators=list(extensions.registry().accessor_operators.get(accessor,()))
         computation=fm.get('computation') or {}
         recipe=computation.get('runtime') if isinstance(computation,dict) else {}
         declared_parameters=recipe.get('parameters') if isinstance(recipe,dict) else []
         result.append({**h,'template_reader':name if name in readers else None,'read_operations':usable,
                        'accessor':accessor,'accessor_parameters':declared_parameters or [],
+                       'accessor_operators':accessor_operators,
+                       'output_fields':list(extensions.registry().accessor_output_fields.get(accessor,())),
+                       'acquisition_contract':extensions.registry().accessor_input_contracts.get(accessor,''),
                        'scalar_adapter':True})
     return result
 
@@ -98,6 +138,9 @@ async def read(node,p,dependencies,*,hits,context):
     # declares one is never shadowed by a legacy template_reader or a built-in operator branch.
     accessor_name,accessor_fn=extensions.accessor_for(fm)
     if accessor_fn:
+        declared=extensions.registry().accessor_operators.get(accessor_name,())
+        if declared and node['operator'] not in declared:
+            raise runtime.Refused(f'{accessor_name}: accessor does not support {node["operator"]}')
         read_request=extensions.Read(descriptor=fm,source=source,operation=p.get('operation'),
                                      parameters=p,dependencies=tuple(dependencies or ()),node=node)
         result = await extensions.invoke_accessor(read_request,context=context)
@@ -159,16 +202,28 @@ async def run(question,understanding,hits,*,context):
     operators={n['operator'] for c in candidates for n in templates[c['shape']]['plan']['nodes']}
     system='''Bind ONE supplied candidate to its FIXED catalog DAG. Return JSON {"candidate":"id or null","reason":"explanation","parameters":{"node_id":{...}}}.
 Do not change node IDs, operators, dependencies or output. Bind only listed node parameters. Never invent data, crosswalks, source identifiers, capability evidence, methods, units or user constraints.
-Every acquisition node needs source (exact ARD identifier), question, and accessor coordinates. ReadScalar: entity,type,measure,period (YYYY or latest). A resource with accessor_parameters also needs params containing only that declared schema, bound from the question; never invent provider identifiers. Other read nodes require a registered accessor, template_reader, or listed read_operations synthesis contract and operation/params. ReadDescriptor reads source metadata. If no suitable input adapter exists, return candidate:null and explain the missing input contract, not a simulated answer.
+Candidate must be the exact shape ID string shown in candidate_ids, never its array index. When the question requests an unbounded plural ranking (for example, "which counties were hottest") and supplies no N, bind Take limit="all" and ties="all"; this preserves the whole ordered answer rather than inventing a top-N cutoff. A missing projection binds fields="*" to preserve all source fields. These lossless defaults do not require clarification.
+Every acquisition node needs source (exact ARD identifier), question, and accessor coordinates. ReadScalar: entity,type,measure,period (YYYY or latest). A resource with accessor_parameters also needs params containing only that declared schema, bound from the question; never invent provider identifiers. A registered accessor supports exactly the acquisition node types listed in accessor_operators; treat that list as authoritative even when prose title or description is less specific. Other read nodes require a template_reader or listed read_operations synthesis contract and operation/params. ReadDescriptor reads source metadata. If no suitable input adapter exists, return candidate:null and explain the missing input contract, not a simulated answer.
 Expressions use {field:"column"}, {input:0}, {input:0,field:"path"}, bare constants, or {op:"identity|abs|sign|not|add|subtract|multiply|divide|power|eq|ne|lt|le|gt|ge|and|or",args:[...]}. No code or SQL. A descriptor is a callable source, not fetched data. Different viable templates may have different input needs. Choose one all of whose reads can be served.'''
-    payload={'question':question,'candidates':[{'understanding':c,'template':templates[c['shape']]} for c in candidates],
+    system += '\nChoose operations that preserve the requested output: a trend of a published statistic (including a median or rate) needs the published series, not a new median or rate over that series. Candidate intent bindings are hypotheses, not instructions to execute unnecessary reductions. Resolve relative periods using reference_date and pass the resulting boundaries into acquisition params; period=all alone does not implement a bounded time range.'
+    system += '\nUse output_fields verbatim for compute parameters: a semantic measure name is not a column name. Use canonical identifier columns for joins, numeric year/date coordinates for temporal alignment, and an explicit right_prefix to preserve both measures. Prefer the candidate with the fewest operations that preserves the requested result. For unspecified ranking ties, retain boundary ties: ties=all, tie_keys=the ordering fields. Never join a relation to an identical read just to simulate a simpler available plan.'
+    system += '\nWhen multiple inputs match the requested measure, entity grain and period equally well, prefer a reviewed computation with a declared schema over drafting a new computation from raw tables. Do not prefer review status over semantic correctness.'
+    payload={'question':question,'reference_date':context.reference_date,'candidate_ids':[c['shape'] for c in candidates],
+             'execution_defaults':{'unbounded_ranking':{'limit':'all','ties':'all'},'unspecified_projection':{'fields':'*'}},
+             'candidates':[{'id':c['shape'],'description':templates[c['shape']].get('asks',''),'intent_bindings':c.get('bindings',{}),
+                 'nodes':templates[c['shape']]['plan']['nodes'],
+                 'output':templates[c['shape']]['plan']['output'],
+                 'response_skeleton':{'candidate':c['shape'],'reason':'Explain source and operations',
+                     'parameters':{n['id']:({'source':'EXACT ARD identifier','question':question,'params':{}}
+                         if n['operator'] in synth.READS else {})
+                         for n in templates[c['shape']]['plan']['nodes']}}} for c in candidates],
              'resources':available_sources(hits),'operator_parameters':{o:ARGUMENTS[o] for o in operators if o in ARGUMENTS}}
     trace=context.memo.setdefault('planning_attempts',[])
     for attempt in range(3):
         raw=await llm.chat_async(system,json.dumps(payload),context=context,json_mode=True,stage='plan',max_tokens=7000,reasoning_effort='low')
         record={'system':system,'user':json.dumps(payload),'raw':raw};trace.append(record)
         try:
-            plan=json.loads(raw)
+            plan=normalize_plan(json.loads(raw),candidates,templates)
             if not isinstance(plan,dict) or plan.get('candidate') not in {c['shape'] for c in candidates}:raise runtime.Refused(str(plan.get('reason','No executable plan') if isinstance(plan,dict) else 'Invalid plan'))
             shape=plan['candidate'];parameters=plan['parameters'];synth._template(shape,parameters)
             for node in templates[shape]['plan']['nodes']:
@@ -193,6 +248,6 @@ Expressions use {field:"column"}, {input:0}, {input:0,field:"path"}, bare consta
         except (ValueError,KeyError,TypeError,runtime.Refused) as exc:
             record['error']=str(exc)
             if isinstance(locals().get('plan'),dict) and plan.get('candidate') is None:raise runtime.Refused(str(exc)) from exc
-            payload['repair']={'error':str(exc),'previous_plan':raw,'instruction':'Correct the binding or select another supplied candidate. Never fabricate missing data.'}
+            payload['repair']={'error':str(exc),'previous_plan':raw,'instruction':'Use the response_skeleton: parameters keys MUST be node IDs, not intent binding names. Fill each node using operator_parameters. Acquisition params must use the source schema. Correct the binding or select another supplied candidate. Never fabricate missing data.'}
             await context.emit('plan_repair',attempt=attempt+1,error=str(exc))
     raise runtime.Refused('No executable candidate plan: '+trace[-1]['error'])

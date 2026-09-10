@@ -38,7 +38,7 @@ name_selectors: [q, name, company, place, parent_place]
 
 extensions:
   - plugins.atlas_accessors
-  - plugins.atlas_sec
+  - sec_facts
   - plugins.atlas_datacommons
 
 plugin_config:
@@ -46,6 +46,17 @@ plugin_config:
     project: atlas-ard-okf
     byte_cap: 21474836480
     allow_ad_hoc: false
+    allowed_tables_file: atlas/allowed-tables.json
+    # Reviewed computations may call these BigQuery functions. Operator-owned on purpose: a
+    # descriptor arrives from a remote ARD and must not be able to authorize its own function
+    # calls. ST_REGIONSTATS hands a raster reduction to Earth Engine.
+    allowed_functions:
+      - ST_REGIONSTATS
+    # Enabling that function must not enable every Earth Engine asset, so scope them by prefix
+    # exactly as tables are scoped.
+    allowed_assets:
+      - ee://ECMWF/ERA5_LAND/
+      - ee://UMD/hansen/
     allowed_tables:
       - bigquery-public-data.covid19_open_data.covid19_open_data
       - bigquery-public-data.geo_us_boundaries.counties

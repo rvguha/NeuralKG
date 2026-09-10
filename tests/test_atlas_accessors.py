@@ -13,6 +13,42 @@ DESC = {'accessor': 'bigquery_guarded', 'trust': 'human-reviewed',
 
 
 class AtlasTests(unittest.IsolatedAsyncioTestCase):
+    async def test_table_accessor_uses_schema_and_guarded_execution(self):
+        ctx=self.context()
+        desc={'accessor':'bigquery_table','source':{'kind':'bigquery','project':'p','dataset':'d','table':'t'},
+              'columns':[{'name':'value','type':'INT64'}]}
+        read=extensions.Read(desc,'opaque',node={'operator':'ReadRows'},
+                             parameters={'question':'Return all values'})
+        with patch.object(atlas,'configuration',return_value={'allowed_tables':['p.d.t']}),patch.object(
+                atlas.llm,'chat_async',AsyncMock(return_value='{"sql":"SELECT value FROM `p.d.t`"}')) as chat:
+            result=await atlas.table(read,context=ctx)
+        self.assertEqual(result.data,[{'value':7}])
+        self.assertFalse(result.provenance['reviewed_computation'])
+        self.assertIn('"columns"',chat.call_args.args[1])
+        ctx.bigquery_client.dry_run.assert_awaited_once()
+
+    async def test_table_accessor_cannot_escape_operator_allowlist(self):
+        ctx=self.context()
+        desc={'source':{'project':'p','dataset':'d','table':'t'},'columns':[{'name':'value','type':'INT64'}]}
+        read=extensions.Read(desc,'opaque',parameters={'question':'Return values'})
+        with patch.object(atlas,'configuration',return_value={'allowed_tables':['p.d.t']}),patch.object(
+                atlas.llm,'chat_async',AsyncMock(return_value='{"sql":"SELECT * FROM `private.d.secret`"}')):
+            with self.assertRaises(runtime.Refused):
+                await atlas.table(read,context=ctx)
+        ctx.bigquery_client.dry_run.assert_not_awaited()
+
+    async def test_instance_project_overrides_prebound_client(self):
+        ctx=self.context(); previous=ctx.bigquery_client; previous.project='other-project'
+        ctx.http_client=object()
+        replacement=AsyncMock();replacement.project='atlas-project'
+        replacement.dry_run.return_value=1
+        replacement.query.return_value={'rows':[{'value':7}],'complete':True}
+        with patch.object(atlas,'configuration',return_value={'project':'atlas-project','allowed_tables':['p.d.t']}),patch.object(atlas.bq,'AsyncBigQueryClient',return_value=replacement):
+            await atlas.guarded(extensions.Read(DESC,'s',parameters={'params':{'year':2023}}),context=ctx)
+        previous.query.assert_not_awaited()
+        replacement.query.assert_awaited_once()
+        self.assertEqual(ctx.operation_events[0]['project'],'atlas-project')
+
     def context(self):
         client = AsyncMock()
         client.dry_run.return_value = 50

@@ -1031,8 +1031,11 @@ async def discover_async(question, sites=None, assumptions=None, *, context, _un
     ctx = await (_understand or query_understanding_async)(question, context=context)
     if 'candidates' in ctx:
         context.memo['understanding'] = ctx
-        if not context.interpretation_bound and _extracted_interpretations(ctx):
-            return ctx, []  # Each interpretation makes the ordinary discovery calls.
+        if not context.interpretation_bound:
+            interpretations=await _validate_interpretations(question,ctx,context=context)
+            context.memo['validated_interpretations']=interpretations
+            if interpretations:
+                return ctx, []  # Each interpretation makes the ordinary discovery calls.
         if assumptions:
             raise runtime.Refused('Legacy assumptions cannot overwrite independent template candidates')
         queries = list(dict.fromkeys(q for c in ctx['candidates'] if c.get('status') == 'ok' and c.get('applicability') != 'inapplicable'
@@ -1040,6 +1043,10 @@ async def discover_async(question, sites=None, assumptions=None, *, context, _un
         await _asay(context, 'shape_candidates', candidates=ctx['candidates'])
         if not queries:
             return ctx, []
+        # The original request carries population/scope information that an
+        # extracted input request can lose. Search both; reranking already uses
+        # the complete original question.
+        queries = list(dict.fromkeys([question, *queries]))
         await _asay(context, 'discovery_started', queries=queries)
         hits = await ard_client.search_many_async(queries, k=12, sources=sites,
                                                   rerank_query=question, context=context)
@@ -1441,8 +1448,24 @@ async def _fetch_async(state, ctx, *, context):
         # the scalar path takes `.data` and narrows downstream exactly as a built-in fetch does.
         accessor_name, accessor_fn = extensions.accessor_for(fm)
         if accessor_fn:
+            supplied=dict(f.ctx or {})
+            specs=((fm.get('computation') or {}).get('runtime') or {}).get('parameters') or []
+            if specs and 'params' not in supplied:
+                raw=await llm.chat_async(
+                    'Bind accessor parameters from the question and its interpretation. Return JSON '
+                    '{"params":{...}} using only declared parameter names. Preserve entity, measure, '
+                    'period and population scope. Use reference_date for relative dates. Do not invent '
+                    'provider identifiers. Omit optional parameters unless requested.',
+                    json.dumps({'question':ctx.get('question') or state.get('question'),
+                                'interpretation':supplied,'parameters':specs,
+                                'reference_date':context.reference_date}),
+                    context=context,json_mode=True,stage='accessor-bind')
+                bound=json.loads(raw).get('params')
+                if not isinstance(bound,dict) or set(bound)-{p['name'] for p in specs}:
+                    raise runtime.Refused('Invalid accessor parameter binding')
+                supplied['params']=bound
             read_request = extensions.Read(descriptor=fm, source=identifier, operation=state.get('operation'),
-                                           parameters=dict(f.ctx or {}), frame=f)
+                                           parameters=supplied, frame=f)
             result = await extensions.invoke_accessor(read_request, context=context)
             return extensions.scalar_payload(result)
         await extensions.authorize(fm, state.get('operation'), context=context)
@@ -2203,6 +2226,24 @@ def _extracted_interpretations(understanding):
     return []
 
 
+async def _validate_interpretations(question,understanding,*,context):
+    proposed=_extracted_interpretations(understanding)
+    if not proposed:return []
+    raw=await llm.chat_async(
+        'Check whether these proposed readings are genuine alternative meanings of the QUESTION. '
+        'Return JSON {"independent_readings":true|false}. A comparison of Japan and the US has '
+        'two required operands, NOT two alternative readings. Population and prevalence used to '
+        'derive a count are inputs, NOT alternative requested attributes. Never split these apart. '
+        'City versus county for an unqualified place, organization versus its foundation, or '
+        'revenue versus employees for "how big" ARE independent readings. Each reading must '
+        'preserve all other explicit question constraints. Do not consider source availability.',
+        json.dumps({'question':question,'readings':proposed}),context=context,
+        json_mode=True,stage='understand-interpretations',max_tokens=500)
+    verdict=json.loads(raw).get('independent_readings')
+    if not isinstance(verdict,bool):raise runtime.Refused('Invalid interpretation validation')
+    return proposed if verdict else []
+
+
 async def _answer_interpretations(question, interpretations, *, sites, context):
     async def answer(item, child):
         child.interpretation_bound=True
@@ -2260,7 +2301,7 @@ async def run(question, sites=None, assumptions=None, on_ambiguity="answer", *, 
             try:
                 ctx, hits = await discover_async(question,sites=sites,assumptions=assumptions,context=context)
                 if 'candidates' in ctx:
-                    interpretations=_extracted_interpretations(ctx)
+                    interpretations=context.memo.get('validated_interpretations',_extracted_interpretations(ctx))
                     if interpretations and not context.interpretation_bound:
                         return await _answer_interpretations(question,interpretations,sites=sites,context=context)
                     import template_execution
@@ -2270,6 +2311,15 @@ async def run(question, sites=None, assumptions=None, on_ambiguity="answer", *, 
             except (runtime.QueryCancelled,runtime.QueryBudgetExceeded):
                 raise
             except (runtime.Refused, ard_client.NoRelevantTablesError) as exc:
+                # Falling back is legitimate while no concrete plan exists -- nothing was
+                # discovered, or planning could not bind one. Once a plan has been ADMITTED
+                # against real sources, a failure is a fact about this question and this
+                # source, and the established path answers a different, weaker question:
+                # a reviewed-SQL rejection surfaced to the user as "'temperature' is ambiguous
+                # and none of its interpretations could be answered", which named neither the
+                # source nor the real cause.
+                if context.memo.get('template_plan'):
+                    raise
                 return await preserve(str(exc))
         if not hits:
             raise runtime.Refused("agent finder returned no sources")
