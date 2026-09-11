@@ -56,6 +56,13 @@ class DeploymentTests(unittest.TestCase):
         self.assertNotIn("set_keys.sh", files)
         self.assertFalse(any(name.startswith(".venv/") for name in files))
 
+    def test_hugging_face_image_contains_runtime_query_shape_catalog(self):
+        dockerfile = read("deploy/hf-space/Dockerfile")
+        self.assertIn("COPY --chown=app:app shapes ./shapes", dockerfile)
+        self.assertIn("COPY --chown=app:app instance.yaml ./", dockerfile)
+        self.assertNotIn("set_keys.sh", '\n'.join(
+            line for line in dockerfile.splitlines() if line.lstrip().startswith('COPY')))
+
 
 if __name__ == "__main__":
     unittest.main()

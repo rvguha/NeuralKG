@@ -37,6 +37,10 @@ COPY --chown=app:app *.md ./
 COPY --chown=app:app accessor ./accessor
 COPY --chown=app:app registry ./registry
 COPY --chown=app:app tools ./tools
+# Query understanding loads the selected catalog at runtime.  It is executable
+# configuration, not test data; omitting it makes the container fail on its
+# first question even though /healthz is otherwise green.
+COPY --chown=app:app shapes ./shapes
 
 # The ARD corpus. Absent from the GitHub repository by design -- the engine holds no knowledge of
 # any particular source -- but a Space has to answer questions, so the image carries one. Swap
