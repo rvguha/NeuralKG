@@ -2296,6 +2296,25 @@ async def _validate_interpretations(question,understanding,*,context):
     raise runtime.Refused('Invalid interpretation validation: '+str(last))
 
 
+# A branch result is an engine record, not a finding: repair attempts, the full descriptor
+# text of every ARD candidate including the rejected ones, and per-call token telemetry all
+# ride along with the data.  A writer can use none of it, and three branches carrying it
+# overran the model's context window on a 58-row answer.  Send what states the finding; keep
+# the machinery that produced it in the response, the trace and the UI, which do read it.
+_BRANCH_TELEMETRY=('attempts','candidates','template_candidates','usage','discovery_usage')
+
+
+def _branch_for_synthesis(branch):
+    """Project one interpretation branch down to what the synthesis prompt actually reads."""
+    result=branch.get('result')
+    if not isinstance(result,dict):return branch
+    kept={key:value for key,value in result.items() if key not in _BRANCH_TELEMETRY}
+    # Template results carry their evidence tree inside ``data`` already; the top-level copy
+    # is the identical object a second time.
+    if isinstance(kept.get('data'),dict) and 'evidence' in kept['data']:kept.pop('evidence',None)
+    return {**branch,'result':kept}
+
+
 async def _answer_interpretations(question, interpretations, *, sites, context):
     async def answer(item, child):
         child.interpretation_bound=True
@@ -2311,7 +2330,8 @@ async def _answer_interpretations(question, interpretations, *, sites, context):
     await _asay(context,'status',icon='🔎',msg=f'Answering {len(interpretations)} entity/attribute interpretations separately…')
     answers=await _ordered(context,[lambda child,item=item:answer(item,child) for item in interpretations])
     data={'interpretation_answers':answers,'aggregation':'collection only; never sum across interpretations'}
-    rendered=await TK.synthesize_async(question,data,context=context)
+    rendered=await TK.synthesize_async(question,
+        {**data,'interpretation_answers':[_branch_for_synthesis(item) for item in answers]},context=context)
     return {'question':question,'shape':'multiple-interpretations','answer':rendered,
             'answer_renderer':'llm-synthesis','plan':'Same execution flow for each extracted interpretation',
             'data':data,'evidence':{'kind':'interpretations','payload':data},'candidates':[],

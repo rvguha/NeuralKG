@@ -139,6 +139,14 @@ def normalize_plan(plan,candidates,templates,hits=()):
                     match=re.match(r'(\d{4})',str(periods.get(coordinate) or ''))
                     if key in declared and match:p['params'].setdefault(key,int(match.group(1)))
         if node['operator'] in ('Order','TimeOrder','GroupOrder','Rank','StreamReduce','GroupStreamReduce','OrderStatistics','GroupOrderStatistics'):
+            # The operator contract spells these vocabularies in lowercase, but planners
+            # reach for SQL's ORDER BY ... DESC and emit uppercase however plainly the
+            # prompt says otherwise.  Case carries no meaning in a closed vocabulary, so
+            # fold it here instead of spending repair attempts on spelling.
+            if isinstance(p.get('nulls'),str):p['nulls']=p['nulls'].casefold()
+            for item in p.get('by') or ():
+                if isinstance(item,dict) and isinstance(item.get('direction'),str):
+                    item['direction']=item['direction'].casefold()
             p.setdefault('nulls','error')
         if 'params' not in p and isinstance(p.get('accessor_parameters'),dict):
             p['params']=p['accessor_parameters']

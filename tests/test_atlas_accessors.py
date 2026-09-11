@@ -19,7 +19,7 @@ class AtlasTests(unittest.IsolatedAsyncioTestCase):
               'columns':[{'name':'value','type':'INT64'}]}
         read=extensions.Read(desc,'opaque',node={'operator':'ReadRows'},
                              parameters={'question':'Return all values'})
-        with patch.object(atlas,'configuration',return_value={'allowed_tables':['p.d.t']}),patch.object(
+        with patch.object(atlas,'configuration',return_value={'project':'p','allowed_tables':['p.d.t']}),patch.object(
                 atlas.llm,'chat_async',AsyncMock(return_value='{"sql":"SELECT value FROM `p.d.t`"}')) as chat:
             result=await atlas.table(read,context=ctx)
         self.assertEqual(result.data,[{'value':7}])
@@ -31,7 +31,7 @@ class AtlasTests(unittest.IsolatedAsyncioTestCase):
         ctx=self.context()
         desc={'source':{'project':'p','dataset':'d','table':'t'},'columns':[{'name':'value','type':'INT64'}]}
         read=extensions.Read(desc,'opaque',parameters={'question':'Return values'})
-        with patch.object(atlas,'configuration',return_value={'allowed_tables':['p.d.t']}),patch.object(
+        with patch.object(atlas,'configuration',return_value={'project':'p','allowed_tables':['p.d.t']}),patch.object(
                 atlas.llm,'chat_async',AsyncMock(return_value='{"sql":"SELECT * FROM `private.d.secret`"}')):
             with self.assertRaises(runtime.Refused):
                 await atlas.table(read,context=ctx)
@@ -51,6 +51,11 @@ class AtlasTests(unittest.IsolatedAsyncioTestCase):
 
     def context(self):
         client = AsyncMock()
+        # The guard rebuilds the client whenever the configured project disagrees with the
+        # one the client already has.  An AsyncMock auto-creates .project as a Mock, so
+        # without this the tests only passed while GOOGLE_CLOUD_PROJECT was unset -- and
+        # set_keys.sh exports it.
+        client.project = 'p'
         client.dry_run.return_value = 50
         client.query.return_value = {'rows': [{'value': 7}], 'complete': True,
                                      'job': {'jobId': 'j'}, 'statistics': {'totalBytesBilled': '50'}}
@@ -61,7 +66,7 @@ class AtlasTests(unittest.IsolatedAsyncioTestCase):
     async def test_guarded_parameterized_query_and_shared_attempt_record(self):
         ctx = self.context()
         read = extensions.Read(DESC, 'opaque-resource', parameters={'params': {'year': '2023'}})
-        with patch.object(atlas, 'configuration', return_value={'allowed_tables': ['p.d.t'], 'byte_cap': 100}):
+        with patch.object(atlas, 'configuration', return_value={'project': 'p', 'allowed_tables': ['p.d.t'], 'byte_cap': 100}):
             result = await atlas.guarded(read, context=ctx)
         self.assertEqual(result.data, [{'value': 7}])
         self.assertTrue(result.complete)
@@ -86,7 +91,7 @@ class AtlasTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(extensions, 'registry', return_value=reg), \
              patch.object(dag.driver, 'frontmatter', return_value=descriptor), \
              patch('planner.capabilities', return_value={'lookup': {'synthesis': {'read_only': True}}}), \
-             patch.object(atlas, 'configuration', return_value={'allowed_tables': ['p.d.t']}), \
+             patch.object(atlas, 'configuration', return_value={'project': 'p', 'allowed_tables': ['p.d.t']}), \
              patch.object(dag.llm, 'chat_async', AsyncMock(return_value=json.dumps(plan))), \
              patch.object(harness.TK, 'synthesize_async', AsyncMock(return_value='7')) as render:
             result = await dag.run('What is the value in 2023?', understood,
@@ -101,7 +106,7 @@ class AtlasTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_dry_run_cap_prevents_execution_and_retains_attempt(self):
         ctx = self.context(); ctx.bigquery_client.dry_run.return_value = 101
-        with patch.object(atlas, 'configuration', return_value={'allowed_tables': ['p.d.t'], 'byte_cap': 100}):
+        with patch.object(atlas, 'configuration', return_value={'project': 'p', 'allowed_tables': ['p.d.t'], 'byte_cap': 100}):
             with self.assertRaises(runtime.Refused):
                 await atlas.guarded(extensions.Read(DESC, 's', parameters={'params': {'year': 2023}}), context=ctx)
         ctx.bigquery_client.query.assert_not_awaited()
@@ -117,7 +122,7 @@ class AtlasTests(unittest.IsolatedAsyncioTestCase):
         for value in ('internal', 'Private', 'restricted', {'level': 'private'}):
             with self.assertRaises(runtime.AccessDenied):
                 await atlas.guarded(extensions.Read({**DESC, 'visibility': value}, 's'), context=ctx)
-        with patch.object(atlas, 'configuration', return_value={'allowed_tables': ['p.other.t']}):
+        with patch.object(atlas, 'configuration', return_value={'project': 'p', 'allowed_tables': ['p.other.t']}):
             with self.assertRaises(runtime.Refused):
                 await atlas.guarded(extensions.Read(DESC, 's'), context=ctx)
         ctx.bigquery_client.dry_run.assert_not_awaited()
@@ -129,7 +134,7 @@ class AtlasTests(unittest.IsolatedAsyncioTestCase):
         ctx.bigquery_client.query.return_value['rows'] = rows
         read = extensions.Read(DESC, 's', parameters={'params': {'year': 2023}})
         reply = '{"themes":[{"name":"payments","quotes":[{"complaint_id":"1","quote":"payment was lost"},{"complaint_id":"2","quote":"payment was lost"}]}]}'
-        with patch.object(atlas, 'configuration', return_value={'allowed_tables': ['p.d.t']}), \
+        with patch.object(atlas, 'configuration', return_value={'project': 'p', 'allowed_tables': ['p.d.t']}), \
              patch.object(atlas.llm, 'chat_async', AsyncMock(return_value=reply)) as chat:
             result = await atlas.themes(read, context=ctx)
         self.assertIs(chat.call_args.kwargs['context'], ctx)
